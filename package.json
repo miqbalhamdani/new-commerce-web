@@ -1,0 +1,15 @@
+{
+  "name": "new-commerce-web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "generate": "openapi-typescript contracts/openapi.yaml -o src/lib/api/schema.d.ts",
+    "generated-diff": "git diff --exit-code -- src/lib/api/schema.d.ts",
+    "typecheck": "tsc --noEmit",
+    "check": "npm run generate && npm run generated-diff && npm run typecheck"
+  },
+  "devDependencies": {
+    "openapi-typescript": "^7.13.0",
+    "typescript": "^5.9.3"
+  }
+}
