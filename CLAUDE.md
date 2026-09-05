@@ -23,6 +23,12 @@ npm run e2e        # playwright
 npm run check      # generate + lint + typecheck + test. Run before every PR
 ```
 
+Where the repo stands today: only `generate`, `typecheck` and `check` are real scripts. `dev`,
+`lint`, `test` and `e2e` arrive with P1-014, which brings Next.js, ESLint and Vitest -- there is
+no application and no component to run them against yet, and a script that passes because it
+found nothing is worse than one that is missing. `check` is therefore generate + generated-diff
++ typecheck for now.
+
 ---
 
 ## Layout
@@ -41,7 +47,7 @@ src/
     api/                  GENERATED client + a thin typed wrapper. Do not edit schema.d.ts
     auth/                 session, token refresh
     format/               money, dates, numbers
-contracts/                submodule — READ ONLY
+contracts/                submodule, pinned to a tag — READ ONLY
 ```
 
 ---
