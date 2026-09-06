@@ -3,10 +3,173 @@
  * Do not make direct changes to the file.
  */
 
-export type paths = Record<string, never>;
+export interface paths {
+    "/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Exchange an email and password for an access token
+         * @description The tenant is resolved from the user row -- `email` is unique across the whole system, so
+         *     it identifies exactly one user and therefore exactly one tenant. There is deliberately no
+         *     tenant, workspace or subdomain parameter.
+         *
+         *     On success the refresh token is set as an httpOnly, Secure, SameSite=Lax cookie. It is
+         *     never in the response body, where a script could read it.
+         *
+         *     A wrong password, an unknown email and a disabled account all return the same `401`. Any
+         *     difference between them tells an attacker which emails exist.
+         */
+        post: operations["login"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rotate the refresh token and issue a new access token
+         * @description Reads the refresh token from the cookie, never from the body. Unauthenticated by
+         *     necessity -- this is what you call *because* the access token has expired.
+         *
+         *     Each call issues a new refresh token and revokes the one presented. **Presenting a token
+         *     that was already rotated means it was stolen**: the entire rotation chain is revoked and
+         *     every session for that user ends, rather than that one request being rejected.
+         */
+        post: operations["refresh"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revoke the current refresh token
+         * @description Revokes the refresh token in the cookie and clears it. The access token is not revoked --
+         *     it is stateless and expires on its own within 15 minutes.
+         *
+         *     Idempotent: logging out twice, or with no cookie at all, is still `204`. There is nothing
+         *     useful to tell a caller about a session that is already gone.
+         */
+        post: operations["logout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The five seeded roles and the permissions each grants
+         * @description Fixed and identical for every tenant. Phase 1 has no custom roles and no per-user
+         *     overrides, so this is a constant -- it exists so a client can render a role picker and
+         *     explain what a role means without hardcoding the matrix from `API spec.md` §3.
+         *
+         *     Requires `users:read`, because it is part of the team-management surface. An `ops` user
+         *     gets `403` naming that permission, which is `flows.md` §6's acceptance criterion.
+         */
+        get: operations["listRoles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+}
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        LoginRequest: {
+            /**
+             * Format: email
+             * @example ops@erigo.co.id
+             */
+            email: string;
+            /** Format: password */
+            password: string;
+        };
+        /**
+         * @description Returned by both login and refresh. Carries everything the client needs to render a
+         *     signed-in shell without a second request.
+         *
+         *     The refresh token is **not** here -- it is in an httpOnly cookie, out of reach of any
+         *     script on the page.
+         */
+        Session: {
+            /** @description JWT. Held in memory only, never in localStorage. */
+            access_token: string;
+            /**
+             * @description Seconds until the access token expires.
+             * @example 900
+             */
+            expires_in: number;
+            user: components["schemas"]["SessionUser"];
+            tenant: components["schemas"]["SessionTenant"];
+        };
+        SessionUser: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** @enum {string} */
+            role: "owner" | "admin" | "ops" | "warehouse" | "viewer";
+            /**
+             * @description `resource:action` strings the role grants. The client hides actions it does not find
+             *     here rather than disabling them -- a button that 403s advertises a capability the user
+             *     does not have.
+             */
+            permissions: string[];
+        };
+        SessionTenant: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /**
+             * @description IANA name. Applied at render time only; the wire is always UTC.
+             * @example Asia/Jakarta
+             */
+            timezone: string;
+            /** @example IDR */
+            currency: string;
+        };
+        /** @description One of the five seeded roles and everything it grants. */
+        Role: {
+            /** @enum {string} */
+            name: "owner" | "admin" | "ops" | "warehouse" | "viewer";
+            /** @description One line a client can show next to the role in a picker. */
+            description?: string;
+            permissions: string[];
+        };
         /**
          * @description An integer amount in **minor units** plus an ISO 4217 currency. `2000000` + `IDR` is
          *     Rp 20.000.
@@ -26,7 +189,7 @@ export interface components {
         /**
          * @description The canonical error codes for this phase. The code also appears as the last segment of a
          *     `Problem.type` URI, and directly in per-row results where an operation partially succeeds
-         *     — see `API spec.md` §6.2.
+         *     — see `API spec.md` §7.2.
          * @enum {string}
          */
         ErrorCode: "validation_failed" | "version_conflict" | "duplicate_sku" | "permission_denied" | "not_found" | "rate_limited";
@@ -86,7 +249,12 @@ export interface components {
                 "application/problem+json": components["schemas"]["Problem"];
             };
         };
-        /** @description Authenticated but not permitted. `detail` names the permission that was required. */
+        /**
+         * @description Authenticated but not permitted. **`detail` names the permission that was required**, so a
+         *     caller can tell "you cannot do this" from "you cannot do this yet, ask for `users:write`".
+         *     A client should not render an action it lacks the permission for at all -- a disabled
+         *     control advertises a capability and generates a support ticket.
+         */
         Forbidden: {
             headers: {
                 [name: string]: unknown;
@@ -174,4 +342,100 @@ export interface components {
     pathItems: never;
 }
 export type $defs = Record<string, never>;
-export type operations = Record<string, never>;
+export interface operations {
+    login: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginRequest"];
+            };
+        };
+        responses: {
+            /** @description Signed in. */
+            200: {
+                headers: {
+                    /** @description The refresh token, httpOnly, Secure, SameSite=Lax. */
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Session"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            422: components["responses"]["UnprocessableEntity"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    refresh: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Rotated. */
+            200: {
+                headers: {
+                    /** @description The new refresh token. The old one is revoked. */
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Session"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    logout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Signed out. */
+            204: {
+                headers: {
+                    /** @description Clears the refresh token cookie. */
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    listRoles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The seeded roles. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Role"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+}

@@ -1,0 +1,10 @@
+@import "tailwindcss";
+
+/* Tailwind 4 is CSS-first: no tailwind.config.js, tokens are declared here. */
+@theme {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+/* Dark mode follows an explicit class so a future toggle can drive it, rather
+   than only the operating system. */
+@custom-variant dark (&:where(.dark, .dark *));
