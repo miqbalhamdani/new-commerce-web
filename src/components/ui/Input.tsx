@@ -7,13 +7,10 @@ import { cx, focusRing, hasErrorInput } from "@/lib/utils/cx";
 
 const inputStyles = tv({
   base: [
-    "relative block w-full appearance-none rounded-md border px-2.5 py-2 shadow-xs outline-hidden transition sm:text-sm",
-    "border-gray-300 dark:border-gray-800",
-    "text-gray-900 dark:text-gray-50",
-    "placeholder-gray-400 dark:placeholder-gray-500",
-    "bg-white dark:bg-gray-950",
-    "disabled:border-gray-300 disabled:bg-gray-100 disabled:text-gray-400",
-    "dark:disabled:border-gray-700 dark:disabled:bg-gray-800 dark:disabled:text-gray-500",
+    "relative block w-full appearance-none rounded-md border px-3 py-2 text-sm shadow-xs outline-hidden transition",
+    "border-line-strong bg-surface text-ink placeholder-ink-muted",
+    "hover:border-ink-muted",
+    "disabled:cursor-not-allowed disabled:bg-raised disabled:text-ink-muted",
     ...focusRing,
   ],
   variants: { hasError: { true: hasErrorInput } },
@@ -47,7 +44,7 @@ export function Label({
   return (
     <label
       className={cx(
-        "text-sm leading-none font-medium text-gray-900 dark:text-gray-50",
+        "text-sm leading-none font-medium text-ink",
         className,
       )}
       {...props}

@@ -1,10 +1,84 @@
 @import "tailwindcss";
 
-/* Tailwind 4 is CSS-first: no tailwind.config.js, tokens are declared here. */
+/*
+ * Tailwind 4 is CSS-first: there is no tailwind.config.js, and design tokens
+ * are declared here.
+ *
+ * These are semantic names, not raw palette steps. A component says
+ * `bg-surface` rather than `bg-white dark:bg-gray-950`, so the two themes are
+ * defined once, here, instead of being restated on every element -- which is
+ * how one of them quietly ends up wrong.
+ */
 @theme {
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  /* Neutrals carry a slight cool cast toward the accent, so greys read as
+     chosen rather than inherited. */
+  --color-canvas: oklch(98.4% 0.002 250);
+  --color-surface: oklch(100% 0 0);
+  --color-raised: oklch(96.8% 0.003 250);
+  --color-line: oklch(92.4% 0.004 250);
+  --color-line-strong: oklch(86% 0.006 250);
+
+  --color-ink: oklch(21% 0.012 258);
+  --color-ink-soft: oklch(44% 0.011 258);
+  /* Darkened from 58%: at that value secondary text measured 4.08 against the
+     canvas, under AA's 4.5 for normal text. "Muted" is a visual weight, not a
+     licence to be unreadable. */
+  --color-ink-muted: oklch(51% 0.011 258);
+
+  --color-accent: oklch(54% 0.19 258);
+  --color-accent-hover: oklch(48% 0.19 258);
+  --color-accent-soft: oklch(95% 0.03 258);
+  --color-accent-ink: oklch(100% 0 0);
+
+  --color-danger: oklch(52% 0.20 27);
+  --color-danger-soft: oklch(96% 0.02 27);
+  --color-danger-ink: oklch(38% 0.14 27);
 }
 
-/* Dark mode follows an explicit class so a future toggle can drive it, rather
-   than only the operating system. */
+/*
+ * Dark mode follows an explicit class rather than only the operating system, so
+ * the toggle can override the OS in both directions. ThemeScript sets it before
+ * first paint.
+ */
 @custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  .dark {
+    --color-canvas: oklch(16% 0.011 258);
+    --color-surface: oklch(20.5% 0.012 258);
+    --color-raised: oklch(24% 0.013 258);
+    --color-line: oklch(30% 0.012 258);
+    /* Lifted to clear 3:1 against surface. This is the border of an input, and
+       WCAG 1.4.11 asks for 3:1 on a control boundary -- at the value this
+       started on it measured 1.65 and the field edge was invisible. */
+    --color-line-strong: oklch(52% 0.014 258);
+
+    --color-ink: oklch(96% 0.004 258);
+    --color-ink-soft: oklch(80% 0.008 258);
+    --color-ink-muted: oklch(64% 0.010 258);
+
+    /* Lifted and desaturated: the light-mode accent on a dark ground is
+       both too dark to read and too saturated to sit still. */
+    --color-accent: oklch(70% 0.14 258);
+    --color-accent-hover: oklch(76% 0.14 258);
+    --color-accent-soft: oklch(28% 0.06 258);
+    --color-accent-ink: oklch(16% 0.011 258);
+
+    --color-danger: oklch(70% 0.16 27);
+    --color-danger-soft: oklch(26% 0.06 27);
+    --color-danger-ink: oklch(84% 0.10 27);
+  }
+
+  /* Nothing animates for anyone who asked it not to. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}

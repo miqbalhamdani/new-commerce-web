@@ -122,6 +122,47 @@ describe("session", () => {
     }
   });
 
+  it("never runs two refreshes at once", async () => {
+    // Refresh rotates the stored token, so a second concurrent call presents
+    // one the first already rotated away -- which the API reads as theft and
+    // answers by ending every session. StrictMode double-invokes mount effects,
+    // so without single-flighting this signed the user out on every reload.
+    const fetchSpy = mockFetch((url) =>
+      url.endsWith("/v1/auth/refresh") ? json(session) : json({}, 401),
+    );
+
+    function Twice() {
+      const { refresh } = useSession();
+      return (
+        <button
+          onClick={() => {
+            void refresh();
+            void refresh();
+          }}
+        >
+          refresh twice
+        </button>
+      );
+    }
+
+    render(
+      <SessionProvider>
+        <Twice />
+      </SessionProvider>,
+    );
+    await waitFor(() => screen.getByRole("button"));
+
+    const before = fetchSpy.mock.calls.filter(([url]) =>
+      String(url).endsWith("/v1/auth/refresh"),
+    ).length;
+    await userEvent.click(screen.getByRole("button", { name: "refresh twice" }));
+
+    const after = fetchSpy.mock.calls.filter(([url]) =>
+      String(url).endsWith("/v1/auth/refresh"),
+    ).length;
+    expect(after - before).toBe(1);
+  });
+
   it("restores the session on load from the cookie alone", async () => {
     // The reload case: no access token in memory, only the cookie. If this did
     // not work, every refresh of the page would sign the user out.

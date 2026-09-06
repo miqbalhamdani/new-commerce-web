@@ -49,6 +49,27 @@ contracts/                submodule, pinned to a tag — READ ONLY
 
 ---
 
+## Styling
+
+**Semantic tokens, not palette steps.** `src/app/globals.css` declares `--color-surface`,
+`--color-ink-muted`, `--color-accent` and so on, once per theme. A component says `bg-surface`,
+never `bg-white dark:bg-gray-950` -- restating both themes on every element is how one of them
+quietly ends up wrong.
+
+Tailwind 4 is CSS-first: there is no `tailwind.config.js`, and the tokens live in that stylesheet.
+
+**Both themes are checked, not eyeballed.** Every pair in use clears WCAG AA -- 4.5:1 for text,
+3:1 for a control boundary. Two values in the first pass did not and were moved: dark
+`--color-line-strong` (an input border at 1.65:1, invisible) and light `--color-ink-muted` (body
+text at 4.08:1). Measure with a canvas readback; `getComputedStyle` returns `lab()` for an
+`oklch()` token and parsing that as RGB silently produces nonsense.
+
+**Dark mode follows a class, not the OS**, so the toggle can override the OS in both directions.
+`ThemeScript` applies it in a blocking inline script before the first paint -- doing it in an
+effect means the page renders light and then flips.
+
+---
+
 ## The browser talks to one origin
 
 Every API call goes to a **relative** path -- `/v1/auth/login`, never `http://localhost:8080`. In

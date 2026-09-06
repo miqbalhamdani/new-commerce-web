@@ -27,7 +27,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   if (status !== "authenticated") {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <p className="text-sm text-gray-500 dark:text-gray-400">Loading…</p>
+        <p className="text-sm text-ink-muted" role="status">
+          Loading…
+        </p>
       </div>
     );
   }

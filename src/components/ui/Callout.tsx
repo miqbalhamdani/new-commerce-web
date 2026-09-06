@@ -7,18 +7,9 @@ const calloutStyles = tv({
   base: "flex flex-col overflow-hidden rounded-md p-4 text-sm",
   variants: {
     variant: {
-      error: [
-        "bg-red-50 dark:bg-red-950/70",
-        "text-red-900 dark:text-red-500",
-      ],
-      warning: [
-        "bg-yellow-50 dark:bg-yellow-950/70",
-        "text-yellow-900 dark:text-yellow-500",
-      ],
-      neutral: [
-        "bg-gray-50 dark:bg-gray-900/50",
-        "text-gray-900 dark:text-gray-400",
-      ],
+      error: "bg-danger-soft text-danger-ink",
+      warning: "bg-amber-50 text-amber-900 dark:bg-amber-950/60 dark:text-amber-200",
+      neutral: "bg-raised text-ink-soft",
     },
   },
   defaultVariants: { variant: "neutral" },

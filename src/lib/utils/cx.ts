@@ -18,13 +18,9 @@ export function cx(...args: ClassValue[]) {
 
 /** Ring styles Tremor uses for keyboard focus. Applied to every control. */
 export const focusRing = [
-  "outline outline-offset-2 outline-0 focus-visible:outline-2",
-  "outline-blue-500 dark:outline-blue-500",
+  "outline-offset-2 outline-0 focus-visible:outline-2",
+  "outline-accent",
 ];
 
 /** Border and ring treatment for an input in an error state. */
-export const hasErrorInput = [
-  "ring-2",
-  "border-red-500 dark:border-red-700",
-  "ring-red-200 dark:ring-red-700/30",
-];
+export const hasErrorInput = ["border-danger ring-2 ring-danger/20"];

@@ -9,9 +9,7 @@ export const Card = React.forwardRef<
   <div
     ref={ref}
     className={cx(
-      "relative w-full rounded-lg border p-6 text-left shadow-xs",
-      "bg-white dark:bg-[#090E1A]",
-      "border-gray-200 dark:border-gray-900",
+      "relative w-full rounded-lg border border-line bg-surface p-6 text-left shadow-xs",
       className,
     )}
     {...props}

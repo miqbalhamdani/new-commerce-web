@@ -69,6 +69,24 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
    */
   const accessToken = useRef<string | null>(null);
 
+  /**
+   * The refresh currently in flight, if any.
+   *
+   * Refresh ROTATES the stored token: the one presented is revoked and a new
+   * one issued. So two concurrent refreshes are not merely wasteful, they are
+   * destructive -- the second presents a token the first already rotated away,
+   * which the API correctly reads as a stolen token and answers by ending every
+   * session the user has.
+   *
+   * That is not hypothetical. React StrictMode runs mount effects twice in
+   * development, and it signed the user out on every reload until this existed.
+   * A user with two tabs, or a component that retries a 401 while the mount
+   * refresh is still running, reaches the same place in production.
+   *
+   * So: at most one in flight, and everyone else waits on the same promise.
+   */
+  const inFlight = useRef<Promise<string | null> | null>(null);
+
   const adopt = useCallback((session: Session) => {
     accessToken.current = session.access_token;
     setUser(session.user);
@@ -83,20 +101,34 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setStatus("anonymous");
   }, []);
 
-  const refresh = useCallback(async () => {
-    const response = await fetch("/v1/auth/refresh", {
-      method: "POST",
-      // Without this the browser does not attach the cookie and refresh always
-      // fails -- silently, with a 401 that looks like an expired session.
-      credentials: "include",
-    });
-    if (!response.ok) {
-      forget();
-      return null;
-    }
-    const session = (await response.json()) as Session;
-    adopt(session);
-    return session.access_token;
+  const refresh = useCallback(() => {
+    if (inFlight.current) return inFlight.current;
+
+    const attempt = (async () => {
+      try {
+        const response = await fetch("/v1/auth/refresh", {
+          method: "POST",
+          // Without this the browser does not attach the cookie and refresh
+          // always fails -- silently, with a 401 that looks like an expired
+          // session.
+          credentials: "include",
+        });
+        if (!response.ok) {
+          forget();
+          return null;
+        }
+        const session = (await response.json()) as Session;
+        adopt(session);
+        return session.access_token;
+      } finally {
+        // Cleared in a finally so a thrown network error does not wedge every
+        // later refresh behind a promise that will never settle.
+        inFlight.current = null;
+      }
+    })();
+
+    inFlight.current = attempt;
+    return attempt;
   }, [adopt, forget]);
 
   const signIn = useCallback(
@@ -134,20 +166,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   // One refresh on mount. This is what makes a reload keep you signed in: the
   // access token is gone, the cookie is not.
   //
-  // The set-state-in-effect rule is disabled below, deliberately. Its own
-  // message is "calling setState SYNCHRONOUSLY within an effect", and nothing
-  // here does: refresh is async and its first statement is an await, so state
-  // is only ever set after the network answers. The rule cannot see across the
-  // function boundary.
-  //
-  // Nor is there a version of this without an effect. refresh is a POST that
-  // rotates the stored token -- a mutation that must happen exactly once, on
-  // the client, after mount. It cannot move into a Server Component, because
-  // rendering is not allowed to rotate a credential, and it cannot be derived
-  // from anything, because its only input is a cookie this code may not read.
   useEffect(() => {
     let cancelled = false;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- see above
     refresh().catch(() => {
       if (!cancelled) forget();
     });
