@@ -1,6 +1,6 @@
 # frontend — Next.js admin
 
-Phase 1 · Catalog & Foundation. Next.js 15 App Router · TypeScript · React Server Components.
+Phase 1 · Catalog & Foundation. Next.js 15 App Router · TypeScript · Tailwind 3 · Tremor.
 
 **The contract lives in `contracts/`** (git submodule, pinned to a tag). The API client is
 **generated** from `contracts/openapi.yaml` — never hand-written, never edited. If an endpoint
@@ -23,11 +23,8 @@ npm run e2e        # playwright
 npm run check      # generate + lint + typecheck + test. Run before every PR
 ```
 
-Where the repo stands today: only `generate`, `typecheck` and `check` are real scripts. `dev`,
-`lint`, `test` and `e2e` arrive with P1-014, which brings Next.js, ESLint and Vitest -- there is
-no application and no component to run them against yet, and a script that passes because it
-found nothing is worse than one that is missing. `check` is therefore generate + generated-diff
-+ typecheck for now.
+Where the repo stands today: everything above is real except `e2e`, which arrives with the first
+Playwright journey. `check` is generate + generated-diff + lint + typecheck + test.
 
 ---
 
@@ -35,20 +32,76 @@ found nothing is worse than one that is missing. `check` is therefore generate +
 
 ```
 src/
-  app/                    App Router. Server Components by default
-    (auth)/               login, accept-invite — unauthenticated
-    (app)/                authenticated shell
-      products/           list, [id] editor, [id]/variants matrix
-      categories/ brands/ media/ export/ settings/
-  components/
-    ui/                   primitives — no domain knowledge
-    <domain>/             ProductForm, VariantMatrix, CategoryTree …
+  app/
+    (auth)/login/       unauthenticated. no shell
+    (app)/              authenticated. sidebar, header, guard
+      quotes/           the template's demo pages -- unlinked, delete when ready
+  components/           VENDORED Tremor template. configure, do not edit
+    ui/navigation/      AppSidebar, UserProfile -- these we do own
   lib/
-    api/                  GENERATED client + a thin typed wrapper. Do not edit schema.d.ts
-    auth/                 session, token refresh
-    format/               money, dates, numbers
-contracts/                submodule, pinned to a tag — READ ONLY
+    api/                GENERATED client types + a typed wrapper. Do not edit schema.d.ts
+    auth/               session, token refresh
+    utils.ts            the template's cx / focusRing / hasErrorInput
+contracts/              submodule, pinned to a tag -- READ ONLY
 ```
+
+**Route groups carry the auth boundary.** `(auth)` renders bare; `(app)` renders the shell and
+redirects an anonymous visitor to `/login`. The root layout holds only `<html>`, the theme
+provider and the session provider, so the login screen does not get a sidebar.
+
+---
+
+## Styling
+
+The base is the **Tremor "Planner" template**, vendored into `src/components/`. Those files are
+third-party: prefer configuring them over editing them, because edits are lost the next time the
+template is re-pulled.
+
+`src/lib/utils.ts` is the template's own `cx`, `focusRing`, `focusInput` and `hasErrorInput`. Use
+those; do not add a second copy.
+
+Tailwind **3**, configured in `tailwind.config.ts`. Dark mode is `next-themes` with
+`attribute="class"`, and the switcher lives in the user menu the template ships.
+
+---
+
+## TypeScript
+
+`noUncheckedIndexedAccess` is **off**, deliberately. It makes `array[i]` yield "the value or
+undefined", so a missing row has to be handled rather than crashing at runtime -- genuinely worth
+having.
+
+It is off because the vendored chart components (`BarChart`, `ComboChart`,
+`ConditionalBarChart`, `CustomTooltips`, `chartUtils`) produce 19 errors under it and were not
+written for it. Patching them is churn in code we did not write and will re-pull. Worth turning
+back on if those components are ever dropped.
+
+---
+
+## The browser talks to one origin
+
+Every API call goes to a **relative** path -- `/v1/auth/login`, never `http://localhost:8080`. In
+production Caddy serves this app at `/` and proxies `/v1/*` to the API on the same domain
+(`contracts/tdd.md` §2.2); `next.config.ts` reproduces that locally with a rewrite.
+
+That is what lets the refresh token be an ordinary `SameSite=Lax` cookie with no CORS anywhere in
+the system. Calling the API's origin directly would need CORS on the API *and* would teach it
+which browser origins to trust -- an API that has to know that is one that can be wrong about it.
+
+**Every fetch sets `credentials: "include"`.** Without it the browser does not attach the cookie,
+refresh fails, and the failure looks exactly like an expired session.
+
+---
+
+## The session
+
+`src/lib/auth/session.tsx` is the whole of it. The access token is a **ref, not state**: rendering
+it would put a credential in the React tree where devtools or a serialised error boundary can
+surface it, and it changes on every refresh, which would re-render every consumer for a value none
+of them display.
+
+On mount the provider calls refresh once. That is what makes a reload keep you signed in -- the
+access token is gone, the cookie is not.
 
 ---
 
@@ -171,3 +224,13 @@ it is ahead of the backlog.
 Empty states must carry the honest message: stock is not tracked yet, and merchants continue
 managing quantity on their marketplaces. `contracts/flows.md` §7 lists what users will ask for
 and what to answer. Putting it in the UI is cheaper than answering it in support.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->
