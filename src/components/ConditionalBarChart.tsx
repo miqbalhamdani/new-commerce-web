@@ -1,4 +1,3 @@
-// Tremor BarChart [v0.2.1]
 
 "use client"
 
@@ -442,7 +441,6 @@ const ConditionalBarChart = React.forwardRef<HTMLDivElement, BarChartProps>(
       <div
         ref={forwardedRef}
         className={cx("h-80 w-full", className)}
-        tremor-id="tremor-raw"
         {...other}
       >
         <ResponsiveContainer>

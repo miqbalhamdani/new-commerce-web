@@ -1,4 +1,3 @@
-// Tremor Button [v0.2.0]
 
 import React from "react"
 import { Slot } from "@radix-ui/react-slot"
@@ -120,7 +119,6 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         ref={forwardedRef}
         className={cx(buttonVariants({ variant }), className)}
         disabled={disabled || isLoading}
-        tremor-id="tremor-raw"
         {...props}
       >
         {isLoading ? (

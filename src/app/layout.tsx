@@ -3,7 +3,6 @@ import type { Metadata } from "next"
 import { ThemeProvider } from "next-themes"
 import localFont from "next/font/local"
 import "./globals.css"
-import { siteConfig } from "./siteConfig"
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -17,34 +16,8 @@ const geistMono = localFont({
 })
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://yoururl.com"),
-  title: siteConfig.name,
-  description: siteConfig.description,
-  keywords: ["Catalog", "Commerce", "Products"],
-  authors: [
-    {
-      name: "yourname",
-      url: "",
-    },
-  ],
-  creator: "yourname",
-  openGraph: {
-    type: "website",
-    locale: "en_US",
-    url: siteConfig.url,
-    title: siteConfig.name,
-    description: siteConfig.description,
-    siteName: siteConfig.name,
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: siteConfig.name,
-    description: siteConfig.description,
-    creator: "@yourname",
-  },
-  icons: {
-    icon: "/favicon.ico",
-  },
+  title: "New Commerce",
+  description: "Catalog management for Indonesian merchants.",
 }
 
 export default function RootLayout({

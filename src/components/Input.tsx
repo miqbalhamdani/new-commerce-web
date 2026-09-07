@@ -1,4 +1,3 @@
-// Tremor Input [v1.0.5]
 
 import React from "react"
 import { RiEyeFill, RiEyeOffFill, RiSearchLine } from "@remixicon/react"
@@ -71,7 +70,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
     const isSearch = type === "search"
 
     return (
-      <div className={cx("relative w-full", className)} tremor-id="tremor-raw">
+      <div className={cx("relative w-full", className)}>
         <input
           ref={forwardedRef}
           type={isPassword ? typeState : type}

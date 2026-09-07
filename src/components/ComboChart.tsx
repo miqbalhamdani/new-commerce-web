@@ -1,4 +1,3 @@
-// Tremor ComboChart [v0.0.0]
 "use client"
 
 import { RiArrowLeftSLine, RiArrowRightSLine } from "@remixicon/react"
@@ -779,7 +778,6 @@ const ComboChart = React.forwardRef<HTMLDivElement, ComboChartProps>(
       <div
         ref={forwardedRef}
         className={cx("h-80 w-full", className)}
-        tremor-id="tremor-raw"
         {...other}
       >
         <ResponsiveContainer>
