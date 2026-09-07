@@ -1,47 +1,65 @@
-# Tremor – Planner
+# new-commerce-web
 
-`Planner` is a SaaS application template from [Tremor](https://tremor.so). It's built
-using [`Tremor`](https://tremor.so/docs/getting-started/installation) and
-[Next.js](https://nextjs.org).
+The admin front end for New Commerce — catalog management for Indonesian
+merchants. Next.js 15 App Router, TypeScript, Tailwind 3.
+
+The API lives in [`new-commerce-api`](https://github.com/miqbalhamdani/new-commerce-api).
+The contract both repos are built against is
+[`new-commerce-contracts`](https://github.com/miqbalhamdani/new-commerce-contracts),
+vendored here as a submodule at `contracts/`.
 
 ## Getting started
 
-1. Install the dependencies. We recommend using pnpm. If you want to use `npm`,
-   just replace `pnpm` with `npm`.
+You need the API running first — the app has no data of its own.
 
 ```bash
-pnpm install
+git submodule update --init      # a fresh clone needs this once
+npm install
+npm run dev                      # http://localhost:3000
 ```
 
-2. Then, start the development server:
+In another terminal, from `new-commerce-api`:
 
 ```bash
-pnpm run dev
+make db-create && make migrate
+make dev                         # http://localhost:8080
 ```
 
-3. Visit [http://localhost:3000](http://localhost:3000) in your browser to view
-   the template.
+## Commands
 
-## Notes
+| | |
+|---|---|
+| `npm run dev` | Development server |
+| `npm run build` | Production build |
+| `npm run generate` | Regenerate API types from `contracts/openapi.yaml` |
+| `npm run test` | Vitest |
+| `npm run check` | The bar for a pull request: generate, staleness check, lint, typecheck, test |
 
-This project uses
-[`next/font`](https://nextjs.org/docs/basic-features/font-optimization) to
-automatically optimize and load Geist, a custom Google Font.
+## One origin
 
-This project uses
-[`Tremor`](https://raw.tremor.so/docs/getting-started/installation) components
-for the UI.
+The browser only ever talks to `localhost:3000`. `next.config.ts` forwards
+`/v1/*` to the API, which is what Caddy does in production — so the refresh
+token can be an ordinary `SameSite=Lax` cookie with no CORS anywhere in the
+system.
 
-## License
+Call the API with relative paths. Never `http://localhost:8080`.
 
-This site template is a commercial product and is licensed under the
-[Tremor License](https://blocks.tremor.so/license).
+## Generated code
 
-## Learn more
+`src/lib/api/schema.d.ts` is generated from the contract and must not be
+edited — `npm run check` fails if it is stale. To add an endpoint, change
+`openapi.yaml` in the contracts repo first, tag it, bump the submodule here,
+then regenerate.
 
-For a deeper understanding of the technologies used in this template, check out
-the resources listed below:
+## Third-party components
 
-- [Tailwind CSS v4 beta](https://tailwindcss.com/docs/v4-beta) - A utility-first CSS framework
-- [Next.js](https://nextjs.org/docs) - Next.js documentation
-- [Radix UI](https://www.radix-ui.com) - Radix UI Website
+`src/components/` is the [Tremor](https://tremor.so) component set, vendored
+rather than installed. Prefer configuring those files over editing them: edits
+are lost the next time a component is re-pulled from upstream. The ones under
+`src/components/ui/navigation/` are ours and are fine to change.
+
+Their license is in `LICENSE.md` and applies to that vendored code. It stays as
+long as the components do.
+
+`CLAUDE.md` carries the rules that matter — tenancy, money, error handling,
+what not to do.

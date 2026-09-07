@@ -1,4 +1,3 @@
-// Tremor Select [v0.0.3]
 
 import React from "react"
 import * as SelectPrimitives from "@radix-ui/react-select"
@@ -57,7 +56,6 @@ const SelectTrigger = React.forwardRef<
         hasError ? hasErrorInput : "",
         className,
       )}
-      tremor-id="tremor-raw"
       {...props}
     >
       <span className="truncate">{children}</span>

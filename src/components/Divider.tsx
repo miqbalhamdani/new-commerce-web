@@ -1,4 +1,3 @@
-// Tremor Divider [v0.0.2]
 
 import React from "react"
 
@@ -17,7 +16,6 @@ const Divider = React.forwardRef<HTMLDivElement, DividerProps>(
         "text-gray-500 dark:text-gray-500",
         className,
       )}
-      tremor-id="tremor-raw"
       {...props}
     >
       {children ? (

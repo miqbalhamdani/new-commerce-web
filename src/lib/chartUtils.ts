@@ -1,4 +1,3 @@
-// Tremor Custom chartColors
 
 export type ColorUtility = "bg" | "stroke" | "fill" | "text"
 
@@ -272,7 +271,6 @@ export const getConditionalColorClassName = (
   return classes.critical
 }
 
-// Tremor Raw getYAxisDomain [v0.0.0]
 
 export const getYAxisDomain = (
   autoMinValue: boolean,
@@ -284,7 +282,6 @@ export const getYAxisDomain = (
   return [minDomain, maxDomain]
 }
 
-// Tremor Raw hasOnlyOneValueForKey [v0.1.0]
 
 export function hasOnlyOneValueForKey(
   array: any[],

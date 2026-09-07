@@ -1,6 +1,6 @@
 # frontend — Next.js admin
 
-Phase 1 · Catalog & Foundation. Next.js 15 App Router · TypeScript · Tailwind 3 · Tremor.
+Phase 1 · Catalog & Foundation. Next.js 15 App Router · TypeScript · Tailwind 3.
 
 **The contract lives in `contracts/`** (git submodule, pinned to a tag). The API client is
 **generated** from `contracts/openapi.yaml` — never hand-written, never edited. If an endpoint
@@ -35,8 +35,7 @@ src/
   app/
     (auth)/login/       unauthenticated. no shell
     (app)/              authenticated. sidebar, header, guard
-      quotes/           the template's demo pages -- unlinked, delete when ready
-  components/           VENDORED Tremor template. configure, do not edit
+  components/           VENDORED third-party. configure, do not edit
     ui/navigation/      AppSidebar, UserProfile -- these we do own
   lib/
     api/                GENERATED client types + a typed wrapper. Do not edit schema.d.ts
@@ -53,11 +52,12 @@ provider and the session provider, so the login screen does not get a sidebar.
 
 ## Styling
 
-The base is the **Tremor "Planner" template**, vendored into `src/components/`. Those files are
-third-party: prefer configuring them over editing them, because edits are lost the next time the
-template is re-pulled.
+`src/components/` is a **vendored third-party component set** -- Button, Input, Sidebar, Table,
+the charts. Prefer configuring those files over editing them: an edit is lost the next time a
+component is re-pulled from upstream. `src/components/ui/navigation/` is ours and is fine to
+change. `LICENSE.md` covers the vendored code and stays as long as it does.
 
-`src/lib/utils.ts` is the template's own `cx`, `focusRing`, `focusInput` and `hasErrorInput`. Use
+`src/lib/utils.ts` holds the shared `cx`, `focusRing`, `focusInput` and `hasErrorInput`. Use
 those; do not add a second copy.
 
 Tailwind **3**, configured in `tailwind.config.ts`. Dark mode is `next-themes` with

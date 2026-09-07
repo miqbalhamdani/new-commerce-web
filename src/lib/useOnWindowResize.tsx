@@ -1,4 +1,3 @@
-// Tremor Raw useOnWindowResize [v0.0.0]
 
 import * as React from "react"
 

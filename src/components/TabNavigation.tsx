@@ -1,4 +1,3 @@
-// Tremor TabNavigation [v0.1.0]
 
 import * as NavigationMenuPrimitives from "@radix-ui/react-navigation-menu"
 import React from "react"
@@ -40,7 +39,6 @@ const TabNavigation = React.forwardRef<
   <NavigationMenuPrimitives.Root
     ref={forwardedRef}
     {...props}
-    tremor-id="tremor-raw"
     asChild={false}
   >
     <NavigationMenuPrimitives.List
