@@ -18,7 +18,6 @@ import {
   House,
   Images,
   KeyRound,
-  Share,
   Users,
 } from "lucide-react"
 import { usePathname } from "next/navigation"
@@ -46,7 +45,6 @@ const navigation = [
   },
   { name: "Brands", href: "/brands", icon: Boxes, permission: "brands:read" },
   { name: "Media", href: "/media", icon: Images, permission: "media:read" },
-  { name: "Export", href: "/export", icon: Share, permission: "exports:read" },
   {
     name: "Team",
     href: "/settings/team",
