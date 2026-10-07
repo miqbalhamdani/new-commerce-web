@@ -159,8 +159,6 @@ export interface components {
              * @example Asia/Jakarta
              */
             timezone: string;
-            /** @example IDR */
-            currency: string;
         };
         /** @description One of the four seeded roles and everything it grants. */
         Role: {
@@ -171,28 +169,20 @@ export interface components {
             permissions: string[];
         };
         /**
-         * @description An integer amount in **minor units** plus an ISO 4217 currency. `2000000` + `IDR` is
-         *     Rp 20.000.
-         *
-         *     Never a float and never a decimal string. IDR has no minor unit in practice, but the
-         *     scale of 2 is kept uniform so multi-currency is not a migration.
+         * Format: int64
+         * @description An amount in **minor units**, always IDR: `2000000` is Rp 20.000. A plain integer, never
+         *     a float, a decimal string or an object; there is no currency field because there is only
+         *     one currency (BR-006, BR-029). Clients divide by 100 to display.
+         * @example 19900000
          */
-        Money: {
-            /**
-             * Format: int64
-             * @example 19900000
-             */
-            amount: number;
-            /** @example IDR */
-            currency: string;
-        };
+        Money: number;
         /**
          * @description The canonical error codes, listed with their status and rule in `04-api-spec.md` §1.1.
          *     The code also appears as the last segment of a `Problem.type` URI, and directly in
          *     per-row results where an operation partially succeeds (§7.3, §7.5).
          * @enum {string}
          */
-        ErrorCode: "validation_failed" | "unknown_field" | "publish_check_failed" | "empty_cart" | "unauthenticated" | "invalid_api_key" | "customer_auth_required" | "permission_denied" | "origin_not_allowed" | "secret_key_in_browser" | "not_found" | "version_conflict" | "duplicate_sku" | "category_in_use" | "illegal_transition" | "item_unavailable" | "shipping_unavailable" | "rate_limited" | "channel_unavailable" | "shipping_rates_unavailable" | "payment_unavailable" | "internal";
+        ErrorCode: "validation_failed" | "unknown_field" | "publish_check_failed" | "empty_cart" | "unauthenticated" | "invalid_api_key" | "customer_auth_required" | "permission_denied" | "origin_not_allowed" | "not_found" | "version_conflict" | "duplicate_sku" | "category_in_use" | "illegal_transition" | "item_unavailable" | "shipping_unavailable" | "rate_limited" | "channel_unavailable" | "shipping_rates_unavailable" | "payment_unavailable" | "internal";
         /**
          * @description One field-level detail inside a `Problem`. Carries whatever the specific failure needs —
          *     a version conflict reports `expected` and `supplied`, a validation failure reports a

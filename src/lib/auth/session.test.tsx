@@ -18,7 +18,7 @@ const session = {
   access_token: "test-access-token",
   expires_in: 900,
   user: { id: "u1", name: "Budi", role: "ops", permissions: ["products:read"] },
-  tenant: { id: "t1", name: "Erigo", timezone: "Asia/Jakarta", currency: "IDR" },
+  tenant: { id: "t1", name: "Erigo", timezone: "Asia/Jakarta" },
 };
 
 function Probe() {
