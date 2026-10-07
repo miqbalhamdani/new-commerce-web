@@ -1,30 +1,40 @@
 # frontend — Next.js admin
 
-Phase 1 · Catalog & Foundation. Next.js 15 App Router · TypeScript · Tailwind 3.
+Phase 0 · Foundation (Phase 1 · Catalog next). Next.js 15 App Router · TypeScript · Tailwind 3.
 
-**The contract lives in `contracts/`** (git submodule, pinned to a tag). The API client is
-**generated** from `contracts/openapi.yaml` — never hand-written, never edited. If an endpoint
-you need is missing, it is a contract PR, not a `fetch` call.
+**The contract lives in `contracts/`** (git submodule, pinned to a tag):
 
-`contracts/flows.md` is the acceptance reference for every screen. Read the relevant journey
-before building one; the acceptance criteria are the definition of done, not suggestions.
+| File | What it holds |
+|---|---|
+| `01-product-requirements.md` | Screens (§4), module stories and acceptance (§6), journeys (§7), targets (§8) |
+| `02-business-rules.md` | Every `BR-xxx` rule cited in code, tests and the backlog |
+| `04-api-spec.md` | Routes, payloads, errors, the permission matrix (§3) |
+| `05-backlog.md` | Items per phase, Acceptance, Rules, Definition of Done |
+| `openapi.yaml` | The admin API; `src/lib/api/schema.d.ts` is generated from it |
+
+Before building a screen, read its module in `01-product-requirements.md` §6 and its backlog item.
+The item's Acceptance and the Definition of Done are what "done" means, not suggestions.
+
+**Types are generated, calls go through `apiFetch`.** `npm run generate` turns
+`contracts/openapi.yaml` into `src/lib/api/schema.d.ts` (never edit it); `src/lib/api/client.ts`
+(`apiFetch`) is the one way to call the API, typed from those schemas. `openapi.yaml` gains a path
+only when its backend item is done, so an FE item whose path is missing is blocked on that item:
+say so, do not hand-type the shape.
 
 ---
 
 ## Commands
 
 ```bash
-npm run dev        # localhost:3000, expects the API on :8080
+npm run dev        # localhost:3000; /v1/* rewritten to API_ORIGIN (default :8080)
 npm run generate   # openapi-typescript → src/lib/api/schema.d.ts. No-op on a clean tree
 npm run lint
 npm run typecheck
 npm run test       # vitest + testing-library
-npm run e2e        # playwright
-npm run check      # generate + lint + typecheck + test. Run before every PR
+npm run check      # generate + generated-diff + lint + typecheck + test. Run before every PR
 ```
 
-Where the repo stands today: everything above is real except `e2e`, which arrives with the first
-Playwright journey. `check` is generate + generated-diff + lint + typecheck + test.
+There is no Playwright yet; `e2e` arrives with the first journey test.
 
 ---
 
@@ -36,11 +46,11 @@ src/
     (auth)/login/       unauthenticated. no shell
     (app)/              authenticated. sidebar, header, guard
   components/           VENDORED third-party. configure, do not edit
-    ui/navigation/      AppSidebar, UserProfile -- these we do own
+    ui/navigation/      AppSidebar, Breadcrumbs, UserProfile, DropdownUserProfile -- ours
   lib/
-    api/                GENERATED client types + a typed wrapper. Do not edit schema.d.ts
-    auth/               session, token refresh
-    utils.ts            the template's cx / focusRing / hasErrorInput
+    api/                schema.d.ts (GENERATED) + client.ts (apiFetch, ApiError)
+    auth/               session, token refresh, useCan
+    utils.ts            the template's cx / focusRing / focusInput / hasErrorInput
 contracts/              submodule, pinned to a tag -- READ ONLY
 ```
 
@@ -58,10 +68,13 @@ component is re-pulled from upstream. `src/components/ui/navigation/` is ours an
 change. `LICENSE.md` covers the vendored code and stays as long as it does.
 
 `src/lib/utils.ts` holds the shared `cx`, `focusRing`, `focusInput` and `hasErrorInput`. Use
-those; do not add a second copy.
+those; do not add a second copy. Its `formatters.currency` is template code that defaults to USD
+and major units -- never use it for money (see Money).
 
 Tailwind **3**, configured in `tailwind.config.ts`. Dark mode is `next-themes` with
 `attribute="class"`, and the switcher lives in the user menu the template ships.
+
+All UI copy is English (BR-016).
 
 ---
 
@@ -78,15 +91,15 @@ back on if those components are ever dropped.
 
 ---
 
-## The browser talks to one origin
+## Hosts and cookies
 
-Every API call goes to a **relative** path -- `/v1/auth/login`, never `http://localhost:8080`. In
-production Caddy serves this app at `/` and proxies `/v1/*` to the API on the same domain
-(`contracts/tdd.md` §2.2); `next.config.ts` reproduces that locally with a rewrite.
+v2 names separate hosts: the admin at `admin.{domain}`, the API at `https://api.{domain}/v1`
+(`04-api-spec.md` §1). The two are same-site, so the refresh token's `SameSite=Lax` cookie still
+travels, but the browser call is cross-origin: the API must answer CORS for the admin origin with
+credentials. That setup, and the API base URL the client then needs, land with P1-001.
 
-That is what lets the refresh token be an ordinary `SameSite=Lax` cookie with no CORS anywhere in
-the system. Calling the API's origin directly would need CORS on the API *and* would teach it
-which browser origins to trust -- an API that has to know that is one that can be wrong about it.
+Locally `next.config.ts` rewrites `/v1/*` to `API_ORIGIN`, so `apiFetch` calls relative paths and
+dev needs no CORS. Never hardcode `http://localhost:8080` in code.
 
 **Every fetch sets `credentials: "include"`.** Without it the browser does not attach the cookie,
 refresh fails, and the failure looks exactly like an expired session.
@@ -95,13 +108,14 @@ refresh fails, and the failure looks exactly like an expired session.
 
 ## The session
 
-`src/lib/auth/session.tsx` is the whole of it. The access token is a **ref, not state**: rendering
-it would put a credential in the React tree where devtools or a serialised error boundary can
-surface it, and it changes on every refresh, which would re-render every consumer for a value none
-of them display.
+`src/lib/auth/session.tsx` is the whole of it (BR-022). The access token is a **ref, not state**:
+rendering it would put a credential in the React tree where devtools or a serialised error
+boundary can surface it, and it changes on every refresh, which would re-render every consumer for
+a value none of them display.
 
 On mount the provider calls refresh once. That is what makes a reload keep you signed in -- the
-access token is gone, the cookie is not.
+access token is gone, the cookie is not. Refresh rotates, and a reused refresh token revokes the
+whole chain, so never call refresh from two places at once.
 
 ---
 
@@ -110,34 +124,56 @@ access token is gone, the cookie is not.
 **Server Components are the default.** Reach for `"use client"` only when the component needs
 state, an effect, or an event handler.
 
-- Dense list views — products, categories, media — are server-rendered. The product list must
-  hit p95 < 600ms first byte at 10k products, and a client-side fetch waterfall will not.
+- Dense list views — products, orders — must be fast on first load: the product list API is p95
+  < 600 ms at 10k products (P1-030). No client fetch waterfalls. The access token lives only in
+  client memory (BR-022), so a server component cannot call the API as the user today; how list
+  pages render server-side is decided with the first list screen (P1-033).
 - Client components: the variant matrix grid, drag-to-reorder trees, upload widgets, forms with
   live validation.
-- Never fetch in a `useEffect` for data the server could have rendered.
 
 ---
 
 ## Data and forms
 
-### The three rules that cause the most bugs
+### The rules that cause the most bugs
 
-1. **Omitting a field ≠ sending `null`.** An absent key takes the server default; an explicit
-   `null` is a `422`. Strip empty optional fields before submit — do not send `null` for "the
-   user did not fill this in".
-2. **Never send server-managed fields**: `id`, `tenant_id`, `version`, `created_at`,
-   `updated_at`, `path`. They are ignored on create and rejected on update.
-3. **`version` travels in the `If-Match` header, never in the body.** Hold the version from the
-   last read, send it on `PATCH`, and on `409 version_conflict` tell the user the record changed
-   and offer to reload. Do not retry silently — that overwrites someone's edit.
+1. **Omitting a field ≠ sending `null`** (BR-009). On create, omit empty optional fields; `null`
+   is `422`. On `PATCH`, send only what changed; `null` deliberately clears a nullable field
+   (`description`, `brand_id`, `sale_price` to end a sale) and is `422` elsewhere. Never echo a
+   response back as a `PATCH` body: responses carry `null` for every empty field.
+2. **Never send server-managed fields** (BR-008): `id`, `tenant_id`, `version`, `created_at`,
+   `updated_at`, `path`, any `*_at` stamp, `brands.slug`. They are `422` on create and update
+   alike. Product `slug` is editable (BR-042) -- warn that old links break.
+3. **Never send a field the endpoint does not define**: it is `422 unknown_field` (BR-089). Strip
+   UI-only state before submit. `price` and `on_sale` are read-only; a manual order never sends
+   `unit_price`.
+4. **`version` travels in the `If-Match` header, never in the body**, and only for products,
+   variants and orders (BR-010); the variant matrix `PUT` sends the product's version. Brands,
+   categories, settings, users, media and API keys have no version: last save wins. On
+   `409 version_conflict` tell the user the record changed and offer to reload. Do not retry
+   silently — that overwrites someone's edit.
 
 ### Money
 
-`{"amount": 19900000, "currency": "IDR"}` is integer **minor units**. Rp 199.000 is `19900000`.
+Money is a plain integer of **minor units**, always IDR, with no currency field (BR-006, BR-029):
+`"regular_price": 19900000` is Rp 199.000. Divide by 100 to display.
 
-Format through `lib/format/money`. Never do arithmetic on a formatted string, never use
-`parseFloat` on user input — parse to an integer of minor units at the input boundary and keep
-it integral all the way to the API.
+Format through `src/lib/format` (created with the first screen that shows money: `id-ID`, IDR).
+Never do arithmetic on a formatted string, never use `parseFloat` on user input — parse to an
+integer of minor units at the input boundary and keep it integral all the way to the API.
+
+### Time
+
+Every timestamp arrives as RFC 3339 with `+07:00` (BR-007). Display it in
+`session.tenant.timezone`. Any timestamp you send must carry an offset, or it is `422`; a
+date-only filter means midnight WIB.
+
+### Lists and jobs
+
+- **Cursor pagination only**: `?limit=` (1–200) and `next_cursor`. No "page N of M".
+- Long work answers `202 { job_id }`; poll `GET /v1/jobs/{id}`. Download links expire after 15
+  minutes and a fresh `GET` of the job regenerates one (BR-063).
+- CSV import: the browser parses only the first rows, for preview and column mapping (BR-044).
 
 ### Errors
 
@@ -149,64 +185,77 @@ Map these to real UI rather than a toast:
 | Code | UI |
 |---|---|
 | `validation_failed` | Field-level errors from the `errors` array |
+| `unknown_field` | A bug in our client: report it with the `trace_id` |
 | `version_conflict` | "This was changed by someone else" + reload action |
 | `duplicate_sku` | Highlight the offending grid cell, name the conflicting product |
+| `publish_check_failed` | Every failure links to its field or matrix cell (BR-038) |
+| `category_in_use` | Show the counts and what to move first (BR-036) |
 | `permission_denied` | Do not render the action at all — see below |
+| `rate_limited` | Wait `Retry-After`, then let the user retry |
 
 ### Permissions
 
-Check permissions from `/v1/me` and **do not render** actions the user lacks. A disabled button
-that 403s is worse than an absent one: it advertises a capability the user does not have and
-generates support questions.
+Four roles: owner, admin, ops, viewer (BR-023). Check with `useCan("resource:action")`, which
+reads `Session.user.permissions` (the `04-api-spec.md` §3 matrix), and **do not render** actions
+the user lacks (BR-025). A disabled button that 403s is worse than an absent one: it advertises a
+capability the user does not have and generates support questions. Never hardcode role names; the
+role picker renders from `GET /v1/roles`, and order actions from `allowed_transitions`.
 
-`viewer` sees no save controls anywhere. `ops` sees no Team or API-keys navigation.
+`viewer` sees no save control anywhere. `ops` is read-only on the catalog and sees no Team, API
+keys, Channels or Settings navigation. Only `owner` changes settings.
 
 ---
 
 ## Media upload
 
-Uploads go **browser → R2 directly**, never through the API.
+Uploads go **browser → R2 directly**, never through the API (BR-051). `04-api-spec.md` §8:
 
 ```
-POST /v1/media/presign   → { upload_url, r2_key }
-PUT  <upload_url>        → the raw file, with progress
-POST /v1/media/confirm   → { r2_key, product_id }
+POST /v1/media/presign   { purpose: "product_image", product_id, mime_type, bytes, sha256 }
+                         → { upload_url, r2_key, expires_in }
+PUT  <upload_url>        the raw file, with progress
+POST /v1/media/confirm   { r2_key, product_id, variant_id } → Media
 ```
 
-Show real progress from the `PUT`. Never block the form on an upload — a 5 MB image on Indonesian
-mobile is slow and the user should keep typing. Derivatives arrive asynchronously; render a
-placeholder and let them fill in.
+JPEG, PNG or WebP, up to 20 MB. Show real progress from the `PUT`. Never block the form on an
+upload — a 5 MB image on Indonesian mobile is slow and the user should keep typing. Derivatives
+arrive within ~15 s (BR-052); render a placeholder and let them fill in.
 
 ---
 
 ## The variant matrix editor
 
-The differentiating screen of Phase 1. `contracts/flows.md` §3 is the spec.
+The differentiating screen of Phase 1. Spec: `01-product-requirements.md` §6.2,
+`04-api-spec.md` §7.3–7.4, backlog P1-046, P1-047, P1-075.
 
-- Options across the top, values down the side, a spreadsheet grid of SKU / price / weight.
-- **Paste from Excel** into a column. **Fill-down.** Bulk price adjust by amount or percent.
-- Save is **one** `PUT /v1/products/{id}/variant-matrix` with the whole desired grid. The server
-  diffs it. Do not compute create/update/archive client-side and fire N requests.
+- Options across the top, values down the side, a spreadsheet grid of SKU / regular price /
+  sale price / weight. `price` and `on_sale` are read-only.
+- **Paste from Excel** into a column. **Fill-down.** Bulk price adjust by amount or percent, on the
+  regular or sale price as the user chooses, with a preview before it applies (BR-046).
+- Save is **one** `PUT /v1/products/{id}/variant-matrix` with the whole desired grid and the
+  product's version in `If-Match`. The server diffs it; `archive_missing: false` for a filtered
+  view. Do not compute create/update/archive client-side and fire N requests.
 - The response is per-row. A duplicate SKU fails **that row only** — highlight the cell, name the
-  conflicting product, and keep the other rows saved.
+  conflicting product, and keep the other rows saved (BR-041).
 - Prompt before navigating away with unsaved grid changes.
 
-Target: a 2×5 grid saves in under 2 seconds.
+Target: 100 cells save in under 2 seconds; a 2×5 grid saves in one request.
 
 ---
 
 ## Never do these
 
 - Edit `src/lib/api/schema.d.ts`. It is generated. Change the contract instead.
-- Call `fetch` against the API directly. Use the generated client.
+- Call the API with raw `fetch`. Use `apiFetch`; raw `fetch` is only for the auth calls inside
+  `session.tsx`.
 - Store the access token in `localStorage`. It lives in memory; the refresh token is an httpOnly
   cookie set by the server.
-- Send `null` for an optional field the user left empty.
+- Send `null` for an optional field the user left empty on create.
 - Put `version` in a request body.
 - Retry a `409` automatically.
-- Hardcode a currency symbol or a date format. Use `lib/format`, which reads the tenant's
-  timezone and currency.
-- Add a stock, quantity or inventory field to any screen. There is no stock in Phase 1.
+- Hardcode a currency symbol or a date format. Use `lib/format`.
+- Add a stock, quantity or inventory field to any screen. There is no stock, in any phase
+  (BR-017).
 
 `localStorage` is fine for light per-user conveniences — a remembered filter, a collapsed
 section, a column layout. Wrap reads and writes in `try/catch` and render correctly when it is
@@ -214,16 +263,20 @@ empty.
 
 ---
 
-## Phase 1 scope guard
+## Scope (v2 screens)
 
-No stock. No orders. No marketplace channel connections. No CSV import, no bulk edit.
+| Phase | Screens |
+|---|---|
+| 0 Foundation | Sign in, app shell |
+| 1 Catalog | Brands (P1-031), categories (P1-032), product list with bulk actions (P1-033, P1-076), product editor (P1-034), variant matrix (P1-046, P1-047), media (P1-048), publish (P1-075), import wizard (P1-074), team (P1-066), onboarding (P1-068), audit log (P1-078) |
+| 2 Orders | Order list, detail, manual entry, customers, order export (P1-108…112) |
+| 3 Storefront | API keys (P1-201), storefront settings (P1-217), payment attempts (P1-229) |
+| 4 · 5 | Channels: marketplace product import (P1-309) |
 
-The product list has **no bulk action tray** in this phase — that is P2. If a design shows one,
-it is ahead of the backlog.
-
-Empty states must carry the honest message: stock is not tracked yet, and merchants continue
-managing quantity on their marketplaces. `contracts/flows.md` §7 lists what users will ask for
-and what to answer. Putting it in the UI is cheaper than answering it in support.
+**Never:** stock, quantities or sold-out (BR-017), marketplace order sync or price push (BR-100),
+catalog CSV export to marketplaces (BR-061). Do not tell users stock is "coming"; if it comes up:
+stock isn't tracked, archive a variant you no longer have (`01-product-requirements.md` §2.2).
+`05-backlog.md` "Out of scope for v2" has the full list and the answers to give.
 
 <!-- BEGIN:nextjs-agent-rules -->
 

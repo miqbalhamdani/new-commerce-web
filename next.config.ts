@@ -1,14 +1,10 @@
 import type { NextConfig } from "next"
 
 const nextConfig: NextConfig = {
-  // The browser must only ever see one origin. In production Caddy serves this
-  // app at / and proxies /v1/* to the API on the same domain (tdd.md 2.2); this
-  // rewrite reproduces that locally, where the API is on a different port.
-  //
-  // It is what lets the refresh token be an ordinary SameSite=Lax cookie with
-  // no CORS anywhere in the system. The alternative -- calling :8080 directly
-  // and teaching the API which browser origins to trust -- is an API that can
-  // be wrong about them.
+  // Local development only: /v1/* goes to the API on another port, so the
+  // client calls relative paths and dev needs no CORS. In production the admin
+  // and the API are separate hosts (admin.{domain}, api.{domain}, 04-api-spec.md
+  // §1); that setup lands with P1-001.
   async rewrites() {
     return [
       {
