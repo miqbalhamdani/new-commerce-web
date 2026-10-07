@@ -89,13 +89,13 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * The five seeded roles and the permissions each grants
-         * @description Fixed and identical for every tenant. Phase 1 has no custom roles and no per-user
+         * The four seeded roles and the permissions each grants
+         * @description Fixed and identical for every tenant. There are no custom roles and no per-user
          *     overrides, so this is a constant -- it exists so a client can render a role picker and
-         *     explain what a role means without hardcoding the matrix from `API spec.md` §3.
+         *     explain what a role means without hardcoding the matrix from `04-api-spec.md` §3.
          *
          *     Requires `users:read`, because it is part of the team-management surface. An `ops` user
-         *     gets `403` naming that permission, which is `flows.md` §6's acceptance criterion.
+         *     gets `403` naming that permission (BR-024).
          */
         get: operations["listRoles"];
         put?: never;
@@ -142,7 +142,7 @@ export interface components {
             id: string;
             name: string;
             /** @enum {string} */
-            role: "owner" | "admin" | "ops" | "warehouse" | "viewer";
+            role: "owner" | "admin" | "ops" | "viewer";
             /**
              * @description `resource:action` strings the role grants. The client hides actions it does not find
              *     here rather than disabling them -- a button that 403s advertises a capability the user
@@ -155,17 +155,17 @@ export interface components {
             id: string;
             name: string;
             /**
-             * @description IANA name. Applied at render time only; the wire is always UTC.
+             * @description IANA name. Display only; the wire is always WIB, `+07:00` (BR-007).
              * @example Asia/Jakarta
              */
             timezone: string;
             /** @example IDR */
             currency: string;
         };
-        /** @description One of the five seeded roles and everything it grants. */
+        /** @description One of the four seeded roles and everything it grants. */
         Role: {
             /** @enum {string} */
-            name: "owner" | "admin" | "ops" | "warehouse" | "viewer";
+            name: "owner" | "admin" | "ops" | "viewer";
             /** @description One line a client can show next to the role in a picker. */
             description?: string;
             permissions: string[];
@@ -187,12 +187,12 @@ export interface components {
             currency: string;
         };
         /**
-         * @description The canonical error codes for this phase. The code also appears as the last segment of a
-         *     `Problem.type` URI, and directly in per-row results where an operation partially succeeds
-         *     — see `API spec.md` §7.2.
+         * @description The canonical error codes, listed with their status and rule in `04-api-spec.md` §1.1.
+         *     The code also appears as the last segment of a `Problem.type` URI, and directly in
+         *     per-row results where an operation partially succeeds (§7.3, §7.5).
          * @enum {string}
          */
-        ErrorCode: "validation_failed" | "version_conflict" | "duplicate_sku" | "permission_denied" | "not_found" | "rate_limited";
+        ErrorCode: "validation_failed" | "unknown_field" | "publish_check_failed" | "empty_cart" | "unauthenticated" | "invalid_api_key" | "customer_auth_required" | "permission_denied" | "origin_not_allowed" | "secret_key_in_browser" | "not_found" | "version_conflict" | "duplicate_sku" | "category_in_use" | "illegal_transition" | "item_unavailable" | "shipping_unavailable" | "rate_limited" | "channel_unavailable" | "shipping_rates_unavailable" | "payment_unavailable" | "internal";
         /**
          * @description One field-level detail inside a `Problem`. Carries whatever the specific failure needs —
          *     a version conflict reports `expected` and `supplied`, a validation failure reports a
@@ -214,7 +214,7 @@ export interface components {
         Problem: {
             /**
              * Format: uri
-             * @example https://docs.example.com/errors/version-conflict
+             * @example https://docs.example.com/errors/version_conflict
              */
             type: string;
             /** @example Version conflict */
@@ -276,8 +276,9 @@ export interface components {
             };
         };
         /**
-         * @description `version_conflict` when `If-Match` is stale, or `duplicate_sku` when a SKU is already
-         *     taken within the tenant.
+         * @description `version_conflict` when `If-Match` is stale, `duplicate_sku` when a SKU is already taken
+         *     within the tenant, `category_in_use` when deleting a category that has children or
+         *     products, or `illegal_transition` when an order status move is not in the allow-list.
          */
         Conflict: {
             headers: {
@@ -288,9 +289,12 @@ export interface components {
             };
         };
         /**
-         * @description Validation failed. Also returned when a client sends a server-managed field on update, or
-         *     sends `null` where the field should simply have been omitted — those are not the same
-         *     thing.
+         * @description Validation failed. Also returned when a client sends a server-managed field (on create or
+         *     update, BR-008), sends `null` on create or on a non-nullable field (BR-009), or sends a
+         *     field the endpoint does not define (`unknown_field`, BR-089). Omitting a field and
+         *     sending `null` are not the same thing.
+         *
+         *     `publish_check_failed` is also a `422`, listing every reason a product can't go active.
          */
         UnprocessableEntity: {
             headers: {
@@ -300,9 +304,11 @@ export interface components {
                 "application/problem+json": components["schemas"]["Problem"];
             };
         };
-        /** @description Rate limit exceeded. See the `RateLimit-*` headers. */
+        /** @description Rate limit exceeded. See `Retry-After` and the `RateLimit-*` headers (BR-014). */
         TooManyRequests: {
             headers: {
+                /** @description Seconds to wait before retrying. */
+                "Retry-After"?: number;
                 "RateLimit-Limit": components["headers"]["RateLimit-Limit"];
                 "RateLimit-Remaining": components["headers"]["RateLimit-Remaining"];
                 "RateLimit-Reset": components["headers"]["RateLimit-Reset"];

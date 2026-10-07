@@ -22,7 +22,7 @@ export class ApiError extends Error {
     this.status = problem.status;
     this.traceId = problem.trace_id;
     // The code is the last segment of the type URI; the API sends no separate
-    // field for it (API spec.md 1.1).
+    // field for it (04-api-spec.md 1.1).
     this.code = problem.type.split("/").pop() ?? "unknown";
   }
 }

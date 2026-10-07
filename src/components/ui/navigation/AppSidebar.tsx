@@ -33,7 +33,7 @@ import { UserProfile } from "./UserProfile"
  * disabled would advertise a capability they do not have and generate a support
  * question -- CLAUDE.md is explicit that absent beats disabled.
  *
- * The permission strings are the contract's (API spec.md §3), and the client is
+ * The permission strings are the contract's (04-api-spec.md §3), and the client is
  * told which ones it holds at sign-in.
  */
 const navigation = [
