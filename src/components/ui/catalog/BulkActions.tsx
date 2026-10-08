@@ -2,8 +2,8 @@
 
 import { useState } from "react"
 
-import { Button } from "@/components/Button"
-import { Input } from "@/components/Input"
+import Button from "@/components/ui/button/Button"
+import Input from "@/components/form/input/InputField"
 import { Dialog } from "@/components/ui/common/Dialog"
 import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
 import { NativeSelect } from "@/components/ui/common/Field"
@@ -77,7 +77,7 @@ export function BulkActions({
 
   return (
     <div
-      className="mb-3 flex flex-wrap items-center gap-2 rounded-md bg-gray-50 p-2 text-sm dark:bg-gray-900"
+      className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 p-2 text-theme-sm dark:border-gray-800 dark:bg-white/[0.03]"
       role="toolbar"
       aria-label="Bulk actions"
     >
@@ -85,20 +85,22 @@ export function BulkActions({
         {selected.length} selected
       </span>
       <Button
-        variant="secondary"
+        size="sm"
+        variant="outline"
         isLoading={busy}
         onClick={() => run({ kind: "status", status: "active" })}
       >
         Publish
       </Button>
       <Button
-        variant="secondary"
+        size="sm"
+        variant="outline"
         isLoading={busy}
         onClick={() => run({ kind: "status", status: "draft" })}
       >
         Unpublish
       </Button>
-      <Button variant="secondary" onClick={() => setPricing(true)}>
+      <Button size="sm" variant="outline" onClick={() => setPricing(true)}>
         Adjust price
       </Button>
       <ErrorNotice error={error} title="Bulk change failed" />
@@ -109,10 +111,10 @@ export function BulkActions({
         description={`Every variant with a SKU in the ${selected.length} selected products.`}
         footer={
           <>
-            <Button variant="secondary" onClick={() => setPricing(false)}>
+            <Button size="sm" variant="outline" onClick={() => setPricing(false)}>
               Cancel
             </Button>
-            <Button isLoading={busy} onClick={() => run(price)}>
+            <Button size="sm" isLoading={busy} onClick={() => run(price)}>
               Apply
             </Button>
           </>
