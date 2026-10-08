@@ -47,13 +47,13 @@ export function Breadcrumbs() {
   ]
 
   return (
-    <nav aria-label="Breadcrumb" className="ml-2">
-      <ol role="list" className="flex items-center space-x-3 text-sm">
+    <nav aria-label="Breadcrumb">
+      <ol role="list" className="flex items-center gap-1.5 text-theme-sm">
         {crumbs.map((crumb, i) => (
-          <li key={crumb.href} className="flex items-center space-x-3">
+          <li key={crumb.href} className="flex items-center gap-1.5">
             {i > 0 && (
               <ChevronRight
-                className="size-4 shrink-0 text-gray-600 dark:text-gray-400"
+                className="size-4 shrink-0 text-gray-400 dark:text-gray-500"
                 aria-hidden="true"
               />
             )}
@@ -62,14 +62,14 @@ export function Breadcrumbs() {
               // screen reader learns which crumb that is.
               <span
                 aria-current="page"
-                className="text-gray-900 dark:text-gray-50"
+                className="text-gray-800 dark:text-white/90"
               >
                 {crumb.name}
               </span>
             ) : (
               <Link
                 href={crumb.href}
-                className="text-gray-500 transition hover:text-gray-700 dark:text-gray-400 hover:dark:text-gray-300"
+                className="text-gray-500 transition hover:text-brand-500 dark:text-gray-400 dark:hover:text-brand-400"
               >
                 {crumb.name}
               </Link>

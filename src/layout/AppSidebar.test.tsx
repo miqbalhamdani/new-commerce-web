@@ -1,10 +1,10 @@
 import { screen } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-import { SidebarProvider } from "@/components/Sidebar"
+import { SidebarProvider } from "@/context/SidebarContext"
 import { mockApi, renderSignedIn } from "@/test/api"
 
-import { AppSidebar } from "./AppSidebar"
+import AppSidebar from "./AppSidebar"
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/products",
