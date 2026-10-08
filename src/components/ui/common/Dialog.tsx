@@ -1,10 +1,16 @@
 "use client"
 
-import * as D from "@radix-ui/react-dialog"
+import { Modal } from "@/components/ui/modal"
+import { useEffect, useId, useRef } from "react"
 
-import { cx } from "@/lib/utils"
-
-/** A centred modal on the installed Radix dialog. */
+/**
+ * A centred modal on the vendored TailAdmin Modal. The external API is
+ * unchanged from the Radix days, so every dialog call site re-skins at once.
+ *
+ * The Modal has no focus trap (an accepted gap of the vendored set), so this
+ * wrapper at least moves focus to the title when it opens; Escape and the
+ * overlay close it.
+ */
 export function Dialog({
   open,
   onOpenChange,
@@ -20,26 +26,37 @@ export function Dialog({
   children?: React.ReactNode
   footer?: React.ReactNode
 }) {
+  const titleId = useId()
+  const titleRef = useRef<HTMLHeadingElement>(null)
+
+  useEffect(() => {
+    if (open) titleRef.current?.focus()
+  }, [open])
+
+  if (!open) return null
+
   return (
-    <D.Root open={open} onOpenChange={onOpenChange}>
-      <D.Portal>
-        <D.Overlay className="fixed inset-0 z-50 bg-black/30 dark:bg-black/60" />
-        <D.Content
-          className={cx(
-            "fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2",
-            "rounded-lg border border-gray-200 bg-white p-6 shadow-lg dark:border-gray-800 dark:bg-gray-950",
-          )}
-        >
-          <D.Title className="text-base font-semibold text-gray-900 dark:text-gray-50">{title}</D.Title>
-          {description ? (
-            <D.Description className="mt-1 text-sm text-gray-500 dark:text-gray-400">{description}</D.Description>
-          ) : (
-            <D.Description className="sr-only">{title}</D.Description>
-          )}
-          {children && <div className="mt-4">{children}</div>}
-          {footer && <div className="mt-6 flex justify-end gap-2">{footer}</div>}
-        </D.Content>
-      </D.Portal>
-    </D.Root>
+    <Modal
+      isOpen={open}
+      onClose={() => onOpenChange(false)}
+      labelledBy={titleId}
+      className="m-4 max-w-lg p-6 lg:p-8"
+    >
+      <h2
+        id={titleId}
+        ref={titleRef}
+        tabIndex={-1}
+        className="pr-10 text-lg font-semibold text-gray-800 outline-none dark:text-white/90"
+      >
+        {title}
+      </h2>
+      {description && (
+        <p className="mt-1 text-theme-sm text-gray-500 dark:text-gray-400">
+          {description}
+        </p>
+      )}
+      {children && <div className="mt-5">{children}</div>}
+      {footer && <div className="mt-6 flex justify-end gap-3">{footer}</div>}
+    </Modal>
   )
 }
