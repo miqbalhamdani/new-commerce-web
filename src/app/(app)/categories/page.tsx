@@ -3,8 +3,8 @@
 import { ChevronRight, GripVertical } from "lucide-react"
 import { useState } from "react"
 
-import { Button } from "@/components/Button"
-import { Input } from "@/components/Input"
+import Button from "@/components/ui/button/Button"
+import Input from "@/components/form/input/InputField"
 import { Dialog } from "@/components/ui/common/Dialog"
 import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
 import { NativeSelect } from "@/components/ui/common/Field"
@@ -61,7 +61,7 @@ export default function CategoriesPage() {
       description="Independent trees: one product can sit in a category, a series and a collection at once."
       actions={
         canWrite && (
-          <Button onClick={() => setAdding({ parent: null })}>
+          <Button size="sm" onClick={() => setAdding({ parent: null })}>
             Add top-level
           </Button>
         )
@@ -93,7 +93,7 @@ export default function CategoriesPage() {
             <div
               onDragOver={(e) => e.preventDefault()}
               onDrop={() => dropOn(null)}
-              className="mb-2 rounded border border-dashed border-blue-400 p-2 text-center text-xs text-blue-700 dark:text-blue-400"
+              className="mb-2 rounded-lg border border-dashed border-brand-500 p-2 text-center text-theme-xs text-brand-500 dark:text-brand-400"
             >
               Drop here to make it top-level
             </div>
@@ -192,8 +192,8 @@ function Node(props: {
           props.onDrop(c)
         }}
         className={cx(
-          "group flex items-center gap-1 rounded px-2 py-1.5 text-sm",
-          over && "bg-blue-50 ring-1 ring-blue-400 dark:bg-blue-950",
+          "group flex items-center gap-1 rounded-lg px-2 py-1.5 text-theme-sm hover:bg-gray-100 dark:hover:bg-white/[0.03]",
+          over && "bg-brand-50 ring-1 ring-brand-500 dark:bg-brand-500/[0.12]",
           forbidden && "opacity-40",
         )}
         style={{ paddingLeft: 8 + depth * 20 }}
@@ -223,6 +223,7 @@ function Node(props: {
         {renaming ? (
           <span className="flex items-center gap-2">
             <Input
+              className="!h-9"
               aria-label={`Rename ${c.name}`}
               value={name}
               autoFocus
@@ -232,30 +233,51 @@ function Node(props: {
                 if (e.key === "Escape") setRenaming(false)
               }}
             />
-            <Button variant="secondary" onClick={() => setRenaming(false)}>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setRenaming(false)}
+            >
               Cancel
             </Button>
-            <Button onClick={rename}>Save</Button>
+            <Button size="sm" onClick={rename}>
+              Save
+            </Button>
           </span>
         ) : (
-          <span className="text-gray-900 dark:text-gray-50">{c.name}</span>
+          <span className="text-gray-800 dark:text-white/90">{c.name}</span>
         )}
         {canWrite && !renaming && (
           <span className="ml-auto hidden gap-1 group-focus-within:flex group-hover:flex">
-            <Button variant="ghost" onClick={() => props.onAdd(c)}>
+            <Button
+              size="sm"
+              className="!py-1.5"
+              variant="ghost"
+              onClick={() => props.onAdd(c)}
+            >
               Add child
             </Button>
-            <Button variant="ghost" onClick={() => setRenaming(true)}>
+            <Button
+              size="sm"
+              className="!py-1.5"
+              variant="ghost"
+              onClick={() => setRenaming(true)}
+            >
               Rename
             </Button>
-            <Button variant="ghost" onClick={() => props.onArchive(c)}>
+            <Button
+              size="sm"
+              className="!py-1.5"
+              variant="ghost"
+              onClick={() => props.onArchive(c)}
+            >
               Archive
             </Button>
           </span>
         )}
       </div>
       {error && (
-        <p className="ml-10 text-xs text-red-700 dark:text-red-400">
+        <p className="ml-10 text-xs text-error-600 dark:text-error-400">
           {error.message}
         </p>
       )}
@@ -325,10 +347,15 @@ function MoveDialog({
       description={detail ? moveMessage("", null, n, p).detail : "Counting…"}
       footer={
         <>
-          <Button variant="secondary" onClick={onClose}>
+          <Button size="sm" variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button isLoading={busy} disabled={!detail} onClick={confirm}>
+          <Button
+            size="sm"
+            isLoading={busy}
+            disabled={!detail}
+            onClick={confirm}
+          >
             Move
           </Button>
         </>
@@ -392,10 +419,10 @@ function AddDialog({
         />
         <ErrorNotice error={error} />
         <div className="flex justify-end gap-2">
-          <Button type="button" variant="secondary" onClick={onClose}>
+          <Button size="sm" type="button" variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" disabled={!name.trim()}>
+          <Button size="sm" type="submit" disabled={!name.trim()}>
             Add
           </Button>
         </div>
@@ -447,17 +474,20 @@ function ArchiveDialog({
       title={`Archive ${category?.name ?? ""}?`}
       footer={
         <>
-          <Button variant="secondary" onClick={onClose}>
+          <Button size="sm" variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button variant="destructive" onClick={archive}>
+          <Button size="sm" variant="destructive" onClick={archive}>
             Archive
           </Button>
         </>
       }
     >
       {counts ? (
-        <p role="alert" className="text-sm text-red-900 dark:text-red-400">
+        <p
+          role="alert"
+          className="text-theme-sm text-error-700 dark:text-error-400"
+        >
           It still has {counts.children ?? 0} subcategories and{" "}
           {counts.products ?? 0} products. Move or archive those first.
         </p>

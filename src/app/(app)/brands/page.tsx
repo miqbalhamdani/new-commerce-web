@@ -2,9 +2,22 @@
 
 import { useState } from "react"
 
-import { Button } from "@/components/Button"
-import { Input } from "@/components/Input"
-import { Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRoot, TableRow } from "@/components/Table"
+import Button from "@/components/ui/button/Button"
+import Input from "@/components/form/input/InputField"
+import {
+  TableBody,
+  TableCell,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { Checkbox } from "@/components/ui/common/Field"
+import {
+  bodyRows,
+  headerRow,
+  ListTable,
+  td,
+  th,
+} from "@/components/ui/common/Listing"
 import { Dialog } from "@/components/ui/common/Dialog"
 import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
 import { Empty, Loading, Page } from "@/components/ui/common/Page"
@@ -21,10 +34,15 @@ export default function BrandsPage() {
   const [q, setQ] = useState("")
   const [archived, setArchived] = useState(false)
   const [cursor, setCursor] = useState<string | null>(null)
-  const params = new URLSearchParams({ archived: String(archived), limit: "50" })
+  const params = new URLSearchParams({
+    archived: String(archived),
+    limit: "50",
+  })
   if (q.trim()) params.set("q", q.trim())
   if (cursor) params.set("cursor", cursor)
-  const { data, error, loading, reload } = useResource<BrandPage>(`/v1/brands?${params}`)
+  const { data, error, loading, reload } = useResource<BrandPage>(
+    `/v1/brands?${params}`,
+  )
 
   const [name, setName] = useState("")
   const [createError, setCreateError] = useState<ApiError | null>(null)
@@ -49,18 +67,30 @@ export default function BrandsPage() {
   return (
     <Page title="Brands" description="The labels your products are sold under.">
       {canWrite && !archived && (
-        <form onSubmit={create} className="mb-6 flex flex-wrap items-start gap-2">
+        <form
+          onSubmit={create}
+          className="mb-6 flex flex-wrap items-start gap-2"
+        >
           <div className="min-w-60 flex-1">
             <Input
               aria-label="New brand name"
               placeholder="New brand name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              hasError={Boolean(fieldError(createError, "name"))}
+              error={Boolean(fieldError(createError, "name"))}
             />
-            {createError && <p className="mt-1 text-xs text-red-700 dark:text-red-400">{createError.message}</p>}
+            {createError && (
+              <p className="mt-1 text-xs text-error-600 dark:text-error-400">
+                {createError.message}
+              </p>
+            )}
           </div>
-          <Button type="submit" isLoading={saving} disabled={!name.trim()}>
+          <Button
+            size="sm"
+            type="submit"
+            isLoading={saving}
+            disabled={!name.trim()}
+          >
             Add brand
           </Button>
         </form>
@@ -78,9 +108,8 @@ export default function BrandsPage() {
             setCursor(null)
           }}
         />
-        <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-          <input
-            type="checkbox"
+        <label className="flex items-center gap-2 text-theme-sm text-gray-700 dark:text-gray-400">
+          <Checkbox
             checked={archived}
             onChange={(e) => {
               setArchived(e.target.checked)
@@ -96,35 +125,57 @@ export default function BrandsPage() {
         <Loading />
       ) : data && data.data.length === 0 ? (
         <Empty title={archived ? "No archived brands" : "No brands yet"}>
-          {!archived && canWrite && "Add the first one above. A product's brand is optional."}
+          {!archived &&
+            canWrite &&
+            "Add the first one above. A product's brand is optional."}
         </Empty>
       ) : data ? (
-        <TableRoot>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableHeaderCell>Name</TableHeaderCell>
-                <TableHeaderCell>Slug</TableHeaderCell>
-                {canWrite && !archived && <TableHeaderCell className="text-right">Actions</TableHeaderCell>}
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {data.data.map((b) => (
-                <BrandRow key={b.id} brand={b} canWrite={canWrite && !archived} onArchive={setArchiving} onSaved={reload} />
-              ))}
-            </TableBody>
-          </Table>
-        </TableRoot>
+        <ListTable>
+          <TableHeader className={headerRow}>
+            <TableRow>
+              <TableCell isHeader className={th}>
+                Name
+              </TableCell>
+              <TableCell isHeader className={th}>
+                Slug
+              </TableCell>
+              {canWrite && !archived && (
+                <TableCell isHeader className={`${th} text-right`}>
+                  Actions
+                </TableCell>
+              )}
+            </TableRow>
+          </TableHeader>
+          <TableBody className={bodyRows}>
+            {data.data.map((b) => (
+              <BrandRow
+                key={b.id}
+                brand={b}
+                canWrite={canWrite && !archived}
+                onArchive={setArchiving}
+                onSaved={reload}
+              />
+            ))}
+          </TableBody>
+        </ListTable>
       ) : null}
       {data?.next_cursor && (
         <div className="mt-4 flex justify-end">
-          <Button variant="secondary" onClick={() => setCursor(data.next_cursor)}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setCursor(data.next_cursor)}
+          >
             Next page
           </Button>
         </div>
       )}
 
-      <ArchiveDialog brand={archiving} onClose={() => setArchiving(null)} onDone={reload} />
+      <ArchiveDialog
+        brand={archiving}
+        onClose={() => setArchiving(null)}
+        onDone={reload}
+      />
     </Page>
   )
 }
@@ -158,10 +209,11 @@ function BrandRow({
 
   return (
     <TableRow>
-      <TableCell>
+      <TableCell className={td}>
         {editing ? (
           <div>
             <Input
+              className="!h-9"
               aria-label={`Rename ${brand.name}`}
               value={name}
               autoFocus
@@ -170,30 +222,54 @@ function BrandRow({
                 if (e.key === "Enter") void save()
                 if (e.key === "Escape") setEditing(false)
               }}
-              hasError={Boolean(error)}
+              error={Boolean(error)}
             />
-            {error && <p className="mt-1 text-xs text-red-700 dark:text-red-400">{error.message}</p>}
+            {error && (
+              <p className="mt-1 text-xs text-error-600 dark:text-error-400">
+                {error.message}
+              </p>
+            )}
           </div>
         ) : (
-          <span className="font-medium text-gray-900 dark:text-gray-50">{brand.name}</span>
+          <span className="font-medium text-gray-800 dark:text-white/90">
+            {brand.name}
+          </span>
         )}
       </TableCell>
-      <TableCell className="text-gray-500">{brand.slug}</TableCell>
+      <TableCell className={`${td} text-gray-500 dark:text-gray-400`}>
+        {brand.slug}
+      </TableCell>
       {canWrite && (
-        <TableCell className="text-right">
+        <TableCell className={`${td} text-right`}>
           {editing ? (
             <div className="flex justify-end gap-2">
-              <Button variant="secondary" onClick={() => setEditing(false)}>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setEditing(false)}
+              >
                 Cancel
               </Button>
-              <Button onClick={save}>Save</Button>
+              <Button size="sm" onClick={save}>
+                Save
+              </Button>
             </div>
           ) : (
             <div className="flex justify-end gap-2">
-              <Button variant="ghost" onClick={() => setEditing(true)}>
+              <Button
+                size="sm"
+                className="!py-1.5"
+                variant="ghost"
+                onClick={() => setEditing(true)}
+              >
                 Rename
               </Button>
-              <Button variant="ghost" onClick={() => onArchive(brand)}>
+              <Button
+                size="sm"
+                className="!py-1.5"
+                variant="ghost"
+                onClick={() => onArchive(brand)}
+              >
                 Archive
               </Button>
             </div>
@@ -204,7 +280,15 @@ function BrandRow({
   )
 }
 
-function ArchiveDialog({ brand, onClose, onDone }: { brand: Brand | null; onClose: () => void; onDone: () => void }) {
+function ArchiveDialog({
+  brand,
+  onClose,
+  onDone,
+}: {
+  brand: Brand | null
+  onClose: () => void
+  onDone: () => void
+}) {
   const api = useApi()
   const [error, setError] = useState<ApiError | null>(null)
   const [busy, setBusy] = useState(false)
@@ -229,10 +313,15 @@ function ArchiveDialog({ brand, onClose, onDone }: { brand: Brand | null; onClos
       description="Products keep this brand. The name stays reserved: a new brand cannot reuse it."
       footer={
         <>
-          <Button variant="secondary" onClick={onClose}>
+          <Button size="sm" variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button variant="destructive" isLoading={busy} onClick={archive}>
+          <Button
+            size="sm"
+            variant="destructive"
+            isLoading={busy}
+            onClick={archive}
+          >
             Archive
           </Button>
         </>
