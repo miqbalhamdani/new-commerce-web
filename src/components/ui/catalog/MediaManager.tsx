@@ -3,7 +3,7 @@
 import { ImagePlus } from "lucide-react"
 import { useRef, useState } from "react"
 
-import { Button } from "@/components/Button"
+import Button from "@/components/ui/button/Button"
 import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
 import { NativeSelect } from "@/components/ui/common/Field"
 import { Card } from "@/components/ui/common/Page"
@@ -113,15 +113,15 @@ export function MediaManager({
             upload(e.dataTransfer.files)
           }}
           className={cx(
-            "mb-4 flex flex-col items-center gap-2 rounded-lg border-2 border-dashed p-6 text-sm text-gray-500",
+            "mb-4 flex flex-col items-center gap-2 rounded-xl border border-dashed bg-gray-50 p-7 text-theme-sm text-gray-500 dark:bg-gray-900 dark:text-gray-400",
             over
-              ? "border-blue-500 bg-blue-50 dark:bg-blue-950"
+              ? "border-brand-500 bg-brand-50 dark:bg-brand-500/[0.08]"
               : "border-gray-300 dark:border-gray-700",
           )}
         >
           <ImagePlus className="size-6" aria-hidden />
           <p>Drop JPEG, PNG or WebP images here (up to 20 MB each), or</p>
-          <Button variant="secondary" onClick={() => input.current?.click()}>
+          <Button size="sm" variant="outline" onClick={() => input.current?.click()}>
             Choose files
           </Button>
           <input
@@ -141,13 +141,13 @@ export function MediaManager({
             <li key={u.name} className="text-sm">
               <div className="flex justify-between">
                 <span>{u.name}</span>
-                <span className={u.error ? "text-red-700" : "text-gray-500"}>
+                <span className={u.error ? "text-error-500" : "text-gray-500"}>
                   {u.error ?? `${Math.round(u.progress * 100)}%`}
                 </span>
               </div>
               {!u.error && (
                 <progress
-                  className="w-full"
+                  className="h-2 w-full overflow-hidden rounded-full [&::-moz-progress-bar]:bg-brand-500 [&::-webkit-progress-bar]:bg-gray-200 [&::-webkit-progress-value]:bg-brand-500 dark:[&::-webkit-progress-bar]:bg-gray-800"
                   value={u.progress}
                   max={1}
                   aria-label={`Uploading ${u.name}`}
@@ -176,7 +176,7 @@ export function MediaManager({
               onDragOver={(e) => dragging !== null && e.preventDefault()}
               onDrop={() => void drop(i)}
               className={cx(
-                "flex flex-col gap-2 rounded border border-gray-200 p-2 dark:border-gray-800",
+                "flex flex-col gap-2 rounded-xl border border-gray-200 p-2 dark:border-gray-800",
                 dragging === i && "opacity-50",
               )}
             >
@@ -184,10 +184,10 @@ export function MediaManager({
               <img
                 src={m.derivatives["800"] ?? m.url}
                 alt={`Image ${i + 1}`}
-                className="aspect-square w-full rounded object-cover"
+                className="aspect-square w-full rounded-lg object-cover"
               />
               {i === 0 && (
-                <span className="text-xs font-medium text-gray-600">Cover</span>
+                <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Cover</span>
               )}
               {canWrite ? (
                 <>
@@ -211,6 +211,7 @@ export function MediaManager({
                     ))}
                   </NativeSelect>
                   <Button
+                    size="sm"
                     variant="ghost"
                     onClick={() =>
                       void act(() =>

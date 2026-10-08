@@ -2,10 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react"
 
-import { Button } from "@/components/Button"
-import { Input } from "@/components/Input"
+import Button from "@/components/ui/button/Button"
+import Input from "@/components/form/input/InputField"
 import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
-import { Field, NativeSelect, Textarea } from "@/components/ui/common/Field"
+import { Checkbox, Field, NativeSelect, Textarea } from "@/components/ui/common/Field"
 import { Card } from "@/components/ui/common/Page"
 import { ApiError } from "@/lib/api/client"
 import type { BrandPage, Category, Product } from "@/lib/api/types"
@@ -117,7 +117,7 @@ export function ProductDetails({
             {draft.slug !== original.slug && (
               <p
                 role="alert"
-                className="text-xs text-amber-700 dark:text-amber-400"
+                className="text-xs text-warning-600 dark:text-orange-400"
               >
                 Links to /products/{original.slug} will stop working once you
                 save.
@@ -151,7 +151,7 @@ export function ProductDetails({
             </NativeSelect>
           </Field>
           <div id="categories" tabIndex={-1}>
-            <p className="text-sm font-medium text-gray-900 dark:text-gray-50">
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-400">
               Categories
             </p>
             <p className="text-xs text-gray-500">
@@ -159,7 +159,7 @@ export function ProductDetails({
               main-tree category to be published.
             </p>
             {fieldError(error, "category_ids") && (
-              <p className="text-xs text-red-700">
+              <p className="text-xs text-error-500">
                 {fieldError(error, "category_ids")}
               </p>
             )}
@@ -167,7 +167,7 @@ export function ProductDetails({
               {[...byKind.entries()].map(([kind, list]) => (
                 <fieldset
                   key={kind}
-                  className="rounded border border-gray-200 p-3 dark:border-gray-800"
+                  className="rounded-lg border border-gray-200 p-3 dark:border-gray-800"
                 >
                   <legend className="px-1 text-xs font-medium text-gray-600 dark:text-gray-400">
                     {kindLabel[kind] ?? kind}
@@ -180,8 +180,7 @@ export function ProductDetails({
                         paddingLeft: (c.path.split(".").length - 1) * 14,
                       }}
                     >
-                      <input
-                        type="checkbox"
+                      <Checkbox
                         checked={draft.category_ids.includes(c.id)}
                         onChange={(e) =>
                           set({
@@ -199,7 +198,7 @@ export function ProductDetails({
             </div>
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-900 dark:text-gray-50">
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-400">
               Attributes
             </p>
             <p className="text-xs text-gray-500">
@@ -233,6 +232,7 @@ export function ProductDetails({
                     }
                   />
                   <Button
+                    size="sm"
                     type="button"
                     variant="ghost"
                     onClick={() =>
@@ -247,8 +247,9 @@ export function ProductDetails({
               ))}
               {canWrite && (
                 <Button
+                  size="sm"
                   type="button"
-                  variant="secondary"
+                  variant="outline"
                   className="self-start"
                   onClick={() =>
                     set({ attributes: [...draft.attributes, ["", ""]] })
@@ -264,7 +265,7 @@ export function ProductDetails({
         {error?.code === "version_conflict" ? (
           <div
             role="alert"
-            className="rounded-md bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950/60 dark:text-amber-300"
+            className="rounded-xl border border-warning-500 bg-warning-50 p-3 text-theme-sm text-warning-700 dark:border-warning-500/30 dark:bg-warning-500/15 dark:text-orange-400"
           >
             Someone else changed this product while you were editing.{" "}
             <button
@@ -285,14 +286,15 @@ export function ProductDetails({
         {canWrite && (
           <div className="flex justify-end gap-2">
             <Button
+              size="sm"
               type="button"
-              variant="secondary"
+              variant="outline"
               disabled={!dirty}
               onClick={() => setDraft(original)}
             >
               Discard changes
             </Button>
-            <Button type="submit" isLoading={saving} disabled={!dirty}>
+            <Button size="sm" type="submit" isLoading={saving} disabled={!dirty}>
               Save
             </Button>
           </div>
