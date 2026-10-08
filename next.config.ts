@@ -13,6 +13,28 @@ const nextConfig: NextConfig = {
       },
     ]
   },
+
+  // The vendored TailAdmin icons (src/icons) are SVG files imported as React
+  // components. The turbopack rule keeps a future `next dev --turbopack` from
+  // silently importing them as URLs instead.
+  webpack(config) {
+    config.module.rules.push({
+      test: /\.svg$/,
+      issuer: /\.[jt]sx?$/,
+      use: ["@svgr/webpack"],
+    })
+    return config
+  },
+  experimental: {
+    turbo: {
+      rules: {
+        "*.svg": {
+          loaders: ["@svgr/webpack"],
+          as: "*.js",
+        },
+      },
+    },
+  },
 }
 
 export default nextConfig
