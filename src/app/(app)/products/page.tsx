@@ -41,6 +41,7 @@ function ProductList() {
   const params = useSearchParams()
   const filters = filtersFromQuery(params)
   const canWrite = useCan("products:write")
+  const canSettings = useCan("settings:write")
   const [cursor, setCursor] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set())
