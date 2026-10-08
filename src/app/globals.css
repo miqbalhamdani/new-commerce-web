@@ -1,3 +1,84 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* From TailAdmin @ 3f6902572e9d. Only the parts we render are kept: the
+   third-party overrides (ApexCharts, FullCalendar, Swiper, jvectormap) cover
+   libraries this app does not ship, and the global rule hiding native date
+   picker indicators is deliberately dropped -- the audit log uses native date
+   inputs. */
+
+@layer base {
+  body {
+    @apply relative z-1 bg-gray-50 font-outfit text-base font-normal dark:bg-gray-900;
+  }
+}
+
+@layer components {
+  .menu-item {
+    @apply relative flex w-full items-center gap-3 rounded-lg px-3 py-2 text-theme-sm font-medium;
+  }
+  .menu-item-active {
+    @apply bg-brand-50 text-brand-500 dark:bg-brand-500/[0.12] dark:text-brand-400;
+  }
+  .menu-item-inactive {
+    @apply text-gray-700 hover:bg-gray-100 group-hover:text-gray-700 dark:text-gray-300 dark:hover:bg-white/5 dark:hover:text-gray-300;
+  }
+  .menu-item-icon {
+    @apply text-gray-500 group-hover:text-gray-700 dark:text-gray-400;
+  }
+  .menu-item-icon-active {
+    @apply text-brand-500 dark:text-brand-400;
+  }
+  .menu-item-icon-inactive {
+    @apply text-gray-500 group-hover:text-gray-700 dark:text-gray-400 dark:group-hover:text-gray-300;
+  }
+  .menu-item-arrow {
+    @apply relative;
+  }
+  .menu-item-arrow-active {
+    @apply rotate-180 text-brand-500 dark:text-brand-400;
+  }
+  .menu-item-arrow-inactive {
+    @apply text-gray-500 group-hover:text-gray-700 dark:text-gray-400 dark:group-hover:text-gray-300;
+  }
+  .menu-dropdown-item {
+    @apply relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-theme-sm font-medium;
+  }
+  .menu-dropdown-item-active {
+    @apply bg-brand-50 text-brand-500 dark:bg-brand-500/[0.12] dark:text-brand-400;
+  }
+  .menu-dropdown-item-inactive {
+    @apply text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/5;
+  }
+  .menu-dropdown-badge {
+    @apply block rounded-full px-2.5 py-0.5 text-xs font-medium uppercase text-brand-500 dark:text-brand-400;
+  }
+  .menu-dropdown-badge-active {
+    @apply bg-brand-100 dark:bg-brand-500/20;
+  }
+  .menu-dropdown-badge-inactive {
+    @apply bg-brand-50 group-hover:bg-brand-100 dark:bg-brand-500/15 dark:group-hover:bg-brand-500/20;
+  }
+}
+
+@layer utilities {
+  /* Chrome, Safari and Opera */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
+  }
+
+  .custom-scrollbar::-webkit-scrollbar {
+    @apply size-1.5;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    @apply rounded-full;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-gray-200 dark:bg-gray-700;
+  }
+}
