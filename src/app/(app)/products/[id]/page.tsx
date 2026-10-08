@@ -4,6 +4,7 @@ import Link from "next/link"
 import { use, useState } from "react"
 
 import { Badge } from "@/components/Badge"
+import { BulkPriceAdjust } from "@/components/ui/catalog/BulkPriceAdjust"
 import { ProductDetails } from "@/components/ui/catalog/ProductDetails"
 import { VariantMatrix } from "@/components/ui/catalog/VariantMatrix"
 import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
@@ -98,7 +99,11 @@ export default function ProductPage({
             product={product}
             canWrite={canVariants && !archived}
             onSaved={reload}
-          />
+          >
+            {(grid) =>
+              canVariants && !archived && <BulkPriceAdjust {...grid} />
+            }
+          </VariantMatrix>
         </section>
       </div>
     </Page>
