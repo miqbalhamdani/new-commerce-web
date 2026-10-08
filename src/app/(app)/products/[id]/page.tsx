@@ -6,6 +6,7 @@ import { use, useState } from "react"
 import { Badge } from "@/components/Badge"
 import { BulkPriceAdjust } from "@/components/ui/catalog/BulkPriceAdjust"
 import { MediaManager } from "@/components/ui/catalog/MediaManager"
+import { PublishBar } from "@/components/ui/catalog/PublishBar"
 import { ProductDetails } from "@/components/ui/catalog/ProductDetails"
 import { VariantMatrix } from "@/components/ui/catalog/VariantMatrix"
 import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
@@ -13,6 +14,7 @@ import { Loading, Page } from "@/components/ui/common/Page"
 import type { Product } from "@/lib/api/types"
 import { useResource } from "@/lib/api/use-api"
 import { useCan } from "@/lib/auth/session"
+import type { Failure } from "@/lib/catalog/publish"
 
 // The product editor: details (P1-034), variants (P1-046), images (P1-048),
 // publishing (P1-075).
@@ -34,6 +36,7 @@ export default function ProductPage({
     reload,
   } = useResource<Product>(`/v1/products/${id}`)
   const [dirty, setDirty] = useState(false)
+  const [failures, setFailures] = useState<Failure[]>([])
 
   if (loading && !product) return <Loading />
   if (!product)
@@ -76,7 +79,14 @@ export default function ProductPage({
       }
     >
       <div className="flex flex-col gap-8">
-        <section aria-labelledby="details">
+        {canWrite && !archived && (
+          <PublishBar
+            product={product}
+            onChanged={setData}
+            onFailures={setFailures}
+          />
+        )}
+        <section id="details" aria-labelledby="details-title">
           <h2
             id="details"
             className="mb-3 text-sm font-semibold text-gray-900 dark:text-gray-50"
@@ -90,7 +100,7 @@ export default function ProductPage({
             onDirtyChange={setDirty}
           />
         </section>
-        <section aria-labelledby="images">
+        <section id="images" aria-labelledby="images-title" tabIndex={-1}>
           <h2
             id="images"
             className="mb-3 text-sm font-semibold text-gray-900 dark:text-gray-50"
@@ -103,7 +113,7 @@ export default function ProductPage({
             onChanged={reload}
           />
         </section>
-        <section aria-labelledby="variants">
+        <section id="variants" aria-labelledby="variants-title" tabIndex={-1}>
           <h2
             id="variants"
             className="mb-3 text-sm font-semibold text-gray-900 dark:text-gray-50"
@@ -114,6 +124,13 @@ export default function ProductPage({
             product={product}
             canWrite={canVariants && !archived}
             onSaved={reload}
+            highlight={
+              new Map(
+                failures
+                  .filter((f) => f.variantId)
+                  .map((f) => [f.variantId!, f.detail]),
+              )
+            }
           >
             {(grid) =>
               canVariants && !archived && <BulkPriceAdjust {...grid} />

@@ -230,6 +230,11 @@ export function VariantMatrix({
                   {columns.map((c, col) => (
                     <td key={c} className="py-1 pr-3">
                       <Input
+                        id={
+                          variantIdByRow[i]
+                            ? `cell-${variantIdByRow[i]}-${c}`
+                            : undefined
+                        }
                         aria-label={`${columnLabel[c]} for ${combo.join(" / ") || "the variant"}`}
                         value={rows[i][c]}
                         disabled={!canWrite}

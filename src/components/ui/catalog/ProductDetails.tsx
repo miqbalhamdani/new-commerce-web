@@ -150,7 +150,7 @@ export function ProductDetails({
               ))}
             </NativeSelect>
           </Field>
-          <div>
+          <div id="categories" tabIndex={-1}>
             <p className="text-sm font-medium text-gray-900 dark:text-gray-50">
               Categories
             </p>
