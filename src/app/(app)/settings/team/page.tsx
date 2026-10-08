@@ -2,18 +2,22 @@
 
 import { useState } from "react"
 
-import { Badge } from "@/components/Badge"
-import { Button } from "@/components/Button"
-import { Input } from "@/components/Input"
+import Badge from "@/components/ui/badge/Badge"
+import Button from "@/components/ui/button/Button"
+import Input from "@/components/form/input/InputField"
 import {
-  Table,
   TableBody,
   TableCell,
-  TableHead,
-  TableHeaderCell,
-  TableRoot,
+  TableHeader,
   TableRow,
-} from "@/components/Table"
+} from "@/components/ui/table"
+import {
+  bodyRows,
+  headerRow,
+  ListTable,
+  td,
+  th,
+} from "@/components/ui/common/Listing"
 import { Dialog } from "@/components/ui/common/Dialog"
 import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
 import { Field, NativeSelect } from "@/components/ui/common/Field"
@@ -30,7 +34,7 @@ import { formatDateTime } from "@/lib/format"
 const statusBadge = {
   invited: "warning",
   active: "success",
-  disabled: "neutral",
+  disabled: "light",
 } as const
 
 export default function TeamPage() {
@@ -73,7 +77,9 @@ export default function TeamPage() {
       description="Who can sign in to your shop's admin, and what each person can do."
       actions={
         canWrite && (
-          <Button onClick={() => setInviting(true)}>Invite someone</Button>
+          <Button size="sm" onClick={() => setInviting(true)}>
+            Invite someone
+          </Button>
         )
       }
     >
@@ -86,112 +92,127 @@ export default function TeamPage() {
       ) : data && data.data.length === 0 ? (
         <Empty title="Nobody yet" />
       ) : data ? (
-        <TableRoot>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableHeaderCell>Name</TableHeaderCell>
-                <TableHeaderCell>Role</TableHeaderCell>
-                <TableHeaderCell>Status</TableHeaderCell>
-                <TableHeaderCell>Last sign-in</TableHeaderCell>
-                {canWrite && (
-                  <TableHeaderCell className="text-right">
-                    Actions
-                  </TableHeaderCell>
-                )}
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {data.data.map((u: User) => {
-                const editable =
-                  canWrite && (u.role !== "owner" || me?.role === "owner")
-                return (
-                  <TableRow key={u.id}>
-                    <TableCell>
-                      <div className="font-medium text-gray-900 dark:text-gray-50">
-                        {u.name}
-                      </div>
-                      <div className="text-xs text-gray-500">{u.email}</div>
-                    </TableCell>
-                    <TableCell>
-                      {editable ? (
-                        <NativeSelect
-                          aria-label={`Role for ${u.name}`}
-                          value={u.role}
-                          onChange={(e) =>
+        <ListTable>
+          <TableHeader className={headerRow}>
+            <TableRow>
+              <TableCell isHeader className={th}>
+                Name
+              </TableCell>
+              <TableCell isHeader className={th}>
+                Role
+              </TableCell>
+              <TableCell isHeader className={th}>
+                Status
+              </TableCell>
+              <TableCell isHeader className={th}>
+                Last sign-in
+              </TableCell>
+              {canWrite && (
+                <TableCell isHeader className={`${th} text-right`}>
+                  Actions
+                </TableCell>
+              )}
+            </TableRow>
+          </TableHeader>
+          <TableBody className={bodyRows}>
+            {data.data.map((u: User) => {
+              const editable =
+                canWrite && (u.role !== "owner" || me?.role === "owner")
+              return (
+                <TableRow key={u.id}>
+                  <TableCell className={td}>
+                    <div className="font-medium text-gray-800 dark:text-white/90">
+                      {u.name}
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                      {u.email}
+                    </div>
+                  </TableCell>
+                  <TableCell className={td}>
+                    {editable ? (
+                      <NativeSelect
+                        className="!h-9"
+                        aria-label={`Role for ${u.name}`}
+                        value={u.role}
+                        onChange={(e) =>
+                          void act(`/v1/users/${u.id}`, "PATCH", {
+                            role: e.target.value,
+                          })
+                        }
+                      >
+                        {grantable.map((r) => (
+                          <option key={r.name} value={r.name}>
+                            {r.name}
+                          </option>
+                        ))}
+                      </NativeSelect>
+                    ) : (
+                      u.role
+                    )}
+                  </TableCell>
+                  <TableCell className={td}>
+                    <Badge size="sm" color={statusBadge[u.status]}>
+                      {u.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell
+                    className={`${td} text-gray-500 dark:text-gray-400`}
+                  >
+                    {formatDateTime(u.last_login_at, tenant?.timezone)}
+                  </TableCell>
+                  {canWrite && (
+                    <TableCell className={`${td} text-right`}>
+                      {editable && u.status === "invited" && (
+                        <Button
+                          size="sm"
+                          className="!py-1.5"
+                          variant="ghost"
+                          onClick={() =>
+                            void act(`/v1/users/${u.id}/resend-invite`, "POST")
+                          }
+                        >
+                          Resend invite
+                        </Button>
+                      )}
+                      {editable && u.status === "active" && u.id !== me?.id && (
+                        <Button
+                          size="sm"
+                          className="!py-1.5"
+                          variant="ghost"
+                          onClick={() =>
+                            void act(`/v1/users/${u.id}`, "DELETE")
+                          }
+                        >
+                          Disable
+                        </Button>
+                      )}
+                      {editable && u.status === "disabled" && (
+                        <Button
+                          size="sm"
+                          className="!py-1.5"
+                          variant="ghost"
+                          onClick={() =>
                             void act(`/v1/users/${u.id}`, "PATCH", {
-                              role: e.target.value,
+                              status: "active",
                             })
                           }
                         >
-                          {grantable.map((r) => (
-                            <option key={r.name} value={r.name}>
-                              {r.name}
-                            </option>
-                          ))}
-                        </NativeSelect>
-                      ) : (
-                        u.role
+                          Re-enable
+                        </Button>
                       )}
                     </TableCell>
-                    <TableCell>
-                      <Badge variant={statusBadge[u.status]}>{u.status}</Badge>
-                    </TableCell>
-                    <TableCell className="text-gray-500">
-                      {formatDateTime(u.last_login_at, tenant?.timezone)}
-                    </TableCell>
-                    {canWrite && (
-                      <TableCell className="text-right">
-                        {editable && u.status === "invited" && (
-                          <Button
-                            variant="ghost"
-                            onClick={() =>
-                              void act(
-                                `/v1/users/${u.id}/resend-invite`,
-                                "POST",
-                              )
-                            }
-                          >
-                            Resend invite
-                          </Button>
-                        )}
-                        {editable &&
-                          u.status === "active" &&
-                          u.id !== me?.id && (
-                            <Button
-                              variant="ghost"
-                              onClick={() =>
-                                void act(`/v1/users/${u.id}`, "DELETE")
-                              }
-                            >
-                              Disable
-                            </Button>
-                          )}
-                        {editable && u.status === "disabled" && (
-                          <Button
-                            variant="ghost"
-                            onClick={() =>
-                              void act(`/v1/users/${u.id}`, "PATCH", {
-                                status: "active",
-                              })
-                            }
-                          >
-                            Re-enable
-                          </Button>
-                        )}
-                      </TableCell>
-                    )}
-                  </TableRow>
-                )
-              })}
-            </TableBody>
-          </Table>
-        </TableRoot>
+                  )}
+                </TableRow>
+              )
+            })}
+          </TableBody>
+        </ListTable>
       ) : null}
       {data?.next_cursor && (
         <div className="mt-4 flex justify-end">
           <Button
-            variant="secondary"
+            size="sm"
+            variant="outline"
             onClick={() => setCursor(data.next_cursor)}
           >
             Next page
@@ -284,10 +305,10 @@ function InviteDialog({
           <ErrorNotice error={error} title="Could not invite" />
         )}
         <div className="flex justify-end gap-2">
-          <Button type="button" variant="secondary" onClick={onClose}>
+          <Button size="sm" type="button" variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" isLoading={busy}>
+          <Button size="sm" type="submit" isLoading={busy}>
             Send invitation
           </Button>
         </div>

@@ -2,17 +2,21 @@
 
 import { useState } from "react"
 
-import { Button } from "@/components/Button"
-import { Input } from "@/components/Input"
+import Button from "@/components/ui/button/Button"
+import Input from "@/components/form/input/InputField"
 import {
-  Table,
   TableBody,
   TableCell,
-  TableHead,
-  TableHeaderCell,
-  TableRoot,
+  TableHeader,
   TableRow,
-} from "@/components/Table"
+} from "@/components/ui/table"
+import {
+  bodyRows,
+  headerRow,
+  ListTable,
+  td,
+  th,
+} from "@/components/ui/common/Listing"
 import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
 import { Empty, Loading, Page } from "@/components/ui/common/Page"
 import type { AuditPage } from "@/lib/api/types"
@@ -58,7 +62,7 @@ export default function AuditLogPage() {
       title="Audit log"
       description="Every change made in the admin, newest first."
     >
-      <div className="mb-4 flex flex-wrap items-end gap-3 text-sm">
+      <div className="mb-4 flex flex-wrap items-end gap-3 text-theme-sm text-gray-700 dark:text-gray-400">
         <label className="flex flex-col gap-1">
           What
           <Input
@@ -78,6 +82,7 @@ export default function AuditLogPage() {
           From
           <Input
             type="date"
+            className="dark:[color-scheme:dark]"
             value={filters.from}
             onChange={(e) => set("from", e.target.value)}
           />
@@ -86,6 +91,7 @@ export default function AuditLogPage() {
           Before
           <Input
             type="date"
+            className="dark:[color-scheme:dark]"
             value={filters.to}
             onChange={(e) => set("to", e.target.value)}
           />
@@ -97,67 +103,76 @@ export default function AuditLogPage() {
       ) : data && data.data.length === 0 ? (
         <Empty title="Nothing recorded for these filters" />
       ) : data ? (
-        <TableRoot>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableHeaderCell>When</TableHeaderCell>
-                <TableHeaderCell>Who</TableHeaderCell>
-                <TableHeaderCell>Action</TableHeaderCell>
-                <TableHeaderCell>On</TableHeaderCell>
-                <TableHeaderCell>Change</TableHeaderCell>
+        <ListTable>
+          <TableHeader className={headerRow}>
+            <TableRow>
+              <TableCell isHeader className={th}>
+                When
+              </TableCell>
+              <TableCell isHeader className={th}>
+                Who
+              </TableCell>
+              <TableCell isHeader className={th}>
+                Action
+              </TableCell>
+              <TableCell isHeader className={th}>
+                On
+              </TableCell>
+              <TableCell isHeader className={th}>
+                Change
+              </TableCell>
+            </TableRow>
+          </TableHeader>
+          <TableBody className={bodyRows}>
+            {data.data.map((e, i) => (
+              <TableRow key={i} className="align-top">
+                <TableCell className={`${td} text-gray-500 dark:text-gray-400`}>
+                  {formatDateTime(e.created_at, tenant?.timezone)}
+                </TableCell>
+                <TableCell className={`${td} text-gray-800 dark:text-white/90`}>
+                  {e.actor?.name ?? (
+                    <span className="text-gray-500">System</span>
+                  )}
+                </TableCell>
+                <TableCell className={`${td} !font-mono !text-xs`}>
+                  {e.action}
+                </TableCell>
+                <TableCell className={`${td} !text-xs`}>
+                  <div>{e.subject_type}</div>
+                  <div className="text-gray-500">{e.subject_id}</div>
+                </TableCell>
+                <TableCell className={`${td} whitespace-normal !text-xs`}>
+                  <ul>
+                    {changesOf(e).map((c) => (
+                      <li key={c.field}>
+                        <span className="font-medium">{c.field}</span>:{" "}
+                        {c.before !== undefined && (
+                          <span className="text-error-600 line-through dark:text-error-400">
+                            {show(c.before)}
+                          </span>
+                        )}
+                        {c.before !== undefined &&
+                          c.after !== undefined &&
+                          " → "}
+                        {c.after !== undefined && (
+                          <span className="text-success-600 dark:text-success-400">
+                            {show(c.after)}
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </TableCell>
               </TableRow>
-            </TableHead>
-            <TableBody>
-              {data.data.map((e, i) => (
-                <TableRow key={i} className="align-top">
-                  <TableCell className="text-gray-500">
-                    {formatDateTime(e.created_at, tenant?.timezone)}
-                  </TableCell>
-                  <TableCell>
-                    {e.actor?.name ?? (
-                      <span className="text-gray-500">System</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="font-mono text-xs">
-                    {e.action}
-                  </TableCell>
-                  <TableCell className="text-xs">
-                    <div>{e.subject_type}</div>
-                    <div className="text-gray-500">{e.subject_id}</div>
-                  </TableCell>
-                  <TableCell className="whitespace-normal text-xs">
-                    <ul>
-                      {changesOf(e).map((c) => (
-                        <li key={c.field}>
-                          <span className="font-medium">{c.field}</span>:{" "}
-                          {c.before !== undefined && (
-                            <span className="text-red-700 line-through dark:text-red-400">
-                              {show(c.before)}
-                            </span>
-                          )}
-                          {c.before !== undefined &&
-                            c.after !== undefined &&
-                            " → "}
-                          {c.after !== undefined && (
-                            <span className="text-green-700 dark:text-green-400">
-                              {show(c.after)}
-                            </span>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableRoot>
+            ))}
+          </TableBody>
+        </ListTable>
       ) : null}
       {data?.next_cursor && (
         <div className="mt-4 flex justify-end">
           <Button
-            variant="secondary"
+            size="sm"
+            variant="outline"
             onClick={() => setCursor(data.next_cursor)}
           >
             Older entries

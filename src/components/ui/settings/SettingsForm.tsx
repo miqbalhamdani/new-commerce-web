@@ -2,8 +2,8 @@
 
 import { useState } from "react"
 
-import { Button } from "@/components/Button"
-import { Input } from "@/components/Input"
+import Button from "@/components/ui/button/Button"
+import Input from "@/components/form/input/InputField"
 import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
 import { Field, NativeSelect } from "@/components/ui/common/Field"
 import { ApiError } from "@/lib/api/client"
@@ -123,7 +123,7 @@ export function SettingsForm({
         {form.order_prefix !== settings.order_prefix && (
           <p
             role="status"
-            className="text-xs text-amber-700 dark:text-amber-400"
+            className="text-xs text-warning-600 dark:text-orange-400"
           >
             The new prefix applies to new orders only; existing order numbers
             keep {settings.order_prefix}.
@@ -135,7 +135,7 @@ export function SettingsForm({
       )}
       {canSave && (
         <div className="flex justify-end">
-          <Button type="submit" isLoading={busy}>
+          <Button size="sm" type="submit" isLoading={busy}>
             {submitLabel}
           </Button>
         </div>
