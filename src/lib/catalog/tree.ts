@@ -28,7 +28,11 @@ export function buildTree(categories: Category[]): TreeNode[] {
  * Whether target is node itself or below it: a move there would make a cycle,
  * which the client blocks before the server refuses it (BR-034).
  */
-export function isSelfOrDescendant(categories: Category[], nodeId: string, targetId: string): boolean {
+export function isSelfOrDescendant(
+  categories: Category[],
+  nodeId: string,
+  targetId: string,
+): boolean {
   const parent = new Map(categories.map((c) => [c.id, c.parent_id]))
   for (let at: string | null | undefined = targetId; at; at = parent.get(at)) {
     if (at === nodeId) return true
@@ -41,8 +45,15 @@ export function isSelfOrDescendant(categories: Category[], nodeId: string, targe
  * their assignments -- "Move Jackets and its 4 subcategories under
  * Outerwear?" / "128 products keep their assignments."
  */
-export function moveMessage(name: string, parent: string | null, descendants: number, products: number) {
-  const subs = descendants ? ` and its ${descendants} subcategor${descendants === 1 ? "y" : "ies"}` : ""
+export function moveMessage(
+  name: string,
+  parent: string | null,
+  descendants: number,
+  products: number,
+) {
+  const subs = descendants
+    ? ` and its ${descendants} subcategor${descendants === 1 ? "y" : "ies"}`
+    : ""
   const where = parent ? ` under ${parent}` : " to the top level"
   return {
     title: `Move ${name}${subs}${where}?`,

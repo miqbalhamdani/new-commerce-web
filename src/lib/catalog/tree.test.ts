@@ -5,21 +5,38 @@ import type { Category } from "@/lib/api/types"
 import { buildTree, isSelfOrDescendant, moveMessage } from "./tree"
 
 const cat = (id: string, parent: string | null, name = id): Category => ({
-  id, parent_id: parent, name, kind: "category", path: name, archived_at: null,
-  created_at: "2026-10-06T16:15:00+07:00", updated_at: "2026-10-06T16:15:00+07:00",
+  id,
+  parent_id: parent,
+  name,
+  kind: "category",
+  path: name,
+  archived_at: null,
+  created_at: "2026-10-06T16:15:00+07:00",
+  updated_at: "2026-10-06T16:15:00+07:00",
 })
 
-const list = [cat("apparel", null), cat("outer", "apparel"), cat("jackets", "outer"), cat("tees", "apparel"), cat("sale", null)]
+const list = [
+  cat("apparel", null),
+  cat("outer", "apparel"),
+  cat("jackets", "outer"),
+  cat("tees", "apparel"),
+  cat("sale", null),
+]
 
 describe("buildTree", () => {
   it("nests by parent_id and keeps the list's order", () => {
     const tree = buildTree(list)
     expect(tree.map((n) => n.category.id)).toEqual(["apparel", "sale"])
-    expect(tree[0].children.map((n) => n.category.id)).toEqual(["outer", "tees"])
+    expect(tree[0].children.map((n) => n.category.id)).toEqual([
+      "outer",
+      "tees",
+    ])
     expect(tree[0].children[0].children[0].category.id).toBe("jackets")
   })
   it("treats an orphan as a root", () => {
-    expect(buildTree([cat("jackets", "missing")])[0].category.id).toBe("jackets")
+    expect(buildTree([cat("jackets", "missing")])[0].category.id).toBe(
+      "jackets",
+    )
   })
 })
 
