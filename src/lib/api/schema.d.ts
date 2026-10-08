@@ -1148,7 +1148,7 @@ export interface components {
             results: components["schemas"]["BulkRowResult"][];
         };
         ImportRequest: {
-            /** @example 0192-tenant/jobs/0193…/upload.csv */
+            /** @example jobs/0192-tenant/0193…/upload.csv */
             r2_key: string;
             /**
              * @description CSV header → target: `title`, `sku`, `regular_price`, `sale_price`, `weight_grams`,
