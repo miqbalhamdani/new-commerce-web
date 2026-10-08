@@ -12,14 +12,7 @@ import {
   SidebarMenuItem,
 } from "@/components/Sidebar"
 import { useSession } from "@/lib/auth/session"
-import {
-  Boxes,
-  FolderTree,
-  House,
-  Images,
-  KeyRound,
-  Users,
-} from "lucide-react"
+import { Boxes, FolderTree, Package, ScrollText, Settings, Users } from "lucide-react"
 import { usePathname } from "next/navigation"
 import * as React from "react"
 import { Logo } from "../../../../public/Logo"
@@ -36,7 +29,7 @@ import { UserProfile } from "./UserProfile"
  * told which ones it holds at sign-in.
  */
 const navigation = [
-  { name: "Products", href: "/", icon: House, permission: "products:read" },
+  { name: "Products", href: "/products", icon: Package, permission: "products:read" },
   {
     name: "Categories",
     href: "/categories",
@@ -44,20 +37,18 @@ const navigation = [
     permission: "categories:read",
   },
   { name: "Brands", href: "/brands", icon: Boxes, permission: "brands:read" },
-  { name: "Media", href: "/media", icon: Images, permission: "media:read" },
-  {
-    name: "Team",
-    href: "/settings/team",
-    icon: Users,
-    permission: "users:read",
-  },
-  {
-    name: "API keys",
-    href: "/settings/api-keys",
-    icon: KeyRound,
-    permission: "api_keys:read",
-  },
+  { name: "Team", href: "/settings/team", icon: Users, permission: "users:read" },
+  { name: "Settings", href: "/settings", icon: Settings, permission: "settings:read" },
+  { name: "Audit log", href: "/audit-log", icon: ScrollText, permission: "audit_log:read" },
 ] as const
+
+/** The item a path belongs to: the longest href it starts with. */
+function activeHref(pathname: string) {
+  return navigation
+    .map((item) => item.href)
+    .filter((href) => pathname === href || pathname.startsWith(href + "/"))
+    .sort((a, b) => b.length - a.length)[0]
+}
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { user, tenant } = useSession()
@@ -95,7 +86,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 <SidebarMenuItem key={item.href}>
                   <SidebarLink
                     href={item.href}
-                    isActive={pathname === item.href}
+                    isActive={activeHref(pathname) === item.href}
                     icon={item.icon}
                   >
                     {item.name}

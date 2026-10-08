@@ -12,21 +12,20 @@ import { usePathname } from "next/navigation"
  * and goes nowhere.
  */
 const labels: Record<string, string> = {
-  "": "Products",
+  "": "Home",
+  products: "Products",
   categories: "Categories",
   brands: "Brands",
-  media: "Media",
-  export: "Export",
+  import: "Import",
   settings: "Settings",
   team: "Team",
-  "api-keys": "API keys",
-  quotes: "Quotes",
-  overview: "Overview",
-  monitoring: "Monitoring",
-  audits: "Audits",
+  "audit-log": "Audit log",
+  onboarding: "Get started",
 }
 
 function label(segment: string) {
+  // A record's id says nothing to a person; the page title names the record.
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-/.test(segment)) return "Details"
   return (
     labels[segment] ??
     // Anything not listed still reads as words rather than a slug.

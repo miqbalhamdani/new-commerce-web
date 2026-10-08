@@ -1,0 +1,25 @@
+import type { components } from "@/lib/api/schema"
+
+// The contract's shapes under short names. Generated, so they cannot drift
+// from contracts/openapi.yaml; never hand-written.
+type S = components["schemas"]
+export type Brand = S["Brand"]
+export type BrandPage = S["BrandPage"]
+export type Category = S["Category"]
+export type CategoryDetail = S["CategoryDetail"]
+export type CategoryKind = S["CategoryKind"]
+export type Product = S["Product"]
+export type ProductListItem = S["ProductListItem"]
+export type ProductPage = S["ProductPage"]
+export type Variant = S["Variant"]
+export type VariantMatrixResult = S["VariantMatrixResult"]
+export type Media = S["Media"]
+export type BulkResult = S["BulkResult"]
+export type Job = S["Job"]
+export type Role = S["Role"]
+export type User = S["User"]
+export type UserPage = S["UserPage"]
+export type Settings = S["Settings"]
+export type AuditEntry = S["AuditEntry"]
+export type AuditPage = S["AuditPage"]
+export type PresignResponse = S["PresignResponse"]
