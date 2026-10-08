@@ -81,6 +81,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/accept-invite": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set a password from an invitation link and sign in
+         * @description The token is the one in the invitation email: signed, expiring after 7 days, never
+         *     stored (BR-026). It works while the user is `invited`; an expired, forged or already-used
+         *     token is `422` on `token`. On success the user is `active` and signed in, with the refresh
+         *     cookie set, exactly like login.
+         */
+        post: operations["acceptInvite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/roles": {
         parameters: {
             query?: never;
@@ -98,6 +121,599 @@ export interface paths {
          *     gets `403` naming that permission (BR-024).
          */
         get: operations["listRoles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/brands": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Brands, sorted by name
+         * @description Cursor-paginated and sorted by `name`. `q` matches the name. Archived brands are listed
+         *     only with `archived=true` (BR-012). Requires `brands:read`.
+         */
+        get: operations["listBrands"];
+        put?: never;
+        /**
+         * Create a brand
+         * @description The slug is derived from the name and is never accepted from a client (BR-008). A name
+         *     whose slug matches another brand's in this tenant, archived ones included, is `422` on
+         *     `name` (BR-030). Requires `brands:write`.
+         */
+        post: operations["createBrand"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/brands/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        /** One brand */
+        get: operations["getBrand"];
+        put?: never;
+        post?: never;
+        /**
+         * Archive a brand
+         * @description Sets `archived_at`; the row is kept (BR-012). Requires `brands:write`.
+         */
+        delete: operations["archiveBrand"];
+        options?: never;
+        head?: never;
+        /**
+         * Rename a brand
+         * @description The slug is re-derived from the new name. No `If-Match`: brands have no version and the
+         *     last save wins (BR-010). Requires `brands:write`.
+         */
+        patch: operations["updateBrand"];
+        trace?: never;
+    };
+    "/categories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Categories, flat, sorted by kind then path
+         * @description Unpaginated; the client builds the tree from `parent_id`. `kind` limits to one tree,
+         *     `parent_id` starts below that node, `depth` limits how many levels below it (or below the
+         *     roots) come back. Archived categories are not listed. Requires `categories:read`.
+         */
+        get: operations["listCategories"];
+        put?: never;
+        /**
+         * Create a category
+         * @description `path` is derived from the name and parent and is never accepted (BR-008, BR-032). A
+         *     parent must be a live category of the same kind in this tenant, else `422` on
+         *     `parent_id`. Same-named siblings get distinct labels (BR-035). Requires
+         *     `categories:write`.
+         */
+        post: operations["createCategory"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/categories/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        /**
+         * One category, with the counts the move dialog needs
+         * @description `descendant_count` is live categories below this one; `product_count` is live products
+         *     linked anywhere in the subtree (BR-033).
+         */
+        get: operations["getCategory"];
+        put?: never;
+        post?: never;
+        /**
+         * Archive a category
+         * @description Archives (BR-012). A category with live children or live products in its subtree is
+         *     `409 category_in_use`, with `errors` naming `children` and `products` and their counts
+         *     (BR-036). Requires `categories:write`.
+         */
+        delete: operations["archiveCategory"];
+        options?: never;
+        head?: never;
+        /**
+         * Rename or move a category
+         * @description A rename or move rewrites every descendant's path in one statement and leaves product
+         *     links alone (BR-032, BR-033). Moving beneath itself or a descendant is `422` on
+         *     `parent_id` (BR-034); `parent_id: null` makes it a root. `kind` cannot change. No
+         *     `If-Match`: last save wins (BR-010). Requires `categories:write`.
+         */
+        patch: operations["updateCategory"];
+        trace?: never;
+    };
+    "/products": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Products, filtered and cursor-paginated
+         * @description `q` is a trigram match on the title, and an exact SKU also matches. `category_id`
+         *     includes its descendants. Archived products appear only with `status=archived`. Each
+         *     row's `categories` are its main-tree ones (`kind = category`), by path; an empty list
+         *     means it cannot be published (BR-038). `price_min` and `price_max` come from
+         *     `variant_price()` over live variants (BR-046), `null` when there are none. Target: p95
+         *     under 600 ms at 10k products (P1-030). Requires `products:read`.
+         */
+        get: operations["listProducts"];
+        put?: never;
+        /**
+         * Create a product
+         * @description New products are `draft` (BR-037). The slug is derived from the title, with `-2`, `-3`, …
+         *     when another product of this tenant (archived included) holds it; it is editable later
+         *     and never follows the title (BR-042). `brand_id` and `category_ids` must name live rows
+         *     of this tenant. Requires `products:write`.
+         */
+        post: operations["createProduct"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create or update up to 500 rows keyed on SKU
+         * @description Each row is its own savepoint: one bad row fails alone, the rest apply, and the answer
+         *     is `200` with a result per row by request index (BR-043). A row whose SKU exists is
+         *     updated (`on_conflict: update`) or reported as `duplicate_sku` (`error`). A row whose
+         *     SKU is new, or that has none, creates a draft product with one variant and needs
+         *     `title`. `status` applies to the variant's product; `active` runs the publish check for
+         *     that row (BR-038). Requires `products:write` and `variants:write`.
+         */
+        post: operations["bulkProducts"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import a CSV uploaded with presign purpose product_import
+         * @description Starts a `product_import` job and answers `202 {job_id}`; poll `GET /jobs/{id}` (BR-060).
+         *     `r2_key` is the key the presign returned; the job takes the id in it. The worker
+         *     streams the file, detects `,` or `;` and a BOM, maps columns, and upserts in batches of
+         *     500. Prices are whole rupiah. Rows with the same `title` become one product, and
+         *     `option:<Name>` columns build its variants. Every failed row lands in `errors.csv` with
+         *     its original line number (BR-044). Requires `products:write` and `variants:write`.
+         */
+        post: operations["importProducts"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        /** One product */
+        get: operations["getProduct"];
+        put?: never;
+        post?: never;
+        /**
+         * Archive a product
+         * @description Sets `status` to `archived` and `archived_at`; orders that reference it are untouched
+         *     (BR-012, BR-045). There is no restore in this version. Requires `products:write`.
+         */
+        delete: operations["archiveProduct"];
+        options?: never;
+        head?: never;
+        /**
+         * Edit a product
+         * @description `If-Match` is required (BR-010). `null` clears `description` or `brand_id`;
+         *     `category_ids` and `attributes` replace the whole value. `slug` must be lower-case
+         *     `a-z0-9-` and unique in the tenant. `option_names` changes only through the variant
+         *     matrix and is `422` here. `status: "active"` runs the publish check (`422
+         *     publish_check_failed`, BR-038); `"draft"` unpublishes; archiving is `DELETE`.
+         *     Requires `products:write`.
+         */
+        patch: operations["updateProduct"];
+        trace?: never;
+    };
+    "/products/{id}/variants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        /**
+         * A product's variants, in grid order
+         * @description Unpaginated. Archived variants only with `archived=true`. Requires `variants:read`.
+         */
+        get: operations["listVariants"];
+        put?: never;
+        /**
+         * Add one variant
+         * @description `option_values` has one entry per `option_names` entry and is unique among the product's
+         *     live variants (BR-040); it changes only through the matrix. A SKU already used in this
+         *     tenant is `409 duplicate_sku` naming the product that holds it (BR-039). A sale price not
+         *     below the regular price, or a sale that ends before it starts, is `422` (BR-046).
+         *     Requires `variants:write`.
+         */
+        post: operations["createVariant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/variants/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Archive one variant
+         * @description Archives (BR-012); orders keep their lines (BR-045). Requires `variants:write`.
+         */
+        delete: operations["archiveVariant"];
+        options?: never;
+        head?: never;
+        /**
+         * Edit one variant
+         * @description `If-Match` on the variant's version (BR-010). `regular_price`, `sale_price` and the
+         *     schedule are writable; `price` and `on_sale` are read-only, and `"sale_price": null` ends
+         *     the sale (BR-046). `option_values` changes only through the matrix. Requires
+         *     `variants:write`.
+         */
+        patch: operations["updateVariant"];
+        trace?: never;
+    };
+    "/jobs/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        /**
+         * A background job's progress and result
+         * @description Long work answers `202 {job_id}`; this is what the client polls (BR-060). The permission is
+         *     the job's own: `products:write` for `product_import`, `exports:read` for `order_export`,
+         *     `channels:read` for `channel_import`, `media:read` for `image_derivatives`. Every `GET` of
+         *     a finished job signs fresh 15-minute URLs (BR-063); the database stores keys.
+         */
+        get: operations["getJob"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/products/{id}/variant-matrix": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save the whole variant grid in one request
+         * @description `If-Match` is the **product's** version (BR-010). Rows match live variants by
+         *     `option_values`; a row matching only an archived variant restores it; anything else is
+         *     created (BR-041). In a row, an omitted field is left as it is and `null` clears a
+         *     nullable one, as on `PATCH`. `archive_missing: true` archives the live variants not
+         *     sent; changing `option_names` needs it.
+         *
+         *     The whole request is `422` before any write when a row does not fit `option_names`,
+         *     two rows share `option_values`, or a Colour axis is not at position 0 (BR-040).
+         *     Otherwise one bad row fails alone and the answer is `200` with that row's error; the
+         *     product's version goes up once. Target: 100 cells in under 2 s (P1-041). Requires
+         *     `variants:write`.
+         */
+        put: operations["putVariantMatrix"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/media/presign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign a direct upload to the object store
+         * @description Bytes go straight from the browser to R2 with the returned URL; they never pass through
+         *     the API (BR-051). `product_image`: JPEG, PNG or WebP up to 20 MB, `product_id` required,
+         *     `media:write`. `product_import`: CSV up to 50 MB, no `product_id`, `products:write`; the
+         *     key carries the future job's id. The key contains the content hash (BR-053). The URL
+         *     lives 10 minutes.
+         */
+        post: operations["presignMedia"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/media/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record an uploaded image on a product
+         * @description Checks the object's type and size against the store's `HEAD`; a key never uploaded is
+         *     `422` on `r2_key`. The image is appended after the product's others. Derivatives arrive
+         *     within ~15 s (BR-052). Confirming the same key twice returns the same image. Requires
+         *     `media:write`.
+         */
+        post: operations["confirmMedia"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/media/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete an image
+         * @description Media is the one thing truly deleted (BR-012). The stored objects go once no other row
+         *     uses the key. Requires `media:write`.
+         */
+        delete: operations["deleteMedia"];
+        options?: never;
+        head?: never;
+        /**
+         * Attach an image to a variant, or back to the product
+         * @description `variant_id` must be a variant of the image's product; `null` makes it product-level. No
+         *     `If-Match` (BR-010). Requires `media:write`.
+         */
+        patch: operations["updateMedia"];
+        trace?: never;
+    };
+    "/products/{id}/media/order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Reorder a product's images
+         * @description `media_ids` is every image of the product, in the new order; anything else is `422`.
+         *     Requires `media:write`.
+         */
+        patch: operations["orderMedia"];
+        trace?: never;
+    };
+    "/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The shop's staff
+         * @description Requires `users:read`. Sorted by when they were added.
+         */
+        get: operations["listUsers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/users/invite": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Invite someone by email
+         * @description Creates an `invited` user and emails them a link after the change commits (BR-026,
+         *     BR-128). An email already used in any shop is `422` on `email` (BR-020). Only an owner
+         *     can invite an owner (BR-023). Requires `users:write`.
+         */
+        post: operations["inviteUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/users/{id}/resend-invite": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Email the invitation again
+         * @description Only while the user is `invited`; otherwise `422`. Requires `users:write`.
+         */
+        post: operations["resendInvite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/users/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Disable a user
+         * @description Sets `disabled`; the row is never deleted (BR-027). Same rules as `PATCH`.
+         */
+        delete: operations["disableUser"];
+        options?: never;
+        head?: never;
+        /**
+         * Change a user's role, or disable or re-enable them
+         * @description No `If-Match` (BR-010). `status` is `active` (re-enable a disabled user) or `disabled`;
+         *     an invited user becomes active only by accepting. Disabling revokes their refresh
+         *     tokens, so they are out within 15 minutes (BR-027). Only an owner can grant `owner` or
+         *     change an owner (BR-023), else `403`. The last active owner cannot be demoted or
+         *     disabled (`422`). Requires `users:write`.
+         */
+        patch: operations["updateUser"];
+        trace?: never;
+    };
+    "/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The shop's own settings
+         * @description Requires `settings:read` (owner, admin, viewer).
+         */
+        get: operations["getSettings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change the shop's name, time zone or order prefix
+         * @description Only the owner (`settings:write`, BR-029). `timezone` is an IANA name; it is for
+         *     display only, the wire stays WIB (BR-007). `order_prefix` is 2–6 of `A-Z0-9` and applies
+         *     to new orders only (BR-077). `id`, `slug` and `status` are not writable (BR-008). No
+         *     `If-Match`: last save wins (BR-010). There is no currency setting (BR-029).
+         */
+        patch: operations["updateSettings"];
+        trace?: never;
+    };
+    "/audit-log": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Who changed what, newest first
+         * @description Requires `audit_log:read` (owner, admin). `actor` is `null` for the system (import worker,
+         *     retention job). `from` and `to` take an RFC 3339 time with an offset, or a date, which
+         *     means midnight WIB (BR-007). The row's internal id is never exposed (BR-005); the cursor
+         *     is opaque (BR-018).
+         */
+        get: operations["listAuditLog"];
         put?: never;
         post?: never;
         delete?: never;
@@ -167,6 +783,468 @@ export interface components {
             /** @description One line a client can show next to the role in a picker. */
             description?: string;
             permissions: string[];
+        };
+        Brand: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /**
+             * @description Derived from `name`; read-only (BR-030).
+             * @example erigo
+             */
+            slug: string;
+            /** Format: date-time */
+            archived_at: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        BrandWrite: {
+            name: string;
+        };
+        BrandPage: {
+            data: components["schemas"]["Brand"][];
+            next_cursor: string | null;
+        };
+        /**
+         * @description Independent trees; a product may sit in several (BR-031).
+         * @enum {string}
+         */
+        CategoryKind: "category" | "series" | "collection" | "activity" | "custom";
+        Category: {
+            /** Format: uuid */
+            id: string;
+            kind: components["schemas"]["CategoryKind"];
+            name: string;
+            /** Format: uuid */
+            parent_id: string | null;
+            /**
+             * @description Derived by the database from names and parents; read-only (BR-032).
+             * @example apparel.outerwear.jackets
+             */
+            path: string;
+            /** Format: date-time */
+            archived_at: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        CategoryDetail: components["schemas"]["Category"] & {
+            descendant_count: number;
+            product_count: number;
+        };
+        CategoryList: {
+            data: components["schemas"]["Category"][];
+        };
+        CategoryCreate: {
+            name: string;
+            /** Format: uuid */
+            parent_id?: string;
+            kind?: components["schemas"]["CategoryKind"];
+        };
+        CategoryUpdate: {
+            name?: string;
+            /** Format: uuid */
+            parent_id?: string | null;
+        };
+        /** @description A reference expanded on read (04-api-spec.md §1). */
+        Ref: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+        };
+        CategoryRef: {
+            /** Format: uuid */
+            id: string;
+            kind: components["schemas"]["CategoryKind"];
+            name: string;
+            path: string;
+        };
+        /** @enum {string} */
+        ProductStatus: "draft" | "active" | "archived";
+        /** @description One product image (04-api-spec.md §8). URLs are built on read; the database stores keys (BR-050). */
+        Media: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            product_id: string;
+            /** Format: uuid */
+            variant_id: string | null;
+            mime_type: string;
+            /** Format: int64 */
+            bytes: number;
+            width: number | null;
+            height: number | null;
+            position: number;
+            url: string;
+            /** @description `{"1600": url, "800": url, "200": url}` once the worker has made them (BR-052); `{}` before. */
+            derivatives: {
+                [key: string]: string;
+            };
+            /** Format: date-time */
+            created_at: string;
+        };
+        Product: {
+            /** Format: uuid */
+            id: string;
+            /** @description Send it back in `If-Match`; never in a body (BR-010). */
+            version: number;
+            title: string;
+            /** @example erigo-basic-tee */
+            slug: string;
+            description: string | null;
+            status: components["schemas"]["ProductStatus"];
+            brand: components["schemas"]["Ref"] | null;
+            /** @description Every category the product sits in, all kinds, by kind then path. */
+            categories: components["schemas"]["CategoryRef"][];
+            attributes: {
+                [key: string]: unknown;
+            };
+            option_names: string[];
+            /** @description Live variants. */
+            variant_count: number;
+            media: components["schemas"]["Media"][];
+            /** Format: date-time */
+            archived_at: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        ProductCreate: {
+            title: string;
+            description?: string;
+            /** Format: uuid */
+            brand_id?: string;
+            category_ids?: string[];
+            attributes?: {
+                [key: string]: unknown;
+            };
+        };
+        ProductUpdate: {
+            title?: string;
+            slug?: string;
+            description?: string | null;
+            /** Format: uuid */
+            brand_id?: string | null;
+            category_ids?: string[];
+            attributes?: {
+                [key: string]: unknown;
+            };
+            /** @enum {string} */
+            status?: "draft" | "active";
+        };
+        Variant: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            product_id: string;
+            version: number;
+            option_values: string[];
+            sku: string | null;
+            barcode: string | null;
+            regular_price: components["schemas"]["Money"];
+            sale_price: components["schemas"]["Money"] | null;
+            /** Format: date-time */
+            sale_starts_at: string | null;
+            /** Format: date-time */
+            sale_ends_at: string | null;
+            price: components["schemas"]["Money"];
+            /** @description Read-only. True while the sale's schedule is running (BR-046). */
+            on_sale: boolean;
+            weight_grams: number;
+            /** Format: date-time */
+            archived_at: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        VariantList: {
+            data: components["schemas"]["Variant"][];
+        };
+        VariantCreate: {
+            option_values: string[];
+            sku?: string;
+            barcode?: string;
+            regular_price?: components["schemas"]["Money"];
+            sale_price?: components["schemas"]["Money"];
+            /** Format: date-time */
+            sale_starts_at?: string;
+            /** Format: date-time */
+            sale_ends_at?: string;
+            weight_grams?: number;
+        };
+        VariantUpdate: {
+            sku?: string | null;
+            barcode?: string | null;
+            regular_price?: components["schemas"]["Money"];
+            sale_price?: components["schemas"]["Money"] | null;
+            /** Format: date-time */
+            sale_starts_at?: string | null;
+            /** Format: date-time */
+            sale_ends_at?: string | null;
+            weight_grams?: number;
+        };
+        CategoryBrief: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            path: string;
+        };
+        ProductListItem: {
+            /** Format: uuid */
+            id: string;
+            version: number;
+            title: string;
+            slug: string;
+            status: components["schemas"]["ProductStatus"];
+            brand: components["schemas"]["Ref"] | null;
+            /** @description Main-tree categories only (`kind = category`), by path. */
+            categories: components["schemas"]["CategoryBrief"][];
+            variant_count: number;
+            price_min: components["schemas"]["Money"] | null;
+            price_max: components["schemas"]["Money"] | null;
+            /** @description The first image's 200 px derivative, once made (BR-052). */
+            cover_url: string | null;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        ProductPage: {
+            data: components["schemas"]["ProductListItem"][];
+            next_cursor: string | null;
+        };
+        /** @enum {string} */
+        JobKind: "product_import" | "order_export" | "channel_import" | "image_derivatives";
+        Job: {
+            /** Format: uuid */
+            id: string;
+            kind: components["schemas"]["JobKind"];
+            /** @enum {string} */
+            state: "queued" | "running" | "done" | "failed";
+            processed: number;
+            total: number | null;
+            failed: number;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            finished_at: string | null;
+            /**
+             * @description `null` until `done`. Per kind: `product_import` carries `created`, `updated` and
+             *     `error_report_url` (+ `expires_in`), `null` when nothing failed; `order_export` carries
+             *     `download_url`.
+             */
+            result: {
+                [key: string]: unknown;
+            } | null;
+            error: components["schemas"]["Problem"] | null;
+        };
+        VariantMatrixRow: {
+            option_values: string[];
+            sku?: string | null;
+            barcode?: string | null;
+            regular_price?: components["schemas"]["Money"];
+            sale_price?: components["schemas"]["Money"] | null;
+            /** Format: date-time */
+            sale_starts_at?: string | null;
+            /** Format: date-time */
+            sale_ends_at?: string | null;
+            weight_grams?: number;
+        };
+        VariantMatrix: {
+            /** @description Ordered axes; Colour at position 0 when present (BR-040). */
+            option_names: string[];
+            rows: components["schemas"]["VariantMatrixRow"][];
+            archive_missing: boolean;
+        };
+        VariantMatrixRowResult: {
+            option_values: string[];
+            /** @enum {string} */
+            status: "created" | "updated" | "restored" | "unchanged" | "error";
+            /** Format: uuid */
+            variant_id: string | null;
+            code?: components["schemas"]["ErrorCode"];
+            detail?: string;
+        };
+        VariantMatrixResult: {
+            product_version: number;
+            created: number;
+            updated: number;
+            restored: number;
+            unchanged: number;
+            archived: number;
+            failed: number;
+            archived_variant_ids: string[];
+            results: components["schemas"]["VariantMatrixRowResult"][];
+        };
+        PresignRequest: {
+            /** @enum {string} */
+            purpose: "product_image" | "product_import";
+            /** Format: uuid */
+            product_id?: string;
+            mime_type: string;
+            /** Format: int64 */
+            bytes: number;
+            sha256: string;
+        };
+        PresignResponse: {
+            upload_url: string;
+            r2_key: string;
+            /** @example 600 */
+            expires_in: number;
+        };
+        ConfirmMedia: {
+            r2_key: string;
+            /** Format: uuid */
+            product_id: string;
+            /** Format: uuid */
+            variant_id?: string | null;
+        };
+        MediaUpdate: {
+            /** Format: uuid */
+            variant_id: string | null;
+        };
+        MediaOrder: {
+            media_ids: string[];
+        };
+        MediaList: {
+            data: components["schemas"]["Media"][];
+        };
+        BulkItem: {
+            sku?: string;
+            title?: string;
+            /** @enum {string} */
+            status?: "draft" | "active";
+            regular_price?: components["schemas"]["Money"];
+            sale_price?: components["schemas"]["Money"] | null;
+            /** Format: date-time */
+            sale_starts_at?: string | null;
+            /** Format: date-time */
+            sale_ends_at?: string | null;
+            weight_grams?: number;
+            barcode?: string | null;
+        };
+        BulkRequest: {
+            /** @enum {string} */
+            on_conflict: "update" | "error";
+            items: components["schemas"]["BulkItem"][];
+        };
+        BulkRowResult: {
+            index: number;
+            sku: string | null;
+            /** @enum {string} */
+            status: "created" | "updated" | "error";
+            /** Format: uuid */
+            variant_id: string | null;
+            code?: components["schemas"]["ErrorCode"];
+            detail?: string;
+        };
+        BulkResult: {
+            created: number;
+            updated: number;
+            failed: number;
+            results: components["schemas"]["BulkRowResult"][];
+        };
+        ImportRequest: {
+            /** @example jobs/0192-tenant/0193…/upload.csv */
+            r2_key: string;
+            /**
+             * @description CSV header → target: `title`, `sku`, `regular_price`, `sale_price`, `weight_grams`,
+             *     `barcode`, or `option:<Name>`. Unmapped columns are ignored. `title` or `sku` is
+             *     required.
+             * @example {
+             *       "Nama Produk": "title",
+             *       "SKU": "sku",
+             *       "Harga": "regular_price",
+             *       "Warna": "option:Colour"
+             *     }
+             */
+            column_mapping: {
+                [key: string]: string;
+            };
+            /** @enum {string} */
+            on_conflict: "update" | "error";
+        };
+        JobAccepted: {
+            /** Format: uuid */
+            job_id: string;
+        };
+        AcceptInvite: {
+            /** @example inv_9c2e… */
+            token: string;
+            /** Format: password */
+            password: string;
+        };
+        User: {
+            /** Format: uuid */
+            id: string;
+            /** Format: email */
+            email: string;
+            name: string;
+            /** @enum {string} */
+            role: "owner" | "admin" | "ops" | "viewer";
+            /** @enum {string} */
+            status: "invited" | "active" | "disabled";
+            /** Format: date-time */
+            last_login_at: string | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        UserPage: {
+            data: components["schemas"]["User"][];
+            next_cursor: string | null;
+        };
+        InviteUser: {
+            /** Format: email */
+            email: string;
+            name: string;
+            /** @enum {string} */
+            role: "owner" | "admin" | "ops" | "viewer";
+        };
+        UserUpdate: {
+            /** @enum {string} */
+            role?: "owner" | "admin" | "ops" | "viewer";
+            /** @enum {string} */
+            status?: "active" | "disabled";
+        };
+        Settings: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            slug: string;
+            /** @example ERG */
+            order_prefix: string;
+            /** @example Asia/Jakarta */
+            timezone: string;
+            /** @enum {string} */
+            status: "active" | "suspended" | "closed";
+        };
+        SettingsUpdate: {
+            name?: string;
+            timezone?: string;
+            order_prefix?: string;
+        };
+        AuditEntry: {
+            /** @example order.transition */
+            action: string;
+            actor: components["schemas"]["Ref"] | null;
+            subject_type: string;
+            subject_id: string;
+            before: {
+                [key: string]: unknown;
+            } | null;
+            after: {
+                [key: string]: unknown;
+            } | null;
+            ip: string | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        AuditPage: {
+            data: components["schemas"]["AuditEntry"][];
+            next_cursor: string | null;
         };
         /**
          * Format: int64
@@ -310,6 +1388,7 @@ export interface components {
         };
     };
     parameters: {
+        Id: string;
         /** @description Page size. Pairs with `cursor`; there is no `offset` in this API. */
         Limit: number;
         /**
@@ -412,6 +1491,33 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
         };
     };
+    acceptInvite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AcceptInvite"];
+            };
+        };
+        responses: {
+            /** @description Signed in. */
+            200: {
+                headers: {
+                    /** @description The refresh token, httpOnly, Secure, SameSite=Lax. */
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Session"];
+                };
+            };
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
     listRoles: {
         parameters: {
             query?: never;
@@ -432,6 +1538,1028 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+        };
+    };
+    listBrands: {
+        parameters: {
+            query?: {
+                q?: string;
+                archived?: boolean;
+                /** @description Page size. Pairs with `cursor`; there is no `offset` in this API. */
+                limit?: components["parameters"]["Limit"];
+                /**
+                 * @description Opaque cursor from the previous page. Cursor pagination only — a deep `offset` on a large
+                 *     table is a sequential scan, so the parameter does not exist.
+                 */
+                cursor?: components["parameters"]["Cursor"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of brands. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BrandPage"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    createBrand: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BrandWrite"];
+            };
+        };
+        responses: {
+            /** @description Created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Brand"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    getBrand: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The brand. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Brand"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    archiveBrand: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Archived. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateBrand: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BrandWrite"];
+            };
+        };
+        responses: {
+            /** @description The renamed brand. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Brand"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    listCategories: {
+        parameters: {
+            query?: {
+                kind?: components["schemas"]["CategoryKind"];
+                parent_id?: string;
+                depth?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The categories. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CategoryList"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    createCategory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CategoryCreate"];
+            };
+        };
+        responses: {
+            /** @description Created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Category"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    getCategory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The category. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CategoryDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    archiveCategory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Archived. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    updateCategory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CategoryUpdate"];
+            };
+        };
+        responses: {
+            /** @description The category with its new path. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Category"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    listProducts: {
+        parameters: {
+            query?: {
+                status?: components["schemas"]["ProductStatus"];
+                brand_id?: string;
+                category_id?: string;
+                q?: string;
+                sort?: "-created_at" | "-updated_at" | "title";
+                /** @description Page size. Pairs with `cursor`; there is no `offset` in this API. */
+                limit?: components["parameters"]["Limit"];
+                /**
+                 * @description Opaque cursor from the previous page. Cursor pagination only — a deep `offset` on a large
+                 *     table is a sequential scan, so the parameter does not exist.
+                 */
+                cursor?: components["parameters"]["Cursor"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of products. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductPage"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    createProduct: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProductCreate"];
+            };
+        };
+        responses: {
+            /** @description Created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Product"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    bulkProducts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkRequest"];
+            };
+        };
+        responses: {
+            /** @description Per-row results. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    importProducts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportRequest"];
+            };
+        };
+        responses: {
+            /** @description Queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAccepted"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    getProduct: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The product. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Product"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    archiveProduct: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Archived. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateProduct: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description The `version` read from the resource. Required on every `PATCH`. The server checks it in
+                 *     the `UPDATE … WHERE version = $n` predicate; a stale value is `409 version_conflict`, not
+                 *     a silent no-op.
+                 *
+                 *     `version` travels here and never in the request body.
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProductUpdate"];
+            };
+        };
+        responses: {
+            /** @description The product, with its new version. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Product"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    listVariants: {
+        parameters: {
+            query?: {
+                archived?: boolean;
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The variants. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VariantList"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createVariant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VariantCreate"];
+            };
+        };
+        responses: {
+            /** @description Created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Variant"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    archiveVariant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Archived. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateVariant: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description The `version` read from the resource. Required on every `PATCH`. The server checks it in
+                 *     the `UPDATE … WHERE version = $n` predicate; a stale value is `409 version_conflict`, not
+                 *     a silent no-op.
+                 *
+                 *     `version` travels here and never in the request body.
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VariantUpdate"];
+            };
+        };
+        responses: {
+            /** @description The variant, with its new version. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Variant"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    getJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The job. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Job"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    putVariantMatrix: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description The `version` read from the resource. Required on every `PATCH`. The server checks it in
+                 *     the `UPDATE … WHERE version = $n` predicate; a stale value is `409 version_conflict`, not
+                 *     a silent no-op.
+                 *
+                 *     `version` travels here and never in the request body.
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VariantMatrix"];
+            };
+        };
+        responses: {
+            /** @description Per-row results and counts. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VariantMatrixResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    presignMedia: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PresignRequest"];
+            };
+        };
+        responses: {
+            /** @description Where to PUT the bytes. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PresignResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    confirmMedia: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfirmMedia"];
+            };
+        };
+        responses: {
+            /** @description The image. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Media"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    deleteMedia: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateMedia: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MediaUpdate"];
+            };
+        };
+        responses: {
+            /** @description The image. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Media"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    orderMedia: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MediaOrder"];
+            };
+        };
+        responses: {
+            /** @description The images, by position. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaList"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    listUsers: {
+        parameters: {
+            query?: {
+                status?: "invited" | "active" | "disabled";
+                role?: "owner" | "admin" | "ops" | "viewer";
+                /** @description Page size. Pairs with `cursor`; there is no `offset` in this API. */
+                limit?: components["parameters"]["Limit"];
+                /**
+                 * @description Opaque cursor from the previous page. Cursor pagination only — a deep `offset` on a large
+                 *     table is a sequential scan, so the parameter does not exist.
+                 */
+                cursor?: components["parameters"]["Cursor"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of users. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserPage"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    inviteUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InviteUser"];
+            };
+        };
+        responses: {
+            /** @description The invited user. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["User"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    resendInvite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sent. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    disableUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Disabled. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    updateUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserUpdate"];
+            };
+        };
+        responses: {
+            /** @description The user. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["User"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    getSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The settings. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Settings"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    updateSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SettingsUpdate"];
+            };
+        };
+        responses: {
+            /** @description The settings. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Settings"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    listAuditLog: {
+        parameters: {
+            query?: {
+                subject_type?: string;
+                subject_id?: string;
+                actor_id?: string;
+                from?: string;
+                to?: string;
+                /** @description Page size. Pairs with `cursor`; there is no `offset` in this API. */
+                limit?: components["parameters"]["Limit"];
+                /**
+                 * @description Opaque cursor from the previous page. Cursor pagination only — a deep `offset` on a large
+                 *     table is a sequential scan, so the parameter does not exist.
+                 */
+                cursor?: components["parameters"]["Cursor"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of entries. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditPage"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
         };
     };
 }

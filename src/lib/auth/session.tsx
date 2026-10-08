@@ -34,6 +34,8 @@ interface SessionState {
   /** Null until the first refresh finishes, so nothing renders a signed-out shell first. */
   status: "loading" | "authenticated" | "anonymous";
   signIn(email: string, password: string): Promise<void>;
+  /** Sets a password from an invitation link and signs in (BR-026). */
+  acceptInvite(token: string, password: string): Promise<void>;
   signOut(): Promise<void>;
   /** Reads the current access token. A function, not a value -- see below. */
   getAccessToken(): string | null;
@@ -151,6 +153,23 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     [adopt],
   );
 
+  const acceptInvite = useCallback(
+    async (token: string, password: string) => {
+      const response = await fetch("/v1/auth/accept-invite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ token, password }),
+      });
+      if (!response.ok) {
+        const problem = await response.json().catch(() => null);
+        throw new AuthError(problem?.errors?.[0]?.detail ?? problem?.detail ?? "Could not accept the invitation.");
+      }
+      adopt((await response.json()) as Session);
+    },
+    [adopt],
+  );
+
   const signOut = useCallback(async () => {
     const token = accessToken.current;
     // Best effort. If this fails the local session still ends -- leaving the
@@ -182,11 +201,12 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       tenant,
       status,
       signIn,
+      acceptInvite,
       signOut,
       refresh,
       getAccessToken: () => accessToken.current,
     }),
-    [user, tenant, status, signIn, signOut, refresh],
+    [user, tenant, status, signIn, acceptInvite, signOut, refresh],
   );
 
   return <SessionContext value={value}>{children}</SessionContext>;

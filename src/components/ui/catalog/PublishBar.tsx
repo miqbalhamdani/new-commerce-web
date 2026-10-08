@@ -1,0 +1,102 @@
+"use client"
+
+import { useState } from "react"
+
+import { Button } from "@/components/Button"
+import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
+import { ApiError } from "@/lib/api/client"
+import type { Product } from "@/lib/api/types"
+import { asApiError, useApi } from "@/lib/api/use-api"
+import { failuresOf, type Failure } from "@/lib/catalog/publish"
+
+/**
+ * Publish and unpublish (P1-075). A refused publish lists every reason
+ * (BR-038), each a link to the field or matrix cell that fixes it.
+ */
+export function PublishBar({
+  product,
+  onChanged,
+  onFailures,
+}: {
+  product: Product
+  onChanged: (p: Product) => void
+  onFailures: (f: Failure[]) => void
+}) {
+  const api = useApi()
+  const [error, setError] = useState<ApiError | null>(null)
+  const [busy, setBusy] = useState(false)
+  const failures = failuresOf(error)
+
+  async function setStatus(status: "active" | "draft") {
+    setBusy(true)
+    try {
+      const p = await api<Product>(`/v1/products/${product.id}`, {
+        method: "PATCH",
+        body: { status },
+        headers: { "If-Match": String(product.version) },
+      })
+      setError(null)
+      onFailures([])
+      onChanged(p)
+    } catch (err) {
+      const e = asApiError(err)
+      setError(e)
+      onFailures(failuresOf(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  function go(anchor: string) {
+    const el = document.getElementById(anchor)
+    el?.scrollIntoView({ block: "center" })
+    if (el instanceof HTMLInputElement) el.focus()
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex gap-2">
+        {product.status === "draft" && (
+          <Button isLoading={busy} onClick={() => setStatus("active")}>
+            Publish
+          </Button>
+        )}
+        {product.status === "active" && (
+          <Button
+            variant="secondary"
+            isLoading={busy}
+            onClick={() => setStatus("draft")}
+          >
+            Unpublish
+          </Button>
+        )}
+      </div>
+      {failures.length > 0 ? (
+        <div
+          role="alert"
+          className="rounded-md bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950/60 dark:text-amber-200"
+        >
+          <p className="font-medium">Not published yet. Fix these first:</p>
+          <ul className="mt-1 list-disc pl-5">
+            {failures.map((f, i) => (
+              <li key={i}>
+                <a
+                  href={`#${f.anchor}`}
+                  className="underline"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    go(f.anchor)
+                  }}
+                >
+                  {f.detail}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : (
+        <ErrorNotice error={error} title="Could not change the status" />
+      )}
+    </div>
+  )
+}
