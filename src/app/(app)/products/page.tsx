@@ -9,6 +9,7 @@ import { Input } from "@/components/Input"
 import { Dialog } from "@/components/ui/common/Dialog"
 import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
 import { NativeSelect } from "@/components/ui/common/Field"
+import { BulkActions } from "@/components/ui/catalog/BulkActions"
 import { ProductTable } from "@/components/ui/catalog/ProductTable"
 import { Empty, Loading, Page } from "@/components/ui/common/Page"
 import { ApiError } from "@/lib/api/client"
@@ -42,6 +43,8 @@ function ProductList() {
   const canWrite = useCan("products:write")
   const [cursor, setCursor] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [failed, setFailed] = useState<Map<string, string>>(new Map())
 
   // Coming back to a bare /products restores the last filters used.
   useEffect(() => {
@@ -63,7 +66,7 @@ function ProductList() {
   const query = filtersToQuery(filters)
   query.set("limit", "50")
   if (cursor) query.set("cursor", cursor)
-  const { data, error, loading } = useResource<ProductPage>(
+  const { data, error, loading, reload } = useResource<ProductPage>(
     `/v1/products?${query}`,
   )
   const { data: brands } = useResource<BrandPage>("/v1/brands?limit=200")
@@ -160,7 +163,35 @@ function ProductList() {
           Clear a filter, or add a product.
         </Empty>
       ) : data ? (
-        <ProductTable rows={data.data} />
+        <>
+          {canWrite && selected.size > 0 && (
+            <BulkActions
+              selected={[...selected]}
+              onDone={(f) => {
+                setFailed(f)
+                setSelected(new Set([...f.keys()]))
+                reload()
+              }}
+            />
+          )}
+          <ProductTable
+            rows={data.data}
+            selectable={
+              canWrite
+                ? {
+                    selected,
+                    failed,
+                    toggle: (id) => {
+                      const s = new Set(selected)
+                      if (s.has(id)) s.delete(id)
+                      else s.add(id)
+                      setSelected(s)
+                    },
+                  }
+                : undefined
+            }
+          />
+        </>
       ) : null}
       {data?.next_cursor && (
         <div className="mt-4 flex justify-end">
