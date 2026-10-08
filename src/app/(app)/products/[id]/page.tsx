@@ -5,6 +5,7 @@ import { use, useState } from "react"
 
 import { Badge } from "@/components/Badge"
 import { ProductDetails } from "@/components/ui/catalog/ProductDetails"
+import { VariantMatrix } from "@/components/ui/catalog/VariantMatrix"
 import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
 import { Loading, Page } from "@/components/ui/common/Page"
 import type { Product } from "@/lib/api/types"
@@ -21,11 +22,13 @@ export default function ProductPage({
 }) {
   const { id } = use(params)
   const canWrite = useCan("products:write")
+  const canVariants = useCan("variants:write")
   const {
     data: product,
     setData,
     error,
     loading,
+    reload,
   } = useResource<Product>(`/v1/products/${id}`)
   const [dirty, setDirty] = useState(false)
 
@@ -82,6 +85,19 @@ export default function ProductPage({
             canWrite={canWrite && !archived}
             onSaved={setData}
             onDirtyChange={setDirty}
+          />
+        </section>
+        <section aria-labelledby="variants">
+          <h2
+            id="variants"
+            className="mb-3 text-sm font-semibold text-gray-900 dark:text-gray-50"
+          >
+            Variants
+          </h2>
+          <VariantMatrix
+            product={product}
+            canWrite={canVariants && !archived}
+            onSaved={reload}
           />
         </section>
       </div>
