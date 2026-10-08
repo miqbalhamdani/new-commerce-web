@@ -37,8 +37,16 @@ export function ProductDetails({
   onDirtyChange?: (dirty: boolean) => void
 }) {
   const api = useApi()
-  const original = useMemo(() => draftOf(product), [product])
-  const [draft, setDraft] = useState<ProductDraft>(original)
+  // The form re-seeds only when the product itself changed version. An image
+  // uploading or a variant saving reloads the product too, and must not wipe
+  // what someone is typing (P1-048: uploading never blocks the form).
+  const [base, setBase] = useState(product)
+  const [draft, setDraft] = useState<ProductDraft>(() => draftOf(product))
+  if (product.id !== base.id || product.version !== base.version) {
+    setBase(product)
+    setDraft(draftOf(product))
+  }
+  const original = useMemo(() => draftOf(base), [base])
   const [error, setError] = useState<ApiError | null>(null)
   const [saving, setSaving] = useState(false)
   const { data: brands } = useResource<BrandPage>("/v1/brands?limit=200")
@@ -48,7 +56,6 @@ export function ProductDetails({
   const patch = patchOf(original, draft)
   const dirty = Object.keys(patch).length > 0
 
-  useEffect(() => setDraft(original), [original])
   useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange])
   useEffect(() => {
     if (!dirty) return

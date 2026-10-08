@@ -5,6 +5,7 @@ import { use, useState } from "react"
 
 import { Badge } from "@/components/Badge"
 import { BulkPriceAdjust } from "@/components/ui/catalog/BulkPriceAdjust"
+import { MediaManager } from "@/components/ui/catalog/MediaManager"
 import { ProductDetails } from "@/components/ui/catalog/ProductDetails"
 import { VariantMatrix } from "@/components/ui/catalog/VariantMatrix"
 import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
@@ -24,6 +25,7 @@ export default function ProductPage({
   const { id } = use(params)
   const canWrite = useCan("products:write")
   const canVariants = useCan("variants:write")
+  const canMedia = useCan("media:write")
   const {
     data: product,
     setData,
@@ -86,6 +88,19 @@ export default function ProductPage({
             canWrite={canWrite && !archived}
             onSaved={setData}
             onDirtyChange={setDirty}
+          />
+        </section>
+        <section aria-labelledby="images">
+          <h2
+            id="images"
+            className="mb-3 text-sm font-semibold text-gray-900 dark:text-gray-50"
+          >
+            Images
+          </h2>
+          <MediaManager
+            product={product}
+            canWrite={canMedia && !archived}
+            onChanged={reload}
           />
         </section>
         <section aria-labelledby="variants">
