@@ -8,6 +8,9 @@ interface ModalProps {
   children: React.ReactNode;
   showCloseButton?: boolean; // New prop to control close button visibility
   isFullscreen?: boolean; // Default to false for backwards compatibility
+  // PATCH(new-commerce): announce the panel as a dialog to assistive tech.
+  // labelledBy names the element holding the dialog's title.
+  labelledBy?: string;
 }
 
 export const Modal: React.FC<ModalProps> = ({
@@ -17,6 +20,7 @@ export const Modal: React.FC<ModalProps> = ({
   className,
   showCloseButton = true, // Default to true for backwards compatibility
   isFullscreen = false,
+  labelledBy,
 }) => {
   const modalRef = useRef<HTMLDivElement>(null);
 
@@ -64,6 +68,9 @@ export const Modal: React.FC<ModalProps> = ({
       )}
       <div
         ref={modalRef}
+        role="dialog" // PATCH(new-commerce)
+        aria-modal="true"
+        aria-labelledby={labelledBy}
         className={`${contentClasses}  ${className}`}
         onClick={(e) => e.stopPropagation()}
       >

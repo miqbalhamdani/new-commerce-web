@@ -7,6 +7,9 @@ interface CheckboxProps {
   id?: string; // Unique ID for the checkbox
   onChange: (checked: boolean) => void; // Change handler
   disabled?: boolean; // Disabled state
+  // PATCH(new-commerce): a checkbox without a visible label (table row
+  // selection) still needs an accessible name.
+  ariaLabel?: string;
 }
 
 const Checkbox: React.FC<CheckboxProps> = ({
@@ -16,6 +19,7 @@ const Checkbox: React.FC<CheckboxProps> = ({
   onChange,
   className = "",
   disabled = false,
+  ariaLabel,
 }) => {
   return (
     <label
@@ -25,6 +29,7 @@ const Checkbox: React.FC<CheckboxProps> = ({
     >
       <input
         id={id}
+        aria-label={ariaLabel} // PATCH(new-commerce)
         type="checkbox"
         className={`w-4 h-4 ${className} dark:bg-gray-800 dark:border-gray-700 border-gray-300 dark:focus:outline-none rounded text-brand-500 dark:focus:ring-0 focus:ring-0 dark:focus:ring-transparent focus:ring-transparent focus:outline-none dark:focus:bg-outline-none focus:ring-offset-0`}
         checked={checked}

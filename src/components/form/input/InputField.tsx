@@ -1,17 +1,10 @@
 import React, { FC } from "react";
 
-interface InputProps {
-  type?: "text" | "number" | "email" | "password" | "date" | "time" | string;
-  id?: string;
-  name?: string;
-  placeholder?: string;
-  defaultValue?: string | number;
-  onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  className?: string;
-  min?: string;
-  max?: string;
-  step?: number;
-  disabled?: boolean;
+// PATCH(new-commerce): upstream enumerated a closed prop list with only
+// defaultValue -- no controlled `value`, no onPaste/onKeyDown/aria-*. The
+// interface now extends the native input props and spreads the rest, keeping
+// the error/success/hint extras. See src/components/PATCHES.md.
+interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   success?: boolean;
   error?: boolean;
   hint?: string; // Optional hint text
@@ -19,19 +12,12 @@ interface InputProps {
 
 const Input: FC<InputProps> = ({
   type = "text",
-  id,
-  name,
-  placeholder,
-  defaultValue,
-  onChange,
   className = "",
-  min,
-  max,
-  step,
   disabled = false,
   success = false,
   error = false,
   hint,
+  ...rest
 }) => {
   // Determine input styles based on state (disabled, success, error)
   let inputClasses = `h-11 w-full rounded-lg border appearance-none px-4 py-2.5 text-sm shadow-theme-xs placeholder:text-gray-400 focus:outline-none focus:ring dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 ${className}`;
@@ -51,16 +37,10 @@ const Input: FC<InputProps> = ({
     <div className="relative">
       <input
         type={type}
-        id={id}
-        name={name}
-        placeholder={placeholder}
-        defaultValue={defaultValue}
-        onChange={onChange}
-        min={min}
-        max={max}
-        step={step}
         disabled={disabled}
+        aria-invalid={error || undefined}
         className={inputClasses}
+        {...rest}
       />
 
       {/* Optional Hint Text */}
@@ -70,8 +50,8 @@ const Input: FC<InputProps> = ({
             error
               ? "text-error-500"
               : success
-              ? "text-success-500"
-              : "text-gray-500"
+                ? "text-success-500"
+                : "text-gray-500"
           }`}
         >
           {hint}

@@ -1,58 +1,23 @@
 "use client";
 
-import type React from "react";
-import { createContext, useState, useContext, useEffect } from "react";
+// PATCH(new-commerce): full-file replacement. Upstream's ThemeContext applied
+// the saved theme from a useEffect, so a dark-mode user got a flash of light
+// on every load, and it had no "system" setting. This app already runs
+// next-themes (attribute="class", no-flash script, system support) from the
+// root layout, so this file only re-exports upstream's hook shape on top of
+// it. Both use the "theme" localStorage key. See src/components/PATCHES.md.
+
+import { useTheme as useNextTheme } from "next-themes";
 
 type Theme = "light" | "dark";
 
-type ThemeContextType = {
-  theme: Theme;
-  toggleTheme: () => void;
-};
-
-const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
-
-export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
-  children,
-}) => {
-  const [theme, setTheme] = useState<Theme>("light");
-  const [isInitialized, setIsInitialized] = useState(false);
-
-  useEffect(() => {
-    // This code will only run on the client side
-    const savedTheme = localStorage.getItem("theme") as Theme | null;
-    const initialTheme = savedTheme || "light"; // Default to light theme
-
-    setTheme(initialTheme);
-    setIsInitialized(true);
-  }, []);
-
-  useEffect(() => {
-    if (isInitialized) {
-      localStorage.setItem("theme", theme);
-      if (theme === "dark") {
-        document.documentElement.classList.add("dark");
-      } else {
-        document.documentElement.classList.remove("dark");
-      }
-    }
-  }, [theme, isInitialized]);
-
-  const toggleTheme = () => {
-    setTheme((prevTheme) => (prevTheme === "light" ? "dark" : "light"));
+export const useTheme = (): { theme: Theme; toggleTheme: () => void } => {
+  const { resolvedTheme, setTheme } = useNextTheme();
+  // Before hydration resolvedTheme is undefined; light is the safe default
+  // for the one render it exists.
+  const theme: Theme = resolvedTheme === "dark" ? "dark" : "light";
+  return {
+    theme,
+    toggleTheme: () => setTheme(theme === "dark" ? "light" : "dark"),
   };
-
-  return (
-    <ThemeContext.Provider value={{ theme, toggleTheme }}>
-      {children}
-    </ThemeContext.Provider>
-  );
-};
-
-export const useTheme = () => {
-  const context = useContext(ThemeContext);
-  if (context === undefined) {
-    throw new Error("useTheme must be used within a ThemeProvider");
-  }
-  return context;
 };
