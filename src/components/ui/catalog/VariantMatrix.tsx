@@ -310,12 +310,12 @@ export function VariantMatrix({
                     : "Fill down"}
                 </Button>
                 {children?.({ rows, setRows, selected, combos: grid })}
+                <Help />
               </div>
               <p id="fill-down-hint" className="sr-only">
                 Click a cell first, then copy it to every row below.
               </p>
             </div>
-            <Help />
           </>
         )}
 
@@ -592,41 +592,40 @@ function Affix({
   )
 }
 
-/** How the bulk tools work, one click away rather than always on screen. */
+/** How the bulk tools work: a tooltip on the toolbar, shown on hover or focus. */
 function Help() {
   return (
-    <details className="group rounded-xl border border-gray-200 px-4 py-3 text-theme-sm dark:border-gray-800">
-      <summary className="flex cursor-pointer list-none items-center gap-2 font-medium text-gray-700 marker:hidden dark:text-gray-300 [&::-webkit-details-marker]:hidden">
-        <HelpCircle aria-hidden className="size-4 text-brand-500" />
-        How do Fill down and Adjust prices work?
-      </summary>
-      <div className="mt-3 grid gap-4 text-gray-600 sm:grid-cols-2 dark:text-gray-400">
-        <div>
-          <p className="font-medium text-gray-800 dark:text-white/90">
-            Fill down: one value on many rows
-          </p>
-          <ol className="mt-1 list-decimal space-y-0.5 pl-5">
-            <li>Type a value in one row, e.g. its regular price.</li>
-            <li>With that box still selected, click Fill down.</li>
-            <li>Every row below it gets the same value.</li>
-          </ol>
-        </div>
-        <div>
-          <p className="font-medium text-gray-800 dark:text-white/90">
-            Adjust prices: change prices together
-          </p>
-          <ol className="mt-1 list-decimal space-y-0.5 pl-5">
-            <li>Tick the rows to change, or none for every row.</li>
-            <li>
-              Click Adjust prices, then pick the price, raise or lower, and an
-              amount or a percentage.
-            </li>
-            <li>Check the preview and click Apply.</li>
-            <li>Click Save variants to keep it.</li>
-          </ol>
-        </div>
-      </div>
-    </details>
+    <span className="group relative inline-flex">
+      <button
+        type="button"
+        aria-label="How do Fill down and Adjust prices work?"
+        aria-describedby="bulk-help"
+        className="flex size-9 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-brand-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/30 dark:text-gray-400 dark:hover:bg-white/5"
+      >
+        <HelpCircle aria-hidden className="size-5" />
+      </button>
+      <span
+        id="bulk-help"
+        role="tooltip"
+        className="invisible absolute right-0 top-full z-50 mt-2 w-80 rounded-xl border border-gray-200 bg-white p-4 text-theme-sm text-gray-600 opacity-0 shadow-theme-lg transition-opacity duration-150 group-focus-within:visible group-focus-within:opacity-100 group-hover:visible group-hover:opacity-100 dark:border-gray-800 dark:bg-gray-dark dark:text-gray-400"
+      >
+        <span className="block font-medium text-gray-800 dark:text-white/90">
+          Fill down: one value on many rows
+        </span>
+        <span className="mt-1 block">
+          Type a value in one row, keep that box selected, then click Fill down.
+          Every row below gets the same value.
+        </span>
+        <span className="mt-3 block font-medium text-gray-800 dark:text-white/90">
+          Adjust prices: change prices together
+        </span>
+        <span className="mt-1 block">
+          Tick the rows to change (none means every row), click Adjust prices,
+          pick the price, raise or lower, and an amount or %. Check the preview,
+          Apply, then Save variants.
+        </span>
+      </span>
+    </span>
   )
 }
 
@@ -698,7 +697,7 @@ function AxisEditor({
               placeholder={
                 axis.values.length ? "Add more…" : "Type values, e.g. S, M, L"
               }
-              className="h-7 min-w-36 flex-1 bg-transparent px-1 text-sm text-gray-800 outline-none placeholder:text-gray-400 dark:text-white/90"
+              className="h-7 min-w-36 flex-1 border-0 bg-transparent px-1 text-sm text-gray-800 shadow-none outline-none ring-0 focus:border-0 focus:outline-none focus:ring-0 placeholder:text-gray-400 dark:text-white/90"
               value={value}
               onChange={(e) => {
                 const v = e.target.value
