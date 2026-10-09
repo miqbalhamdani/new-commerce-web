@@ -14,7 +14,7 @@ app chrome and are ours to edit freely; upstream treats them as app code too.
 |---|---|---|
 | 1 | `ui/button/Button.tsx` | Props extend `ButtonHTMLAttributes` (upstream had no `type`, so no submit buttons), default `type="button"`, `isLoading` spinner state, `ghost` + `destructive` variants, visible `focus-visible:` ring (upstream has none). |
 | 2 | `form/input/InputField.tsx` | Props extend `InputHTMLAttributes` and spread (upstream was a closed list with only `defaultValue` — no controlled `value`, `onPaste`, `aria-*`). Adds `aria-invalid` on error. |
-| 3 | `ui/modal/index.tsx` | `role="dialog"`, `aria-modal`, optional `labelledBy`; backdrop at `bg-gray-400/25` (upstream `/50`). Known accepted gap: no portal, no focus trap — the Dialog wrapper moves focus in. |
+| 3 | `ui/modal/index.tsx` | `role="dialog"`, `aria-modal`, optional `labelledBy`; backdrop `bg-gray-900/25`, no blur (upstream `bg-gray-400/50 backdrop-blur-[32px]`). Known accepted gap: no portal, no focus trap — the Dialog wrapper moves focus in. |
 | 4 | `form/input/Checkbox.tsx` | Optional `ariaLabel` for checkboxes without a visible label (row selection). **Currently unused** — screens use the custom-drawn `ui/common/Field.tsx` Checkbox (native event shape, no forced label wrapper). |
 | 5 | `context/ThemeContext.tsx` | Full-file replacement: a shim over next-themes keeping upstream's `useTheme → {theme, toggleTheme}` shape. Upstream applied the saved theme in an effect (flash of light) and had no system setting. |
 | 6 | `components/header/UserDropdown.tsx` | Upstream syntax bug: duplicate `className` on the trigger. (File is ours-derived anyway.) |
