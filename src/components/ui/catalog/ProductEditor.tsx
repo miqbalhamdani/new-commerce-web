@@ -159,7 +159,7 @@ export function ProductEditor({
 
           <aside
             aria-label="Status and organisation"
-            className="flex flex-col gap-4 rounded-[28px] border border-dashed border-gray-200 bg-gray-50/60 p-3 xl:self-start dark:border-gray-800 dark:bg-white/[0.02]"
+            className="flex flex-col gap-6 xl:self-start"
           >
             <Section
               title="Status"
