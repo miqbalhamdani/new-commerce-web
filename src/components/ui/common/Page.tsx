@@ -13,7 +13,10 @@ export function Page({
   actions,
   children,
   wide,
+  back,
 }: {
+  /** A way back, above the title: "← Products". */
+  back?: React.ReactNode
   title: string
   description?: string
   actions?: React.ReactNode
@@ -22,6 +25,7 @@ export function Page({
 }) {
   return (
     <div className={cx("mx-auto", wide ? "max-w-full" : "max-w-5xl")}>
+      {back && <div className="mb-2">{back}</div>}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-semibold text-gray-800 dark:text-white/90">
           {title}

@@ -1,9 +1,9 @@
 "use client"
 
+import { ChevronLeft } from "lucide-react"
 import Link from "next/link"
 import { useState } from "react"
 
-import Badge from "@/components/ui/badge/Badge"
 import Button from "@/components/ui/button/Button"
 import { BulkPriceAdjust } from "@/components/ui/catalog/BulkPriceAdjust"
 import { MediaManager } from "@/components/ui/catalog/MediaManager"
@@ -19,12 +19,25 @@ import { VariantMatrix } from "@/components/ui/catalog/VariantMatrix"
 import { Page, Section } from "@/components/ui/common/Page"
 import type { Product } from "@/lib/api/types"
 import { useCan } from "@/lib/auth/session"
+import { cx } from "@/lib/utils"
 import type { Failure } from "@/lib/catalog/publish"
 
-const statusColor = {
-  draft: "light",
-  active: "success",
-  archived: "warning",
+const statusLook = {
+  draft: {
+    label: "Draft",
+    dot: "bg-gray-400",
+    line: "Hidden from your storefront.",
+  },
+  active: {
+    label: "Active",
+    dot: "bg-success-500",
+    line: "Live on your storefront.",
+  },
+  archived: {
+    label: "Archived",
+    dot: "bg-warning-500",
+    line: "Off your storefront and read-only.",
+  },
 } as const
 
 /**
@@ -56,6 +69,20 @@ export function ProductEditor({
   return (
     <Page
       wide
+      back={
+        <Link
+          href="/products"
+          aria-label="Back to products"
+          className="inline-flex items-center gap-1 rounded text-theme-sm text-gray-500 hover:text-brand-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/30 dark:text-gray-400 dark:hover:text-brand-400"
+          onClick={(e) => {
+            if (form.dirty && !confirm("Leave without saving your changes?"))
+              e.preventDefault()
+          }}
+        >
+          <ChevronLeft aria-hidden className="size-4" />
+          Products
+        </Link>
+      }
       title={product ? product.title : "New product"}
       description={
         product
@@ -132,71 +159,56 @@ export function ProductEditor({
             aria-label="Status and organisation"
             className="flex flex-col gap-6 xl:self-start"
           >
-            <Section
-              title="Status"
-              description="Drafts stay off your storefront until published."
-            >
+            <Section title="Status">
               <div className="flex flex-col gap-3">
-                <div>
-                  <Badge size="sm" color={statusColor[status]}>
-                    {status}
-                  </Badge>
-                </div>
-                {!product ? (
-                  <p className="text-theme-sm text-gray-500 dark:text-gray-400">
-                    A new product starts as a draft. Publish it once it has a
-                    variant, an image and a main-tree category.
-                  </p>
-                ) : archived ? (
-                  <p className="text-theme-sm text-gray-500 dark:text-gray-400">
-                    Archived products are read-only.
-                  </p>
-                ) : (
-                  canWrite && (
-                    <PublishBar
-                      product={product}
-                      onChanged={onSaved}
-                      onFailures={setFailures}
-                    />
-                  )
-                )}
-              </div>
-              <div className="mt-5 flex flex-col gap-3 border-t border-gray-100 pt-5 dark:border-white/[0.05]">
-                {editable && (
-                  <div className="grid grid-cols-2 gap-3">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={!form.dirty}
-                      onClick={form.discard}
-                    >
-                      Discard changes
-                    </Button>
-                    <Button
-                      size="sm"
-                      type="submit"
-                      form="product-form"
-                      isLoading={form.saving}
-                      disabled={!form.canSave}
-                    >
-                      {product ? "Save" : "Create product"}
-                    </Button>
+                <div className="flex gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-800 dark:bg-white/[0.03]">
+                  <span
+                    aria-hidden
+                    className={cx(
+                      "mt-1.5 size-2.5 shrink-0 rounded-full",
+                      statusLook[status].dot,
+                    )}
+                  />
+                  <div>
+                    <p className="text-sm font-semibold text-gray-800 dark:text-white/90">
+                      {statusLook[status].label}
+                    </p>
+                    <p className="mt-0.5 text-theme-sm text-gray-500 dark:text-gray-400">
+                      {product
+                        ? statusLook[status].line
+                        : "Starts as a draft. Publish once it has a variant, an image and a main-tree category."}
+                    </p>
                   </div>
+                </div>
+                {product && editable && (
+                  <PublishBar
+                    product={product}
+                    onChanged={onSaved}
+                    onFailures={setFailures}
+                  />
                 )}
-                <Link
-                  href="/products"
-                  className="self-center text-theme-sm text-gray-500 hover:text-brand-500 dark:text-gray-400 dark:hover:text-brand-400"
-                  onClick={(e) => {
-                    if (
-                      form.dirty &&
-                      !confirm("Leave without saving your changes?")
-                    )
-                      e.preventDefault()
-                  }}
-                >
-                  Back to products
-                </Link>
               </div>
+              {editable && (
+                <div className="mt-5 grid grid-cols-2 gap-3 border-t border-gray-100 pt-5 dark:border-white/[0.05]">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={!form.dirty}
+                    onClick={form.discard}
+                  >
+                    Discard changes
+                  </Button>
+                  <Button
+                    size="sm"
+                    type="submit"
+                    form="product-form"
+                    isLoading={form.saving}
+                    disabled={!form.canSave}
+                  >
+                    {product ? "Save" : "Create product"}
+                  </Button>
+                </div>
+              )}
             </Section>
             <Section
               title="Organization"

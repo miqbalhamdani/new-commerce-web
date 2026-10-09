@@ -56,6 +56,13 @@ describe("ProductEditor (new product)", () => {
       screen.getByText("Create the product to add variants."),
     ).toBeInTheDocument()
 
+    expect(
+      screen.getByRole("link", { name: "Back to products" }),
+    ).toHaveAttribute("href", "/products")
+    expect(screen.getByText("Draft")).toBeInTheDocument()
+    expect(screen.getByText(/Starts as a draft/)).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Publish product" })).toBeNull()
+
     const create = await screen.findByRole("button", { name: "Create product" })
     expect(
       screen.getByRole("heading", { name: "Status" }).closest("section"),
