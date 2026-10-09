@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import type { Variant } from "@/lib/api/types"
 
 import {
+  carry,
   combos,
   emptyRow,
   fillDown,
@@ -113,5 +114,72 @@ describe("matrix", () => {
       ["Red", "XL"],
       ["Blue", "S"],
     ])
+  })
+
+  it("keeps what was typed when an option is added, filled or removed", () => {
+    const red = { ...emptyRow, sku: "TEE-RED", regular_price: "150,000" }
+    const copy = { ...red, sku: "" }
+    const colour = { name: "Colour", values: ["Red", "Blue"] }
+    const cells = new Map([[key(["Red"]), red]])
+
+    // A new option with no values yet changes nothing.
+    const empty = { name: "Size", values: [] }
+    expect(combos([colour, empty])).toEqual([["Red"], ["Blue"]])
+    const added = carry(
+      [colour],
+      [colour, empty],
+      [0, undefined],
+      cells,
+      new Set(),
+    )
+    expect(added.cells.get(key(["Red"]))).toEqual(red)
+
+    // Its first values copy Red's row onto Red / S and Red / M.
+    const size = { name: "Size", values: ["S", "M"] }
+    const filled = carry(
+      [colour, empty],
+      [colour, size],
+      [0, 1],
+      added.cells,
+      new Set(),
+    )
+    expect(filled.cells.get(key(["Red", "S"]))).toEqual(red)
+    expect(filled.cells.get(key(["Red", "M"]))).toEqual(copy) // SKUs stay unique
+    expect(filled.cells.has(key(["Blue", "S"]))).toBe(false)
+
+    // A new value starts from its colour's row; Blue had nothing typed.
+    const more = { name: "Size", values: ["S", "M", "L"] }
+    const grown = carry(
+      [colour, size],
+      [colour, more],
+      [0, 1],
+      filled.cells,
+      new Set(),
+    )
+    expect(grown.cells.get(key(["Red", "L"]))).toEqual(copy)
+    expect(grown.cells.has(key(["Blue", "L"]))).toBe(false)
+
+    // Removing the option folds the rows back; a removed row stays removed.
+    const back = carry(
+      [colour, size],
+      [colour],
+      [0],
+      filled.cells,
+      new Set([key(["Blue", "S"]), key(["Blue", "M"])]),
+    )
+    expect(back.cells.get(key(["Red"]))).toEqual(red)
+    expect([...back.removed]).toEqual([key(["Blue"])])
+  })
+
+  it("leaves an option with no values out of the request", () => {
+    const { body } = toRequest(
+      [
+        { name: "Colour", values: ["Red"] },
+        { name: "Size", values: [] },
+      ],
+      [emptyRow],
+    )
+    expect(body.option_names).toEqual(["Colour"])
+    expect(body.rows[0]).toMatchObject({ option_values: ["Red"] })
   })
 })

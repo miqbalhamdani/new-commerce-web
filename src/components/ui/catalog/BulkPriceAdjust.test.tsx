@@ -38,24 +38,22 @@ describe("BulkPriceAdjust (P1-047)", () => {
       </VariantMatrix>,
     )
     await userEvent.click(
-      await screen.findByRole("button", { name: "Adjust prices" }),
+      await screen.findByRole("button", { name: "Adjust prices (all)" }),
     )
-    await userEvent.click(screen.getByLabelText("Price"))
+    await userEvent.click(screen.getByLabelText("Price to change"))
     await userEvent.click(
       await screen.findByRole("option", { name: "Sale price" }),
     )
     const preview = screen.getByRole("table", { name: "Preview" })
     expect(within(preview).getAllByRole("row")).toHaveLength(3)
-    expect(preview).toHaveTextContent("Rp 180.000")
-    expect(screen.getByLabelText("Sale price (Rp) for S")).toHaveValue("") // nothing applied yet
+    expect(preview).toHaveTextContent("Rp 180,000")
+    expect(screen.getByLabelText("Sale price for S")).toHaveValue("") // nothing applied yet
 
     await userEvent.click(
       screen.getByRole("button", { name: "Apply to 2 variants" }),
     )
-    expect(screen.getByLabelText("Sale price (Rp) for S")).toHaveValue("180000")
-    expect(screen.getByLabelText("Regular price (Rp) for S")).toHaveValue(
-      "200000",
-    )
+    expect(screen.getByLabelText("Sale price for S")).toHaveValue("180,000")
+    expect(screen.getByLabelText("Regular price for S")).toHaveValue("200,000")
     expect(fetch.mock.calls.some(([, i]) => i?.method === "PUT")).toBe(false) // saving is still the person's call
   })
 })

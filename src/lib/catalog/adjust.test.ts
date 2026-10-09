@@ -31,7 +31,7 @@ describe("bulk price adjustment (P1-047)", () => {
     })
     expect(lines).toEqual([{ row: 1, before: 19900000, after: 20900000 }])
     expect(applyAdjustment(rows, lines, "regular_price")[1].regular_price).toBe(
-      "209000",
+      "209,000",
     )
     expect(applyAdjustment(rows, lines, "regular_price")[0].regular_price).toBe(
       "199000",
