@@ -8,7 +8,6 @@ import { Dropzone } from "@/components/ui/common/Dropzone"
 import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
 import { ProgressBar } from "@/components/ui/common/ProgressBar"
 import { Select } from "@/components/ui/common/Select"
-import { Card } from "@/components/ui/common/Page"
 import { ApiError } from "@/lib/api/client"
 import type { Media, Product, Variant } from "@/lib/api/types"
 import { asApiError, useApi, useResource } from "@/lib/api/use-api"
@@ -96,7 +95,7 @@ export function MediaManager({
   }
 
   return (
-    <Card className="p-6">
+    <div>
       {canWrite && (
         <Dropzone
           accept="image/jpeg,image/png,image/webp"
@@ -204,6 +203,6 @@ export function MediaManager({
           ))}
         </ul>
       )}
-    </Card>
+    </div>
   )
 }

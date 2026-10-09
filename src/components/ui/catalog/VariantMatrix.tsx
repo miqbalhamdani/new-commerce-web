@@ -7,7 +7,6 @@ import Button from "@/components/ui/button/Button"
 import Input from "@/components/form/input/InputField"
 import { Checkbox } from "@/components/ui/common/Field"
 import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
-import { Card } from "@/components/ui/common/Page"
 import { ApiError } from "@/lib/api/client"
 import type { Product, Variant, VariantMatrixResult } from "@/lib/api/types"
 import { asApiError, useApi, useResource } from "@/lib/api/use-api"
@@ -135,7 +134,7 @@ export function VariantMatrix({
   }
 
   return (
-    <Card className="p-6">
+    <div>
       <div className="mb-4 flex flex-col gap-3">
         {axes.map((axis, i) => (
           <AxisEditor
@@ -299,7 +298,7 @@ export function VariantMatrix({
           </Button>
         </div>
       )}
-    </Card>
+    </div>
   )
 }
 

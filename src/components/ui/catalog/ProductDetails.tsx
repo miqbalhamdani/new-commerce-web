@@ -1,5 +1,6 @@
 "use client"
 
+import { X } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 
 import Button from "@/components/ui/button/Button"
@@ -7,7 +8,6 @@ import Input from "@/components/form/input/InputField"
 import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
 import { Checkbox, Field, Textarea } from "@/components/ui/common/Field"
 import { Select } from "@/components/ui/common/Select"
-import { Card } from "@/components/ui/common/Page"
 import { ApiError } from "@/lib/api/client"
 import type { BrandPage, Category, Product } from "@/lib/api/types"
 import { asApiError, fieldError, useApi, useResource } from "@/lib/api/use-api"
@@ -28,24 +28,18 @@ const kindLabel: Record<string, string> = {
   custom: "Custom",
 }
 
+export type ProductForm = ReturnType<typeof useProductForm>
+
 /**
- * The product's own fields (P1-034, 04-api-spec.md §7.1). Saves only what
- * changed, at the version it read (BR-010); prompts before leaving with
- * unsaved changes; warns that editing the slug breaks old links (BR-042).
- * With product null it is the new-product form: Create POSTs what was filled
- * in, and the slug is a preview the API derives from the title.
+ * The product's own fields (P1-034, 04-api-spec.md §7.1), as state the editor
+ * lays out across its columns. Saves only what changed, at the version it read
+ * (BR-010); prompts before leaving with unsaved changes. With product null it
+ * is the new-product form: save POSTs what was filled in.
  */
-export function ProductDetails({
-  product,
-  canWrite,
-  onSaved,
-  onDirtyChange,
-}: {
-  product: Product | null
-  canWrite: boolean
-  onSaved: (p: Product) => void
-  onDirtyChange?: (dirty: boolean) => void
-}) {
+export function useProductForm(
+  product: Product | null,
+  onSaved: (p: Product) => void,
+) {
   const api = useApi()
   // The form re-seeds only when the product itself changed version. An image
   // uploading or a variant saving reloads the product too, and must not wipe
@@ -71,7 +65,6 @@ export function ProductDetails({
   const patch = patchOf(original, draft)
   const dirty = Object.keys(patch).length > 0
 
-  useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange])
   useEffect(() => {
     if (!dirty) return
     const warn = (e: BeforeUnloadEvent) => e.preventDefault()
@@ -83,6 +76,7 @@ export function ProductDetails({
 
   async function save(e: React.FormEvent) {
     e.preventDefault()
+    if (!dirty || !draft.title.trim()) return
     setSaving(true)
     try {
       const saved = product
@@ -104,232 +98,249 @@ export function ProductDetails({
     }
   }
 
+  return {
+    product,
+    draft,
+    set,
+    original,
+    dirty,
+    canSave: dirty && draft.title.trim() !== "",
+    error,
+    saving,
+    save,
+    discard: () => setDraft(original),
+    brands: brands?.data ?? [],
+    categories: categories?.data ?? [],
+  }
+}
+
+/** Title, slug and description; warns that editing the slug breaks old links (BR-042). */
+export function ProductInfoFields({
+  form,
+  canWrite,
+}: {
+  form: ProductForm
+  canWrite: boolean
+}) {
+  const { product, draft, set, original, error } = form
+  return (
+    <fieldset disabled={!canWrite} className="flex flex-col gap-5">
+      <Field id="title" label="Title" error={fieldError(error, "title")}>
+        <Input
+          id="title"
+          value={draft.title}
+          onChange={(e) => set({ title: e.target.value })}
+        />
+      </Field>
+      <Field
+        id="slug"
+        label="Slug"
+        error={fieldError(error, "slug")}
+        hint={
+          !product
+            ? "Generated from the title. You can change it after creating."
+            : draft.slug !== original.slug
+              ? undefined
+              : "The product's address on your website. Changing the title never changes it."
+        }
+      >
+        <Input
+          id="slug"
+          value={product ? draft.slug : slugify(draft.title)}
+          readOnly={!product}
+          className={product ? "" : "!bg-gray-50 dark:!bg-white/[0.03]"}
+          onChange={(e) => set({ slug: e.target.value })}
+        />
+        {product && draft.slug !== original.slug && (
+          <p
+            role="alert"
+            className="text-xs text-warning-600 dark:text-orange-400"
+          >
+            Links to /products/{original.slug} will stop working once you save.
+          </p>
+        )}
+      </Field>
+      <Field
+        id="description"
+        label="Description"
+        error={fieldError(error, "description")}
+      >
+        <Textarea
+          id="description"
+          rows={5}
+          value={draft.description}
+          onChange={(e) => set({ description: e.target.value })}
+        />
+      </Field>
+    </fieldset>
+  )
+}
+
+/** Brand and the categories from every tree (BR-031). */
+export function OrganizationFields({
+  form,
+  canWrite,
+}: {
+  form: ProductForm
+  canWrite: boolean
+}) {
+  const { draft, set, error, brands, categories } = form
   const byKind = new Map<string, Category[]>()
-  for (const c of categories?.data ?? [])
+  for (const c of categories)
     byKind.set(c.kind, [...(byKind.get(c.kind) ?? []), c])
 
   return (
-    <Card className="p-6">
-      <form onSubmit={save} className="flex flex-col gap-5">
-        <fieldset disabled={!canWrite} className="flex flex-col gap-5">
-          <Field id="title" label="Title" error={fieldError(error, "title")}>
-            <Input
-              id="title"
-              value={draft.title}
-              onChange={(e) => set({ title: e.target.value })}
-            />
-          </Field>
-          <Field
-            id="slug"
-            label="Slug"
-            error={fieldError(error, "slug")}
-            hint={
-              !product
-                ? "Generated from the title. You can change it after creating."
-                : draft.slug !== original.slug
-                  ? undefined
-                  : "The product's address on your website. Changing the title never changes it."
-            }
-          >
-            <Input
-              id="slug"
-              value={product ? draft.slug : slugify(draft.title)}
-              readOnly={!product}
-              className={product ? "" : "!bg-gray-50 dark:!bg-white/[0.03]"}
-              onChange={(e) => set({ slug: e.target.value })}
-            />
-            {product && draft.slug !== original.slug && (
-              <p
-                role="alert"
-                className="text-xs text-warning-600 dark:text-orange-400"
-              >
-                Links to /products/{original.slug} will stop working once you
-                save.
-              </p>
-            )}
-          </Field>
-          <Field
-            id="description"
-            label="Description"
-            error={fieldError(error, "description")}
-          >
-            <Textarea
-              id="description"
-              rows={4}
-              value={draft.description}
-              onChange={(e) => set({ description: e.target.value })}
-            />
-          </Field>
-          <Field id="brand" label="Brand" error={fieldError(error, "brand_id")}>
-            <Select
-              id="brand"
-              value={draft.brand_id}
-              onChange={(v) => set({ brand_id: v })}
-              options={[
-                { value: "", label: "No brand" },
-                ...(brands?.data.map((b) => ({
-                  value: b.id,
-                  label: b.name,
-                })) ?? []),
-              ]}
-              error={Boolean(fieldError(error, "brand_id"))}
-            />
-          </Field>
-          <div id="categories" tabIndex={-1}>
-            <p className="text-sm font-medium text-gray-700 dark:text-gray-400">
-              Categories
-            </p>
-            <p className="text-xs text-gray-500">
-              A product can sit in several trees. It needs at least one
-              main-tree category to be published.
-            </p>
-            {fieldError(error, "category_ids") && (
-              <p className="text-xs text-error-500">
-                {fieldError(error, "category_ids")}
-              </p>
-            )}
-            <div className="mt-2 grid gap-4 sm:grid-cols-2">
-              {[...byKind.entries()].map(([kind, list]) => (
-                <fieldset
-                  key={kind}
-                  className="rounded-lg border border-gray-200 p-3 dark:border-gray-800"
+    <fieldset disabled={!canWrite} className="flex flex-col gap-5">
+      <Field id="brand" label="Brand" error={fieldError(error, "brand_id")}>
+        <Select
+          id="brand"
+          className="w-full"
+          value={draft.brand_id}
+          onChange={(v) => set({ brand_id: v })}
+          options={[
+            { value: "", label: "No brand" },
+            ...brands.map((b) => ({ value: b.id, label: b.name })),
+          ]}
+          error={Boolean(fieldError(error, "brand_id"))}
+        />
+      </Field>
+      <div id="categories" tabIndex={-1}>
+        <p className="text-sm font-medium text-gray-700 dark:text-gray-400">
+          Categories
+        </p>
+        <p className="text-xs text-gray-500">
+          It needs at least one main-tree category to be published.
+        </p>
+        {fieldError(error, "category_ids") && (
+          <p className="text-xs text-error-500">
+            {fieldError(error, "category_ids")}
+          </p>
+        )}
+        <div className="mt-2 flex flex-col gap-3">
+          {[...byKind.entries()].map(([kind, list]) => (
+            <fieldset
+              key={kind}
+              className="rounded-lg border border-gray-200 p-3 dark:border-gray-800"
+            >
+              <legend className="px-1 text-xs font-medium text-gray-600 dark:text-gray-400">
+                {kindLabel[kind] ?? kind}
+              </legend>
+              {list.map((c) => (
+                <label
+                  key={c.id}
+                  className="flex items-center gap-2 py-0.5 text-sm"
+                  style={{
+                    paddingLeft: (c.path.split(".").length - 1) * 14,
+                  }}
                 >
-                  <legend className="px-1 text-xs font-medium text-gray-600 dark:text-gray-400">
-                    {kindLabel[kind] ?? kind}
-                  </legend>
-                  {list.map((c) => (
-                    <label
-                      key={c.id}
-                      className="flex items-center gap-2 py-0.5 text-sm"
-                      style={{
-                        paddingLeft: (c.path.split(".").length - 1) * 14,
-                      }}
-                    >
-                      <Checkbox
-                        checked={draft.category_ids.includes(c.id)}
-                        onChange={(e) =>
-                          set({
-                            category_ids: e.target.checked
-                              ? [...draft.category_ids, c.id]
-                              : draft.category_ids.filter((x) => x !== c.id),
-                          })
-                        }
-                      />
-                      {c.name}
-                    </label>
-                  ))}
-                </fieldset>
-              ))}
-            </div>
-          </div>
-          <div>
-            <p className="text-sm font-medium text-gray-700 dark:text-gray-400">
-              Attributes
-            </p>
-            <p className="text-xs text-gray-500">
-              Free-form details such as material, fit or care.
-            </p>
-            <div className="mt-2 flex flex-col gap-2">
-              {draft.attributes.map(([k, v], i) => (
-                <div key={i} className="flex gap-2">
-                  <Input
-                    aria-label="Attribute"
-                    placeholder="material"
-                    value={k}
+                  <Checkbox
+                    checked={draft.category_ids.includes(c.id)}
                     onChange={(e) =>
                       set({
-                        attributes: draft.attributes.map((a, j) =>
-                          j === i ? [e.target.value, a[1]] : a,
-                        ),
+                        category_ids: e.target.checked
+                          ? [...draft.category_ids, c.id]
+                          : draft.category_ids.filter((x) => x !== c.id),
                       })
                     }
                   />
-                  <Input
-                    aria-label="Value"
-                    placeholder="Cotton combed 30s"
-                    value={v}
-                    onChange={(e) =>
-                      set({
-                        attributes: draft.attributes.map((a, j) =>
-                          j === i ? [a[0], e.target.value] : a,
-                        ),
-                      })
-                    }
-                  />
-                  <Button
-                    size="sm"
-                    type="button"
-                    variant="ghost"
-                    onClick={() =>
-                      set({
-                        attributes: draft.attributes.filter((_, j) => j !== i),
-                      })
-                    }
-                  >
-                    Remove
-                  </Button>
-                </div>
+                  {c.name}
+                </label>
               ))}
-              {canWrite && (
-                <Button
-                  size="sm"
-                  type="button"
-                  variant="outline"
-                  className="self-start"
-                  onClick={() =>
-                    set({ attributes: [...draft.attributes, ["", ""]] })
-                  }
-                >
-                  Add attribute
-                </Button>
-              )}
-            </div>
-          </div>
-        </fieldset>
+            </fieldset>
+          ))}
+        </div>
+      </div>
+    </fieldset>
+  )
+}
 
-        {error?.code === "version_conflict" ? (
-          <div
-            role="alert"
-            className="rounded-xl border border-warning-500 bg-warning-50 p-3 text-theme-sm text-warning-700 dark:border-warning-500/30 dark:bg-warning-500/15 dark:text-orange-400"
-          >
-            Someone else changed this product while you were editing.{" "}
+/** Free-form key/value details. */
+export function AttributesFields({
+  form,
+  canWrite,
+}: {
+  form: ProductForm
+  canWrite: boolean
+}) {
+  const { draft, set } = form
+  return (
+    <fieldset disabled={!canWrite} className="flex flex-col gap-2">
+      {draft.attributes.map(([k, v], i) => (
+        <div key={i} className="flex gap-2">
+          <Input
+            aria-label="Attribute"
+            placeholder="material"
+            value={k}
+            onChange={(e) =>
+              set({
+                attributes: draft.attributes.map((a, j) =>
+                  j === i ? [e.target.value, a[1]] : a,
+                ),
+              })
+            }
+          />
+          <Input
+            aria-label="Value"
+            placeholder="Cotton combed 30s"
+            value={v}
+            onChange={(e) =>
+              set({
+                attributes: draft.attributes.map((a, j) =>
+                  j === i ? [a[0], e.target.value] : a,
+                ),
+              })
+            }
+          />
+          {canWrite && (
             <button
               type="button"
-              className="font-medium underline"
-              onClick={() => window.location.reload()}
+              aria-label={`Remove ${k || "attribute"}`}
+              className="flex size-11 shrink-0 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5"
+              onClick={() =>
+                set({ attributes: draft.attributes.filter((_, j) => j !== i) })
+              }
             >
-              Reload it
-            </button>{" "}
-            to see their changes; yours are not saved.
-          </div>
-        ) : (
-          error &&
-          !error.problem.errors?.length && (
-            <ErrorNotice error={error} title="Could not save" />
-          )
-        )}
-        {canWrite && (
-          <div className="flex justify-end gap-2">
-            <Button
-              size="sm"
-              type="button"
-              variant="outline"
-              disabled={!dirty}
-              onClick={() => setDraft(original)}
-            >
-              Discard changes
-            </Button>
-            <Button
-              size="sm"
-              type="submit"
-              isLoading={saving}
-              disabled={!dirty || !draft.title.trim()}
-            >
-              {product ? "Save" : "Create product"}
-            </Button>
-          </div>
-        )}
-      </form>
-    </Card>
+              <X aria-hidden className="size-4" />
+            </button>
+          )}
+        </div>
+      ))}
+      {canWrite && (
+        <Button
+          size="sm"
+          type="button"
+          variant="outline"
+          className="self-start"
+          onClick={() => set({ attributes: [...draft.attributes, ["", ""]] })}
+        >
+          Add attribute
+        </Button>
+      )}
+    </fieldset>
   )
+}
+
+/** A stale version (BR-010), or an error no field claims. */
+export function SaveError({ form }: { form: ProductForm }) {
+  const { error } = form
+  if (error?.code === "version_conflict")
+    return (
+      <div
+        role="alert"
+        className="rounded-xl border border-warning-500 bg-warning-50 p-3 text-theme-sm text-warning-700 dark:border-warning-500/30 dark:bg-warning-500/15 dark:text-orange-400"
+      >
+        Someone else changed this product while you were editing.{" "}
+        <button
+          type="button"
+          className="font-medium underline"
+          onClick={() => window.location.reload()}
+        >
+          Reload it
+        </button>{" "}
+        to see their changes; yours are not saved.
+      </div>
+    )
+  if (error && !error.problem.errors?.length)
+    return <ErrorNotice error={error} title="Could not save" />
+  return null
 }
