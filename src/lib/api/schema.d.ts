@@ -145,9 +145,9 @@ export interface paths {
         put?: never;
         /**
          * Create a brand
-         * @description The slug is derived from the name and is never accepted from a client (BR-008). A name
-         *     whose slug matches another brand's in this tenant, archived ones included, is `422` on
-         *     `name` (BR-030). Requires `brands:write`.
+         * @description `slug` is optional and defaults to `slugify(name)`. A slug that matches another brand's
+         *     in this tenant, deleted ones included, is `422` on `slug` when sent, else on `name`
+         *     (BR-030). Requires `brands:write`.
          */
         post: operations["createBrand"];
         delete?: never;
@@ -170,16 +170,17 @@ export interface paths {
         put?: never;
         post?: never;
         /**
-         * Archive a brand
-         * @description Sets `archived_at`; the row is kept (BR-012). Requires `brands:write`.
+         * Delete a brand
+         * @description Soft delete: sets `archived_at` and keeps the row, and clears `brand_id` on every product
+         *     that carries it (BR-012). Never blocked by products. Requires `brands:write`.
          */
         delete: operations["archiveBrand"];
         options?: never;
         head?: never;
         /**
-         * Rename a brand
-         * @description The slug is re-derived from the new name. No `If-Match`: brands have no version and the
-         *     last save wins (BR-010). Requires `brands:write`.
+         * Rename a brand or change its slug
+         * @description Without `slug`, the slug is re-derived from the new name. No `If-Match`: brands have no
+         *     version and the last save wins (BR-010). Requires `brands:write`.
          */
         patch: operations["updateBrand"];
         trace?: never;
@@ -789,7 +790,7 @@ export interface components {
             id: string;
             name: string;
             /**
-             * @description Derived from `name`; read-only (BR-030).
+             * @description Defaults to `slugify(name)`; editable (BR-030).
              * @example erigo
              */
             slug: string;
@@ -802,6 +803,8 @@ export interface components {
         };
         BrandWrite: {
             name: string;
+            /** @description Omitted means `slugify(name)` (BR-030). */
+            slug?: string;
         };
         BrandPage: {
             data: components["schemas"]["Brand"][];
@@ -1636,7 +1639,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Archived. */
+            /** @description Deleted. */
             204: {
                 headers: {
                     [name: string]: unknown;

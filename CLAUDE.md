@@ -162,8 +162,9 @@ state, an effect, or an event handler.
    (`description`, `brand_id`, `sale_price` to end a sale) and is `422` elsewhere. Never echo a
    response back as a `PATCH` body: responses carry `null` for every empty field.
 2. **Never send server-managed fields** (BR-008): `id`, `tenant_id`, `version`, `created_at`,
-   `updated_at`, `path`, any `*_at` stamp, `brands.slug`. They are `422` on create and update
-   alike. Product `slug` is editable (BR-042) -- warn that old links break.
+   `updated_at`, `path`, any `*_at` stamp. They are `422` on create and update alike. Slugs are
+   editable: a product's (BR-042) -- warn that old links break -- and a brand's, which follows
+   its name when omitted (BR-030).
 3. **Never send a field the endpoint does not define**: it is `422 unknown_field` (BR-089). Strip
    UI-only state before submit. `price` and `on_sale` are read-only; a manual order never sends
    `unit_price`.
