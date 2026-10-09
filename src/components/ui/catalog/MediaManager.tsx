@@ -6,6 +6,7 @@ import { useState } from "react"
 import Button from "@/components/ui/button/Button"
 import { Dropzone } from "@/components/ui/common/Dropzone"
 import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
+import { ProgressBar } from "@/components/ui/common/ProgressBar"
 import { Select } from "@/components/ui/common/Select"
 import { Card } from "@/components/ui/common/Page"
 import { ApiError } from "@/lib/api/client"
@@ -119,11 +120,10 @@ export function MediaManager({
                 </span>
               </div>
               {!u.error && (
-                <progress
-                  className="h-2 w-full overflow-hidden rounded-full [&::-moz-progress-bar]:bg-brand-500 [&::-webkit-progress-bar]:bg-gray-200 [&::-webkit-progress-value]:bg-brand-500 dark:[&::-webkit-progress-bar]:bg-gray-800"
+                <ProgressBar
                   value={u.progress}
                   max={1}
-                  aria-label={`Uploading ${u.name}`}
+                  label={`Uploading ${u.name}`}
                 />
               )}
             </li>

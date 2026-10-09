@@ -7,7 +7,9 @@ import Button from "@/components/ui/button/Button"
 import Input from "@/components/form/input/InputField"
 import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
 import { Dropzone } from "@/components/ui/common/Dropzone"
+import { ProgressBar } from "@/components/ui/common/ProgressBar"
 import { Select } from "@/components/ui/common/Select"
+import { Stepper } from "@/components/ui/common/Stepper"
 import { Card, Page } from "@/components/ui/common/Page"
 import { ApiError } from "@/lib/api/client"
 import type { Job, PresignResponse } from "@/lib/api/types"
@@ -113,7 +115,10 @@ export default function ImportPage() {
       title="Import products"
       description="Upload a CSV from your spreadsheet. Rows with the same title become one product; option columns become its variants."
     >
-      <Stepper current={step} />
+      <Stepper
+        steps={steps.map((s) => s.label)}
+        current={steps.findIndex((s) => s.key === step)}
+      />
       <ErrorNotice error={error} title="Import failed" />
 
       {step === "choose" && (
@@ -215,11 +220,11 @@ export default function ImportPage() {
               <p className="text-theme-sm text-gray-700 dark:text-gray-300">
                 Uploading {file?.name}…
               </p>
-              <progress
-                className="mt-2 h-2 w-full overflow-hidden rounded-full [&::-moz-progress-bar]:bg-brand-500 [&::-webkit-progress-bar]:bg-gray-200 dark:[&::-webkit-progress-bar]:bg-gray-800 [&::-webkit-progress-value]:bg-brand-500"
+              <ProgressBar
+                className="mt-2"
                 value={upload}
                 max={1}
-                aria-label="Upload progress"
+                label="Upload progress"
               />
             </>
           ) : !job || job.state === "queued" || job.state === "running" ? (
@@ -228,11 +233,11 @@ export default function ImportPage() {
                 Importing… {job?.processed ?? 0}
                 {job?.total ? ` of ${job.total}` : ""} rows
               </p>
-              <progress
-                className="mt-2 h-2 w-full overflow-hidden rounded-full [&::-moz-progress-bar]:bg-brand-500 [&::-webkit-progress-bar]:bg-gray-200 dark:[&::-webkit-progress-bar]:bg-gray-800 [&::-webkit-progress-value]:bg-brand-500"
+              <ProgressBar
+                className="mt-2"
                 value={job?.processed ?? 0}
                 max={job?.total ?? 1}
-                aria-label="Import progress"
+                label="Import progress"
               />
             </>
           ) : job.state === "failed" ? (
@@ -259,50 +264,6 @@ const steps: { key: Step; label: string }[] = [
   { key: "map", label: "Map columns" },
   { key: "running", label: "Import" },
 ]
-
-/** TailAdmin has no stepper; three numbered circles with connectors. */
-function Stepper({ current }: { current: Step }) {
-  const at = steps.findIndex((s) => s.key === current)
-  return (
-    <ol className="mb-6 flex items-center gap-3" aria-label="Steps">
-      {steps.map((s, i) => (
-        <li key={s.key} className="flex items-center gap-3">
-          {i > 0 && (
-            <span
-              aria-hidden
-              className="h-px w-8 bg-gray-200 dark:bg-gray-800"
-            />
-          )}
-          <span
-            aria-current={i === at ? "step" : undefined}
-            className="flex items-center gap-2 text-theme-sm"
-          >
-            <span
-              className={
-                i < at
-                  ? "flex size-8 items-center justify-center rounded-full bg-brand-500 text-white"
-                  : i === at
-                    ? "flex size-8 items-center justify-center rounded-full text-brand-500 ring-2 ring-inset ring-brand-500"
-                    : "flex size-8 items-center justify-center rounded-full bg-gray-100 text-gray-500 dark:bg-white/[0.03] dark:text-gray-400"
-              }
-            >
-              {i + 1}
-            </span>
-            <span
-              className={
-                i === at
-                  ? "font-medium text-gray-800 dark:text-white/90"
-                  : "text-gray-500 dark:text-gray-400"
-              }
-            >
-              {s.label}
-            </span>
-          </span>
-        </li>
-      ))}
-    </ol>
-  )
-}
 
 function MappingSelect({
   value,

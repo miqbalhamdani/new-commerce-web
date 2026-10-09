@@ -9,6 +9,7 @@ import { ButtonLink } from "@/components/ui/common/ButtonLink"
 import { SettingsForm } from "@/components/ui/settings/SettingsForm"
 import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
 import { Card, Empty, Loading, Page } from "@/components/ui/common/Page"
+import { Stepper } from "@/components/ui/common/Stepper"
 import { ApiError } from "@/lib/api/client"
 import type { Category, Settings } from "@/lib/api/types"
 import { asApiError, useApi, useResource } from "@/lib/api/use-api"
@@ -39,44 +40,7 @@ export default function OnboardingPage() {
       title="Get started"
       description="Three short steps, then add your products."
     >
-      <ol className="mb-6 flex flex-wrap items-center gap-3" aria-label="Steps">
-        {steps.map((s, i) => (
-          <li
-            key={s}
-            aria-current={i === step ? "step" : undefined}
-            className="flex items-center gap-3"
-          >
-            {i > 0 && (
-              <span
-                aria-hidden
-                className="h-px w-8 bg-gray-200 dark:bg-gray-800"
-              />
-            )}
-            <span className="flex items-center gap-2 text-theme-sm">
-              <span
-                className={
-                  i < step
-                    ? "flex size-8 items-center justify-center rounded-full bg-brand-500 text-white"
-                    : i === step
-                      ? "flex size-8 items-center justify-center rounded-full text-brand-500 ring-2 ring-inset ring-brand-500"
-                      : "flex size-8 items-center justify-center rounded-full bg-gray-100 text-gray-500 dark:bg-white/[0.03] dark:text-gray-400"
-                }
-              >
-                {i + 1}
-              </span>
-              <span
-                className={
-                  i === step
-                    ? "font-medium text-gray-800 dark:text-white/90"
-                    : "text-gray-500 dark:text-gray-400"
-                }
-              >
-                {s}
-              </span>
-            </span>
-          </li>
-        ))}
-      </ol>
+      <Stepper steps={steps} current={step} />
       <Card className="p-6">
         {step === 0 && (
           <SettingsForm
