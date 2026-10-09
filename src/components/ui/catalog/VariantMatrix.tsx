@@ -162,8 +162,10 @@ export function VariantMatrix({
           </Button>
         )}
         <p className="text-xs text-gray-500 dark:text-gray-400">
-          {grid.length} variant{grid.length === 1 ? "" : "s"}. Paste a block
-          from Excel into any cell; Colour comes first when there is one.
+          {grid.length === 0
+            ? canWrite &&
+              "Type each option's values, e.g. Red, Blue and S, M, L. Every combination becomes a variant to price below."
+            : `${grid.length} variant${grid.length === 1 ? "" : "s"}. Paste a block from Excel into any cell; Colour comes first when there is one.`}
         </p>
       </div>
 
@@ -311,10 +313,16 @@ function AxisEditor({
   onChange: (a: Axis | null) => void
 }) {
   const [value, setValue] = useState("")
-  function add() {
-    const v = value.trim()
-    if (v && !axis.values.includes(v))
-      onChange({ ...axis, values: [...axis.values, v] })
+  // Enter, a comma or leaving the box all add what was typed; "S, M, L" adds
+  // three. Nothing typed is ever silently dropped.
+  function add(text = value) {
+    const fresh = text
+      .split(",")
+      .map((v) => v.trim())
+      .filter(
+        (v, i, all) => v && !axis.values.includes(v) && all.indexOf(v) === i,
+      )
+    if (fresh.length) onChange({ ...axis, values: [...axis.values, ...fresh] })
     setValue("")
   }
   return (
@@ -352,10 +360,15 @@ function AxisEditor({
         <>
           <Input
             aria-label={`Add a ${axis.name} value`}
-            placeholder="Add value"
-            className="!h-9 w-28"
+            placeholder="Add values: S, M, L"
+            className="!h-9 w-44"
             value={value}
-            onChange={(e) => setValue(e.target.value)}
+            onChange={(e) => {
+              const v = e.target.value
+              if (v.includes(",")) add(v)
+              else setValue(v)
+            }}
+            onBlur={() => add()}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 e.preventDefault()

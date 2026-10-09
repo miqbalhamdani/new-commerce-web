@@ -106,6 +106,31 @@ describe("VariantMatrix (P1-046)", () => {
     expect(screen.getByLabelText("Weight (g) for Black / L")).toHaveValue("230")
   })
 
+  it("adds option values on comma and on leaving the box, not only Enter", async () => {
+    mockApi(["variants:write"], (url) =>
+      url.endsWith("/variants") ? json({ data: [] }) : undefined,
+    )
+    renderSignedIn(
+      <VariantMatrix
+        product={{ ...product, option_names: [] }}
+        canWrite
+        onSaved={() => {}}
+      />,
+    )
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Add option" }),
+    )
+    await userEvent.type(
+      screen.getByLabelText("Add a Colour value"),
+      "Red, Blue,",
+    )
+    await userEvent.click(screen.getByRole("button", { name: "Add option" }))
+    await userEvent.type(screen.getByLabelText("Add a Size value"), "M")
+    await userEvent.tab() // blur commits "M"
+    expect(screen.getByText("2 variants", { exact: false })).toBeInTheDocument()
+    expect(screen.getByLabelText("SKU for Blue / M")).toBeInTheDocument()
+  })
+
   it("shows no write controls without variants:write", async () => {
     mockApi(["variants:read"], (url) =>
       url.endsWith("/variants") ? json({ data: variants }) : undefined,
