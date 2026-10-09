@@ -105,7 +105,7 @@ export function Select({
       <ListboxOptions
         anchor="bottom start"
         className={cx(
-          "z-999999 w-[var(--button-width)] overflow-auto rounded-lg border border-gray-200 bg-white p-1 shadow-theme-lg",
+          "z-999999 w-max min-w-[var(--button-width)] max-w-80 overflow-auto rounded-lg border border-gray-200 bg-white p-1 shadow-theme-lg",
           "focus:outline-none dark:border-gray-800 dark:bg-gray-dark",
           "[--anchor-gap:4px] [--anchor-max-height:20rem]",
         )}
@@ -190,7 +190,7 @@ export function MultiSelect({
       <ListboxOptions
         anchor="bottom start"
         className={cx(
-          "z-999999 w-[var(--button-width)] overflow-auto rounded-lg border border-gray-200 bg-white p-1 shadow-theme-lg",
+          "z-999999 w-max min-w-[var(--button-width)] max-w-80 overflow-auto rounded-lg border border-gray-200 bg-white p-1 shadow-theme-lg",
           "focus:outline-none dark:border-gray-800 dark:bg-gray-dark",
           "[--anchor-gap:4px] [--anchor-max-height:20rem]",
         )}
