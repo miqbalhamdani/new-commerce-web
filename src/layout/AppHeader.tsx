@@ -1,24 +1,19 @@
 "use client"
 
 // Derived from TailAdmin's AppHeader (@3f6902572e9d) and ours to edit. The
-// notification dropdown is gone (nothing produces notifications), the search
-// box searches products, and the logo is ours. The hamburger drives the
-// sidebar: collapse on desktop, off-canvas below lg.
+// notification dropdown and the search box are gone, and the logo is ours. The
+// hamburger drives the sidebar: collapse on desktop, off-canvas below lg.
 
 import { ThemeToggleButton } from "@/components/common/ThemeToggleButton"
 import UserDropdown from "@/components/header/UserDropdown"
 import { useSidebar } from "@/context/SidebarContext"
-import { SearchInput } from "@/components/ui/common/SearchInput"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
-import React, { useEffect, useRef, useState } from "react"
+import React, { useState } from "react"
 import { Logo } from "../../public/Logo"
 
 const AppHeader: React.FC = () => {
   const [isApplicationMenuOpen, setApplicationMenuOpen] = useState(false)
   const { isMobileOpen, toggleSidebar, toggleMobileSidebar } = useSidebar()
-  const router = useRouter()
-  const inputRef = useRef<HTMLInputElement>(null)
 
   const handleToggle = () => {
     if (window.innerWidth >= 1024) {
@@ -27,17 +22,6 @@ const AppHeader: React.FC = () => {
       toggleMobileSidebar()
     }
   }
-
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key === "k") {
-        event.preventDefault()
-        inputRef.current?.focus()
-      }
-    }
-    document.addEventListener("keydown", handleKeyDown)
-    return () => document.removeEventListener("keydown", handleKeyDown)
-  }, [])
 
   return (
     <header className="sticky top-0 z-99999 flex w-full border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 lg:border-b">
@@ -111,32 +95,6 @@ const AppHeader: React.FC = () => {
               />
             </svg>
           </button>
-
-          <div className="hidden lg:block">
-            <form
-              onSubmit={(e) => {
-                e.preventDefault()
-                const q = inputRef.current?.value.trim()
-                router.push(q ? `/products?q=${encodeURIComponent(q)}` : "/products")
-              }}
-            >
-              <SearchInput
-                ref={inputRef}
-                aria-label="Search products"
-                placeholder="Search products..."
-                className="w-full xl:w-[430px]"
-                trailing={
-                  <span
-                    aria-hidden="true"
-                    className="inline-flex items-center gap-0.5 rounded-lg border border-gray-200 bg-gray-50 px-[7px] py-[4.5px] text-xs -tracking-[0.2px] text-gray-500 dark:border-gray-800 dark:bg-white/[0.03] dark:text-gray-400"
-                  >
-                    <span> ⌘ </span>
-                    <span> K </span>
-                  </span>
-                }
-              />
-            </form>
-          </div>
         </div>
         <div
           className={`${
