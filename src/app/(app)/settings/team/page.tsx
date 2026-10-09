@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/common/Listing"
 import { Dialog } from "@/components/ui/common/Dialog"
 import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
-import { Field, NativeSelect } from "@/components/ui/common/Field"
+import { Field } from "@/components/ui/common/Field"
 import { Select } from "@/components/ui/common/Select"
 import { Empty, Loading, Page } from "@/components/ui/common/Page"
 import { ApiError } from "@/lib/api/client"
@@ -131,22 +131,18 @@ export default function TeamPage() {
                   </TableCell>
                   <TableCell className={td}>
                     {editable ? (
-                      <NativeSelect
-                        className="!h-9"
+                      <Select
+                        size="sm"
                         aria-label={`Role for ${u.name}`}
                         value={u.role}
-                        onChange={(e) =>
-                          void act(`/v1/users/${u.id}`, "PATCH", {
-                            role: e.target.value,
-                          })
+                        onChange={(v) =>
+                          void act(`/v1/users/${u.id}`, "PATCH", { role: v })
                         }
-                      >
-                        {grantable.map((r) => (
-                          <option key={r.name} value={r.name}>
-                            {r.name}
-                          </option>
-                        ))}
-                      </NativeSelect>
+                        options={grantable.map((r) => ({
+                          value: r.name,
+                          label: r.name,
+                        }))}
+                      />
                     ) : (
                       u.role
                     )}

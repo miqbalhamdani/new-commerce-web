@@ -44,7 +44,7 @@ export function Select({
 }: {
   value: string
   onChange: (value: string) => void
-  options: SelectOption[]
+  options: readonly SelectOption[]
   id?: string
   disabled?: boolean
   error?: boolean

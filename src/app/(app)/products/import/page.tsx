@@ -6,7 +6,7 @@ import { useEffect, useState } from "react"
 import Button from "@/components/ui/button/Button"
 import Input from "@/components/form/input/InputField"
 import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
-import { NativeSelect } from "@/components/ui/common/Field"
+import { Select } from "@/components/ui/common/Select"
 import { Card, Page } from "@/components/ui/common/Page"
 import { ApiError } from "@/lib/api/client"
 import type { Job, PresignResponse } from "@/lib/api/types"
@@ -179,16 +179,16 @@ export default function ImportPage() {
           <div className="mt-4 flex flex-wrap items-center gap-3">
             <label className="flex items-center gap-2 text-theme-sm text-gray-700 dark:text-gray-400">
               A SKU that already exists:
-              <NativeSelect
-                className="!h-9"
+              <Select
+                size="sm"
+                aria-label="A SKU that already exists"
                 value={onConflict}
-                onChange={(e) =>
-                  setOnConflict(e.target.value as "update" | "error")
-                }
-              >
-                <option value="update">updates that variant</option>
-                <option value="error">is reported as an error</option>
-              </NativeSelect>
+                onChange={(v) => setOnConflict(v as "update" | "error")}
+                options={[
+                  { value: "update", label: "updates that variant" },
+                  { value: "error", label: "is reported as an error" },
+                ]}
+              />
             </label>
             {problem && (
               <p className="text-sm text-error-600 dark:text-error-400">
@@ -319,19 +319,12 @@ function MappingSelect({
   const isOption = value.startsWith("option:")
   return (
     <div className="flex flex-col gap-1">
-      <NativeSelect
+      <Select
         aria-label={`Field for ${column}`}
         value={isOption ? "option" : value}
-        onChange={(e) =>
-          onChange(e.target.value === "option" ? "option:" : e.target.value)
-        }
-      >
-        {importFields.map((f) => (
-          <option key={f.value} value={f.value}>
-            {f.label}
-          </option>
-        ))}
-      </NativeSelect>
+        onChange={(v) => onChange(v === "option" ? "option:" : v)}
+        options={importFields}
+      />
       {isOption && (
         <Input
           className="!h-9"

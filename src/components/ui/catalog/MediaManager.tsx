@@ -5,7 +5,7 @@ import { useRef, useState } from "react"
 
 import Button from "@/components/ui/button/Button"
 import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
-import { NativeSelect } from "@/components/ui/common/Field"
+import { Select } from "@/components/ui/common/Select"
 import { Card } from "@/components/ui/common/Page"
 import { ApiError } from "@/lib/api/client"
 import type { Media, Product, Variant } from "@/lib/api/types"
@@ -191,25 +191,25 @@ export function MediaManager({
               )}
               {canWrite ? (
                 <>
-                  <NativeSelect
+                  <Select
                     aria-label={`Variant for image ${i + 1}`}
                     value={m.variant_id ?? ""}
-                    onChange={(e) =>
+                    onChange={(v) =>
                       void act(() =>
                         api(`/v1/media/${m.id}`, {
                           method: "PATCH",
-                          body: { variant_id: e.target.value || null },
+                          body: { variant_id: v || null },
                         }),
                       )
                     }
-                  >
-                    <option value="">Whole product</option>
-                    {variants?.data.map((v) => (
-                      <option key={v.id} value={v.id}>
-                        {v.option_values.join(" / ") || v.sku || "Variant"}
-                      </option>
-                    ))}
-                  </NativeSelect>
+                    options={[
+                      { value: "", label: "Whole product" },
+                      ...(variants?.data.map((v) => ({
+                        value: v.id,
+                        label: v.option_values.join(" / ") || v.sku || "Variant",
+                      })) ?? []),
+                    ]}
+                  />
                   <Button
                     size="sm"
                     variant="ghost"

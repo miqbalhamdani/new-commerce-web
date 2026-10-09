@@ -8,7 +8,7 @@ import Input from "@/components/form/input/InputField"
 import { ButtonLink } from "@/components/ui/common/ButtonLink"
 import { Dialog } from "@/components/ui/common/Dialog"
 import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
-import { NativeSelect } from "@/components/ui/common/Field"
+import { Select } from "@/components/ui/common/Select"
 import { BulkActions } from "@/components/ui/catalog/BulkActions"
 import { ProductTable } from "@/components/ui/catalog/ProductTable"
 import { Empty, Loading, Page } from "@/components/ui/common/Page"
@@ -108,54 +108,50 @@ function ProductList() {
             update({ q: e.target.value.trim() })
           }
         />
-        <NativeSelect
+        <Select
           aria-label="Status"
           value={filters.status}
-          onChange={(e) =>
-            update({ status: e.target.value as ProductFilters["status"] })
-          }
-        >
-          <option value="">Draft and active</option>
-          <option value="draft">Draft</option>
-          <option value="active">Active</option>
-          <option value="archived">Archived</option>
-        </NativeSelect>
-        <NativeSelect
+          onChange={(v) => update({ status: v as ProductFilters["status"] })}
+          options={[
+            { value: "", label: "Draft and active" },
+            { value: "draft", label: "Draft" },
+            { value: "active", label: "Active" },
+            { value: "archived", label: "Archived" },
+          ]}
+        />
+        <Select
           aria-label="Brand"
           value={filters.brand_id}
-          onChange={(e) => update({ brand_id: e.target.value })}
-        >
-          <option value="">All brands</option>
-          {brands?.data.map((b) => (
-            <option key={b.id} value={b.id}>
-              {b.name}
-            </option>
-          ))}
-        </NativeSelect>
-        <NativeSelect
+          onChange={(v) => update({ brand_id: v })}
+          options={[
+            { value: "", label: "All brands" },
+            ...(brands?.data.map((b) => ({ value: b.id, label: b.name })) ??
+              []),
+          ]}
+        />
+        <Select
           aria-label="Category"
           value={filters.category_id}
-          onChange={(e) => update({ category_id: e.target.value })}
-        >
-          <option value="">All categories</option>
-          {categories?.data.map((c) => (
-            <option key={c.id} value={c.id}>
-              {"\u00a0\u00a0".repeat(c.path.split(".").length - 1)}
-              {c.name}
-            </option>
-          ))}
-        </NativeSelect>
-        <NativeSelect
+          onChange={(v) => update({ category_id: v })}
+          options={[
+            { value: "", label: "All categories" },
+            ...(categories?.data.map((c) => ({
+              value: c.id,
+              label:
+                "\u00a0\u00a0".repeat(c.path.split(".").length - 1) + c.name,
+            })) ?? []),
+          ]}
+        />
+        <Select
           aria-label="Sort"
           value={filters.sort}
-          onChange={(e) =>
-            update({ sort: e.target.value as ProductFilters["sort"] })
-          }
-        >
-          <option value="-created_at">Newest</option>
-          <option value="-updated_at">Recently changed</option>
-          <option value="title">Title</option>
-        </NativeSelect>
+          onChange={(v) => update({ sort: v as ProductFilters["sort"] })}
+          options={[
+            { value: "-created_at", label: "Newest" },
+            { value: "-updated_at", label: "Recently changed" },
+            { value: "title", label: "Title" },
+          ]}
+        />
       </div>
 
       <ErrorNotice error={error} title="Could not load products" />

@@ -7,7 +7,7 @@ import Button from "@/components/ui/button/Button"
 import Input from "@/components/form/input/InputField"
 import { Dialog } from "@/components/ui/common/Dialog"
 import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
-import { NativeSelect } from "@/components/ui/common/Field"
+import { Select } from "@/components/ui/common/Select"
 import { Card, Empty, Loading, Page } from "@/components/ui/common/Page"
 import { ApiError } from "@/lib/api/client"
 import type { Category, CategoryDetail, CategoryKind } from "@/lib/api/types"
@@ -68,17 +68,12 @@ export default function CategoriesPage() {
       }
     >
       <div className="mb-4">
-        <NativeSelect
+        <Select
           aria-label="Tree"
           value={kind}
-          onChange={(e) => setKind(e.target.value as CategoryKind)}
-        >
-          {kinds.map((k) => (
-            <option key={k.value} value={k.value}>
-              {k.label}
-            </option>
-          ))}
-        </NativeSelect>
+          onChange={(v) => setKind(v as CategoryKind)}
+          options={kinds}
+        />
       </div>
       <ErrorNotice error={error} title="Could not load categories" />
       {loading && !data ? (
