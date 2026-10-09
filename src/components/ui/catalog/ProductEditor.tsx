@@ -30,7 +30,7 @@ const statusColor = {
 /**
  * The product editor (P1-034, P1-046, P1-048, P1-075): the product's own
  * content in the main column, status and organisation in a side panel, one
- * Save in the header for the product's fields. Images and variants save on
+ * Save in the Status card for the product's fields. Images and variants save on
  * their own, so they wait until the product exists.
  */
 export function ProductEditor({
@@ -62,41 +62,6 @@ export function ProductEditor({
           ? `Version ${product.version} · ${product.variant_count} live variant${product.variant_count === 1 ? "" : "s"}`
           : "Add the details first; images and variants come next."
       }
-      actions={
-        <>
-          <Link
-            href="/products"
-            className="mr-2 text-theme-sm text-gray-500 hover:text-brand-500 dark:text-gray-400 dark:hover:text-brand-400"
-            onClick={(e) => {
-              if (form.dirty && !confirm("Leave without saving your changes?"))
-                e.preventDefault()
-            }}
-          >
-            Back to products
-          </Link>
-          {editable && (
-            <>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={!form.dirty}
-                onClick={form.discard}
-              >
-                Discard changes
-              </Button>
-              <Button
-                size="sm"
-                type="submit"
-                form="product-form"
-                isLoading={form.saving}
-                disabled={!form.canSave}
-              >
-                {product ? "Save" : "Create product"}
-              </Button>
-            </>
-          )}
-        </>
-      }
     >
       <div className="flex flex-col gap-6">
         <SaveError form={form} />
@@ -108,8 +73,8 @@ export function ProductEditor({
               description="What customers see first: the name, its web address and the story."
             >
               {/* Only this card is the <form>, so Enter in a field saves;
-                  the side panel's fields share its state and the header
-                  Save submits it. */}
+                  the side panel's fields share its state and the Status
+                  card's Save submits it. */}
               <form id="product-form" onSubmit={form.save}>
                 <ProductInfoFields form={form} canWrite={editable} />
               </form>
@@ -166,9 +131,11 @@ export function ProductEditor({
               description="Drafts stay off your storefront until published."
             >
               <div className="flex flex-col gap-3">
-                <Badge size="sm" color={statusColor[status]}>
-                  {status}
-                </Badge>
+                <div>
+                  <Badge size="sm" color={statusColor[status]}>
+                    {status}
+                  </Badge>
+                </div>
                 {!product ? (
                   <p className="text-theme-sm text-gray-500 dark:text-gray-400">
                     A new product starts as a draft. Publish it once it has a
@@ -187,6 +154,42 @@ export function ProductEditor({
                     />
                   )
                 )}
+              </div>
+              <div className="mt-5 flex flex-col gap-3 border-t border-gray-100 pt-5 dark:border-white/[0.05]">
+                {editable && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={!form.dirty}
+                      onClick={form.discard}
+                    >
+                      Discard changes
+                    </Button>
+                    <Button
+                      size="sm"
+                      type="submit"
+                      form="product-form"
+                      isLoading={form.saving}
+                      disabled={!form.canSave}
+                    >
+                      {product ? "Save" : "Create product"}
+                    </Button>
+                  </div>
+                )}
+                <Link
+                  href="/products"
+                  className="self-center text-theme-sm text-gray-500 hover:text-brand-500 dark:text-gray-400 dark:hover:text-brand-400"
+                  onClick={(e) => {
+                    if (
+                      form.dirty &&
+                      !confirm("Leave without saving your changes?")
+                    )
+                      e.preventDefault()
+                  }}
+                >
+                  Back to products
+                </Link>
               </div>
             </Section>
             <Section

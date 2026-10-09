@@ -14,7 +14,7 @@ vi.mock("next/navigation", () => ({
 beforeEach(() => vi.unstubAllGlobals())
 
 describe("ProductEditor (new product)", () => {
-  it("lays out info, status and organisation, and creates from the header", async () => {
+  it("lays out info, status and organisation, and creates from the status card", async () => {
     const fetch = mockApi(["products:write"], (url, init) => {
       if (url.includes("/v1/brands"))
         return json({ data: [{ id: "b1", name: "Erigo" }], next_cursor: null })
@@ -57,6 +57,9 @@ describe("ProductEditor (new product)", () => {
     ).toBeInTheDocument()
 
     const create = await screen.findByRole("button", { name: "Create product" })
+    expect(
+      screen.getByRole("heading", { name: "Status" }).closest("section"),
+    ).toContainElement(create)
     expect(create).toBeDisabled()
     await userEvent.type(screen.getByLabelText("Title"), "Tee")
     expect(screen.getByLabelText("Slug")).toHaveValue("tee")
