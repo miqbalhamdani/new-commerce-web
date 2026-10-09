@@ -109,7 +109,7 @@ export function ProductEditor({
             <Section
               id="images"
               title="Images"
-              description="The first image is the cover. Drag to reorder."
+              description="The first image is the cover. Drag to reorder. Pick a variant under an image to show it when a shopper chooses that variant."
             >
               {product ? (
                 <MediaManager
@@ -136,6 +136,7 @@ export function ProductEditor({
                 <VariantMatrix
                   product={product}
                   canWrite={canVariants && !archived}
+                  canMedia={canMedia && !archived}
                   onSaved={() => onReload?.()}
                   highlight={
                     new Map(

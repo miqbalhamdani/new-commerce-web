@@ -1,6 +1,6 @@
 "use client"
 
-import { HelpCircle, Plus, Trash2, X } from "lucide-react"
+import { HelpCircle, ImagePlus, Plus, Trash2, X } from "lucide-react"
 import { useMemo, useState } from "react"
 
 import Button from "@/components/ui/button/Button"
@@ -9,7 +9,12 @@ import { Dialog } from "@/components/ui/common/Dialog"
 import { Checkbox } from "@/components/ui/common/Field"
 import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
 import { ApiError } from "@/lib/api/client"
-import type { Product, Variant, VariantMatrixResult } from "@/lib/api/types"
+import type {
+  Media,
+  Product,
+  Variant,
+  VariantMatrixResult,
+} from "@/lib/api/types"
 import { asApiError, useApi, useResource } from "@/lib/api/use-api"
 import {
   carry,
@@ -63,12 +68,15 @@ type Confirm = {
 export function VariantMatrix({
   product,
   canWrite,
+  canMedia = false,
   onSaved,
   highlight,
   children,
 }: {
   product: Product
   canWrite: boolean
+  /** media:write: attach an uploaded image to a saved variant. */
+  canMedia?: boolean
   onSaved: () => void
   /** Cells to flag from outside, e.g. publish-check failures by variant id (P1-075). */
   highlight?: Map<string, string>
@@ -95,6 +103,10 @@ export function VariantMatrix({
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [dirty, setDirty] = useState(false)
   const [confirm, setConfirm] = useState<Confirm | null>(null)
+  const [picking, setPicking] = useState<{ id: string; name: string } | null>(
+    null,
+  )
+  const [pickError, setPickError] = useState<ApiError | null>(null)
 
   // Seed from a fresh variants fetch, but never over unsaved edits: a late
   // fetch or a partly refused save must keep what was typed.
@@ -115,6 +127,29 @@ export function VariantMatrix({
     )
     return grid.map((c) => byKey.get(key(c)))
   }, [grid, variants])
+
+  // An image belongs to one variant or to the whole product (PATCH /media/{id}).
+  const media = product.media ?? []
+  const imageOf = (id?: string) =>
+    id ? media.find((m) => m.variant_id === id) : undefined
+  const showImages = canMedia || media.some((m) => m.variant_id)
+  const nameOf = new Map(
+    (variants?.data ?? []).map((v) => [v.id, v.option_values.join(" / ")]),
+  )
+
+  async function attach(mediaId: string, variantId: string | null) {
+    try {
+      await api(`/v1/media/${mediaId}`, {
+        method: "PATCH",
+        body: { variant_id: variantId },
+      })
+      setPicking(null)
+      setPickError(null)
+      onSaved()
+    } catch (err) {
+      setPickError(asApiError(err))
+    }
+  }
 
   function setRows(next: Row[]) {
     const m = new Map(cells)
@@ -347,6 +382,9 @@ export function VariantMatrix({
                       {a.name}
                     </th>
                   ))}
+                  {showImages && (
+                    <th className="py-2 pr-3 font-medium">Image</th>
+                  )}
                   {columns.map((c) => (
                     <th key={c} className="py-2 pr-3 font-medium">
                       {columnLabel[c]}
@@ -400,6 +438,22 @@ export function VariantMatrix({
                           {v}
                         </td>
                       ))}
+                      {showImages && (
+                        <td className="py-1 pr-3">
+                          <VariantImage
+                            name={combo.join(" / ") || "the variant"}
+                            image={imageOf(variantIdByRow[i])}
+                            canMedia={canMedia}
+                            saved={Boolean(variantIdByRow[i])}
+                            onPick={() =>
+                              setPicking({
+                                id: variantIdByRow[i]!,
+                                name: combo.join(" / ") || "the variant",
+                              })
+                            }
+                          />
+                        </td>
+                      )}
                       {columns.map((c, col) => (
                         <td key={c} className="py-1 pr-3">
                           <div className="relative min-w-28">
@@ -510,6 +564,74 @@ export function VariantMatrix({
       </section>
 
       <Dialog
+        open={picking !== null}
+        onOpenChange={(open) => {
+          if (open) return
+          setPicking(null)
+          setPickError(null)
+        }}
+        title={`Image for ${picking?.name ?? ""}`}
+        description="Shown when a shopper picks this variant. Upload images in the Images section above."
+        footer={
+          picking &&
+          imageOf(picking.id) && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => void attach(imageOf(picking.id)!.id, null)}
+            >
+              Use no image
+            </Button>
+          )
+        }
+      >
+        <ErrorNotice error={pickError} title="Could not change the image" />
+        {media.length === 0 ? (
+          <p className="text-theme-sm text-gray-500 dark:text-gray-400">
+            Upload images in the Images section first.
+          </p>
+        ) : (
+          <ul className="grid grid-cols-3 gap-3 sm:grid-cols-4">
+            {media.map((m, n) => {
+              const current = m.variant_id === picking?.id
+              const other =
+                m.variant_id && !current ? nameOf.get(m.variant_id) : undefined
+              return (
+                <li key={m.id} className="flex flex-col gap-1">
+                  <button
+                    type="button"
+                    aria-label={`Use image ${n + 1}${other ? `, now on ${other}` : ""}`}
+                    aria-pressed={current}
+                    onClick={() =>
+                      picking && !current && void attach(m.id, picking.id)
+                    }
+                    className={cx(
+                      "overflow-hidden rounded-lg border focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40",
+                      current
+                        ? "border-brand-500 ring-2 ring-brand-500"
+                        : "border-gray-200 hover:border-brand-300 dark:border-gray-800",
+                    )}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element -- the store's own derivative */}
+                    <img
+                      src={thumb(m)}
+                      alt=""
+                      className="aspect-square w-full object-cover"
+                    />
+                  </button>
+                  {other && (
+                    <span className="truncate text-theme-xs text-gray-500 dark:text-gray-400">
+                      On {other}
+                    </span>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </Dialog>
+
+      <Dialog
         open={confirm !== null}
         onOpenChange={(open) => !open && setConfirm(null)}
         title={confirm?.title ?? ""}
@@ -537,6 +659,55 @@ export function VariantMatrix({
         }
       />
     </div>
+  )
+}
+
+const thumb = (m: Media) =>
+  m.derivatives["200"] ?? m.derivatives["800"] ?? m.url
+
+/** A row's image: a thumbnail, or a button to pick one once the row is saved. */
+function VariantImage({
+  name,
+  image,
+  canMedia,
+  saved,
+  onPick,
+}: {
+  name: string
+  image?: Media
+  canMedia: boolean
+  saved: boolean
+  onPick: () => void
+}) {
+  const look =
+    "flex size-9 items-center justify-center overflow-hidden rounded-lg"
+  const picture = image && (
+    // eslint-disable-next-line @next/next/no-img-element -- the store's own derivative
+    <img src={thumb(image)} alt="" className="size-full object-cover" />
+  )
+  if (!canMedia)
+    return picture ? (
+      <span className={look} role="img" aria-label={`Image for ${name}`}>
+        {picture}
+      </span>
+    ) : null
+  return (
+    <button
+      type="button"
+      aria-label={`${image ? "Change" : "Add"} image for ${name}`}
+      title={saved ? undefined : "Save the variants first"}
+      disabled={!saved}
+      onClick={onPick}
+      className={cx(
+        look,
+        "focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/30 disabled:cursor-not-allowed disabled:opacity-50",
+        image
+          ? "border border-gray-200 hover:border-brand-300 dark:border-gray-800"
+          : "border border-dashed border-gray-300 text-gray-400 hover:border-brand-300 hover:text-brand-500 dark:border-gray-700",
+      )}
+    >
+      {picture ?? <ImagePlus aria-hidden className="size-4" />}
+    </button>
   )
 }
 
@@ -697,7 +868,7 @@ function AxisEditor({
               placeholder={
                 axis.values.length ? "Add more…" : "Type values, e.g. S, M, L"
               }
-              className="h-7 min-w-36 flex-1 border-0 bg-transparent px-1 text-sm text-gray-800 shadow-none outline-none ring-0 focus:border-0 focus:outline-none focus:ring-0 placeholder:text-gray-400 dark:text-white/90"
+              className="h-7 min-w-36 flex-1 border-0 bg-transparent px-1 text-sm text-gray-800 shadow-none outline-none ring-0 placeholder:text-gray-400 focus:border-0 focus:outline-none focus:ring-0 dark:text-white/90"
               value={value}
               onChange={(e) => {
                 const v = e.target.value

@@ -273,6 +273,74 @@ describe("VariantMatrix (P1-046)", () => {
     expect(screen.getByText(/No rows ticked/)).toBeInTheDocument()
   })
 
+  it("attaches an uploaded image to a saved variant, and takes it off", async () => {
+    const image = (id: string, variant_id: string | null) => ({
+      id,
+      variant_id,
+      url: `/${id}.jpg`,
+      derivatives: {},
+    })
+    const withMedia = {
+      ...product,
+      media: [image("m1", null), image("m2", "White-S")],
+    } as unknown as Product
+    const patches: { url: string; body: unknown }[] = []
+    mockApi(["variants:write", "media:write"], (url, init) => {
+      if (url.endsWith("/variants")) return json({ data: variants })
+      if (init?.method === "PATCH") {
+        patches.push({ url, body: JSON.parse(String(init.body)) })
+        return json({})
+      }
+    })
+    const onSaved = vi.fn()
+    renderSignedIn(
+      <VariantMatrix product={withMedia} canWrite canMedia onSaved={onSaved} />,
+    )
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Add image for Black / S" }),
+    )
+    // m2 is on White / S; picking m1 attaches it here.
+    expect(
+      screen.getByRole("button", { name: "Use image 2, now on White / S" }),
+    ).toBeInTheDocument()
+    await userEvent.click(screen.getByRole("button", { name: "Use image 1" }))
+    expect(patches[0]).toEqual({
+      url: expect.stringMatching(/\/v1\/media\/m1$/),
+      body: { variant_id: "Black-S" },
+    })
+    expect(onSaved).toHaveBeenCalled()
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Change image for White / S" }),
+    )
+    await userEvent.click(screen.getByRole("button", { name: "Use no image" }))
+    expect(patches[1]).toEqual({
+      url: expect.stringMatching(/\/v1\/media\/m2$/),
+      body: { variant_id: null },
+    })
+  })
+
+  it("waits for a variant to be saved before it can have an image", async () => {
+    mockApi(["variants:write", "media:write"], (url) =>
+      url.endsWith("/variants") ? json({ data: [] }) : undefined,
+    )
+    renderSignedIn(
+      <VariantMatrix
+        product={{ ...product, option_names: [], media: [] } as Product}
+        canWrite
+        canMedia
+        onSaved={() => {}}
+      />,
+    )
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Add option" }),
+    )
+    await userEvent.type(screen.getByLabelText("Add a Colour value"), "Red,")
+    expect(
+      screen.getByRole("button", { name: "Add image for Red" }),
+    ).toBeDisabled()
+  })
+
   it("shows no write controls without variants:write", async () => {
     mockApi(["variants:read"], (url) =>
       url.endsWith("/variants") ? json({ data: variants }) : undefined,

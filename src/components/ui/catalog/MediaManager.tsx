@@ -175,7 +175,7 @@ export function MediaManager({
                       )
                     }
                     options={[
-                      { value: "", label: "Whole product" },
+                      { value: "", label: "All variants" },
                       ...(variants?.data.map((v) => ({
                         value: v.id,
                         label: v.option_values.join(" / ") || v.sku || "Variant",
