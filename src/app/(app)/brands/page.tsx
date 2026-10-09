@@ -21,7 +21,9 @@ import {
 import { Dialog } from "@/components/ui/common/Dialog"
 import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
 import { Empty, Loading, Page } from "@/components/ui/common/Page"
+import { RowMenu } from "@/components/ui/common/RowMenu"
 import { SearchInput } from "@/components/ui/common/SearchInput"
+import { PencilIcon, TrashBinIcon } from "@/icons"
 import { ApiError } from "@/lib/api/client"
 import type { Brand, BrandPage } from "@/lib/api/types"
 import { asApiError, fieldError, useApi, useResource } from "@/lib/api/use-api"
@@ -50,18 +52,8 @@ export default function BrandsPage() {
   const [deleting, setDeleting] = useState<Brand | null>(null)
 
   return (
-    <Page
-      title="Brands"
-      description="The labels your products are sold under."
-      actions={
-        canWrite && (
-          <Button size="sm" onClick={() => setEditing("new")}>
-            Add brand
-          </Button>
-        )
-      }
-    >
-      <div className="mb-4">
+    <Page title="Brands" description="The labels your products are sold under.">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <SearchInput
           aria-label="Search brands"
           placeholder="Search brands"
@@ -72,6 +64,11 @@ export default function BrandsPage() {
             setCursor(null)
           }}
         />
+        {canWrite && (
+          <Button size="sm" onClick={() => setEditing("new")}>
+            Add brand
+          </Button>
+        )}
       </div>
 
       <ErrorNotice error={error} title="Could not load brands" />
@@ -92,15 +89,25 @@ export default function BrandsPage() {
                 Slug
               </TableCell>
               {canWrite && (
-                <TableCell isHeader className={`${th} text-right`}>
-                  Actions
+                <TableCell isHeader className={`${th} w-px`}>
+                  <span className="sr-only">Actions</span>
                 </TableCell>
               )}
             </TableRow>
           </TableHeader>
           <TableBody className={bodyRows}>
             {data.data.map((b) => (
-              <TableRow key={b.id}>
+              // The row opens Edit for the mouse; the menu's Edit is the
+              // keyboard path.
+              <TableRow
+                key={b.id}
+                onClick={canWrite ? () => setEditing(b) : undefined}
+                className={
+                  canWrite
+                    ? "cursor-pointer hover:bg-gray-50 dark:hover:bg-white/[0.02]"
+                    : undefined
+                }
+              >
                 <TableCell className={td}>
                   <span className="font-medium text-gray-800 dark:text-white/90">
                     {b.name}
@@ -110,25 +117,23 @@ export default function BrandsPage() {
                   {b.slug}
                 </TableCell>
                 {canWrite && (
-                  <TableCell className={`${td} text-right`}>
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        size="sm"
-                        className="!py-1.5"
-                        variant="ghost"
-                        onClick={() => setEditing(b)}
-                      >
-                        Edit
-                      </Button>
-                      <Button
-                        size="sm"
-                        className="!py-1.5"
-                        variant="ghost"
-                        onClick={() => setDeleting(b)}
-                      >
-                        Delete
-                      </Button>
-                    </div>
+                  <TableCell className={`${td} !py-2 text-right`}>
+                    <RowMenu
+                      label={`Actions for ${b.name}`}
+                      actions={[
+                        {
+                          label: "Edit",
+                          icon: <PencilIcon />,
+                          onSelect: () => setEditing(b),
+                        },
+                        {
+                          label: "Delete",
+                          icon: <TrashBinIcon />,
+                          destructive: true,
+                          onSelect: () => setDeleting(b),
+                        },
+                      ]}
+                    />
                   </TableCell>
                 )}
               </TableRow>
