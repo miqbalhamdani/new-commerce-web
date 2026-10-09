@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest"
 
-import { patchOf, type ProductDraft } from "./product-form"
+import {
+  createBodyOf,
+  emptyDraft,
+  patchOf,
+  type ProductDraft,
+} from "./product-form"
 
 const base: ProductDraft = {
   title: "Tee",
@@ -42,6 +47,31 @@ describe("patchOf", () => {
     ).toEqual({
       category_ids: ["c1"],
       attributes: { material: "Linen" },
+    })
+  })
+})
+
+describe("createBodyOf", () => {
+  it("sends the title alone for an otherwise empty form", () => {
+    expect(createBodyOf({ ...emptyDraft(), title: " Tee " })).toEqual({
+      title: "Tee",
+    })
+  })
+  it("sends what was filled in, never the slug", () => {
+    expect(
+      createBodyOf({
+        ...base,
+        attributes: [
+          ["material", "Cotton"],
+          [" ", "x"],
+        ],
+      }),
+    ).toEqual({
+      title: "Tee",
+      description: "Kaos",
+      brand_id: "b1",
+      category_ids: ["c1", "c2"],
+      attributes: { material: "Cotton" },
     })
   })
 })

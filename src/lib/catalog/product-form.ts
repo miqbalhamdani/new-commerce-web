@@ -24,6 +24,40 @@ export function draftOf(p: Product): ProductDraft {
   }
 }
 
+/** A new product's form, before anything is typed. */
+export function emptyDraft(): ProductDraft {
+  return {
+    title: "",
+    slug: "",
+    description: "",
+    brand_id: "",
+    category_ids: [],
+    attributes: [],
+  }
+}
+
+/**
+ * The POST body for a new product: only what was filled in, so the API's
+ * defaults apply to the rest (BR-009). No slug: the API derives it from the
+ * title and it is editable afterwards (BR-042).
+ */
+export function createBodyOf(draft: ProductDraft): Record<string, unknown> {
+  const body: Record<string, unknown> = { title: draft.title.trim() }
+  if (draft.description !== "") body.description = draft.description
+  if (draft.brand_id !== "") body.brand_id = draft.brand_id
+  if (draft.category_ids.length) body.category_ids = draft.category_ids
+  const attrs = attributesOf(draft)
+  if (Object.keys(attrs).length) body.attributes = attrs
+  return body
+}
+
+const attributesOf = (d: ProductDraft) =>
+  Object.fromEntries(
+    d.attributes
+      .filter(([k]) => k.trim() !== "")
+      .map(([k, v]) => [k.trim(), v]),
+  )
+
 /**
  * The PATCH body: only what changed (BR-009). An emptied description or brand
  * is sent as null, which clears it; categories and attributes go whole.
@@ -44,11 +78,7 @@ export function patchOf(
     [...original.category_ids].sort().join()
   )
     body.category_ids = draft.category_ids
-  const attrs = Object.fromEntries(
-    draft.attributes
-      .filter(([k]) => k.trim() !== "")
-      .map(([k, v]) => [k.trim(), v]),
-  )
+  const attrs = attributesOf(draft)
   if (
     JSON.stringify(attrs) !==
     JSON.stringify(Object.fromEntries(original.attributes))

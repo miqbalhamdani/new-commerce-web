@@ -4,7 +4,6 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { Suspense, useEffect, useState } from "react"
 
 import Button from "@/components/ui/button/Button"
-import Input from "@/components/form/input/InputField"
 import { ButtonLink } from "@/components/ui/common/ButtonLink"
 import { Dialog } from "@/components/ui/common/Dialog"
 import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
@@ -14,7 +13,12 @@ import { BulkActions } from "@/components/ui/catalog/BulkActions"
 import { ProductTable } from "@/components/ui/catalog/ProductTable"
 import { Empty, Loading, Page } from "@/components/ui/common/Page"
 import { ApiError } from "@/lib/api/client"
-import type { BrandPage, Category, Product, ProductPage } from "@/lib/api/types"
+import type {
+  BrandPage,
+  Category,
+  ProductListItem,
+  ProductPage,
+} from "@/lib/api/types"
 import { asApiError, useApi, useResource } from "@/lib/api/use-api"
 import { useCan } from "@/lib/auth/session"
 import {
@@ -44,7 +48,7 @@ function ProductList() {
   const canWrite = useCan("products:write")
   const canSettings = useCan("settings:write")
   const [cursor, setCursor] = useState<string | null>(null)
-  const [creating, setCreating] = useState(false)
+  const [archiving, setArchiving] = useState<ProductListItem | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [failed, setFailed] = useState<Map<string, string>>(new Map())
 
@@ -87,9 +91,7 @@ function ProductList() {
             <ButtonLink href="/products/import" variant="outline">
               Import CSV
             </ButtonLink>
-            <Button size="sm" onClick={() => setCreating(true)}>
-              New product
-            </Button>
+            <ButtonLink href="/products/new">New product</ButtonLink>
           </>
         )
       }
@@ -189,6 +191,7 @@ function ProductList() {
                   }
                 : undefined
             }
+            onArchive={canWrite ? setArchiving : undefined}
           />
         </>
       ) : null}
@@ -203,62 +206,68 @@ function ProductList() {
           </Button>
         </div>
       )}
-      <CreateDialog open={creating} onClose={() => setCreating(false)} />
+      <ArchiveDialog
+        product={archiving}
+        onClose={() => setArchiving(null)}
+        onDone={reload}
+      />
     </Page>
   )
 }
 
-function CreateDialog({
-  open,
+/** Archiving takes the product off the storefront for good (BR-012, BR-045). */
+function ArchiveDialog({
+  product,
   onClose,
+  onDone,
 }: {
-  open: boolean
+  product: ProductListItem | null
   onClose: () => void
+  onDone: () => void
 }) {
   const api = useApi()
-  const router = useRouter()
-  const [title, setTitle] = useState("")
   const [error, setError] = useState<ApiError | null>(null)
   const [busy, setBusy] = useState(false)
-  async function create(e: React.FormEvent) {
-    e.preventDefault()
+  function close() {
+    setError(null)
+    onClose()
+  }
+  async function archive() {
+    if (!product) return
     setBusy(true)
     try {
-      const p = await api<Product>("/v1/products", {
-        method: "POST",
-        body: { title },
-      })
-      router.push(`/products/${p.id}`)
+      await api(`/v1/products/${product.id}`, { method: "DELETE" })
+      close()
+      onDone()
     } catch (err) {
       setError(asApiError(err))
+    } finally {
       setBusy(false)
     }
   }
   return (
     <Dialog
-      open={open}
-      onOpenChange={(o) => !o && onClose()}
-      title="New product"
-      description="It starts as a draft; publish it once it has variants, an image and a category."
-    >
-      <form onSubmit={create} className="flex flex-col gap-3">
-        <Input
-          aria-label="Title"
-          placeholder="Erigo Basic Tee"
-          value={title}
-          autoFocus
-          onChange={(e) => setTitle(e.target.value)}
-        />
-        <ErrorNotice error={error} />
-        <div className="flex justify-end gap-2">
-          <Button size="sm" variant="outline" onClick={onClose}>
+      open={product !== null}
+      onOpenChange={(o) => !o && close()}
+      title={`Archive ${product?.title ?? ""}?`}
+      description="It leaves your storefront and can't be restored. Orders that include it keep it."
+      footer={
+        <>
+          <Button size="sm" variant="outline" onClick={close}>
             Cancel
           </Button>
-          <Button size="sm" type="submit" isLoading={busy} disabled={!title.trim()}>
-            Create
+          <Button
+            size="sm"
+            variant="destructive"
+            isLoading={busy}
+            onClick={archive}
+          >
+            Archive
           </Button>
-        </div>
-      </form>
+        </>
+      }
+    >
+      <ErrorNotice error={error} />
     </Dialog>
   )
 }

@@ -11,7 +11,14 @@ import { Card } from "@/components/ui/common/Page"
 import { ApiError } from "@/lib/api/client"
 import type { BrandPage, Category, Product } from "@/lib/api/types"
 import { asApiError, fieldError, useApi, useResource } from "@/lib/api/use-api"
-import { draftOf, patchOf, type ProductDraft } from "@/lib/catalog/product-form"
+import {
+  createBodyOf,
+  draftOf,
+  emptyDraft,
+  patchOf,
+  type ProductDraft,
+} from "@/lib/catalog/product-form"
+import { slugify } from "@/lib/catalog/slug"
 
 const kindLabel: Record<string, string> = {
   category: "Category (main tree)",
@@ -25,6 +32,8 @@ const kindLabel: Record<string, string> = {
  * The product's own fields (P1-034, 04-api-spec.md §7.1). Saves only what
  * changed, at the version it read (BR-010); prompts before leaving with
  * unsaved changes; warns that editing the slug breaks old links (BR-042).
+ * With product null it is the new-product form: Create POSTs what was filled
+ * in, and the slug is a preview the API derives from the title.
  */
 export function ProductDetails({
   product,
@@ -32,7 +41,7 @@ export function ProductDetails({
   onSaved,
   onDirtyChange,
 }: {
-  product: Product
+  product: Product | null
   canWrite: boolean
   onSaved: (p: Product) => void
   onDirtyChange?: (dirty: boolean) => void
@@ -42,12 +51,17 @@ export function ProductDetails({
   // uploading or a variant saving reloads the product too, and must not wipe
   // what someone is typing (P1-048: uploading never blocks the form).
   const [base, setBase] = useState(product)
-  const [draft, setDraft] = useState<ProductDraft>(() => draftOf(product))
-  if (product.id !== base.id || product.version !== base.version) {
+  const [draft, setDraft] = useState<ProductDraft>(() =>
+    product ? draftOf(product) : emptyDraft(),
+  )
+  if (
+    product &&
+    (product.id !== base?.id || product.version !== base.version)
+  ) {
     setBase(product)
     setDraft(draftOf(product))
   }
-  const original = useMemo(() => draftOf(base), [base])
+  const original = useMemo(() => (base ? draftOf(base) : emptyDraft()), [base])
   const [error, setError] = useState<ApiError | null>(null)
   const [saving, setSaving] = useState(false)
   const { data: brands } = useResource<BrandPage>("/v1/brands?limit=200")
@@ -71,11 +85,16 @@ export function ProductDetails({
     e.preventDefault()
     setSaving(true)
     try {
-      const saved = await api<Product>(`/v1/products/${product.id}`, {
-        method: "PATCH",
-        body: patch,
-        headers: { "If-Match": String(product.version) },
-      })
+      const saved = product
+        ? await api<Product>(`/v1/products/${product.id}`, {
+            method: "PATCH",
+            body: patch,
+            headers: { "If-Match": String(product.version) },
+          })
+        : await api<Product>("/v1/products", {
+            method: "POST",
+            body: createBodyOf(draft),
+          })
       setError(null)
       onSaved(saved)
     } catch (err) {
@@ -105,17 +124,21 @@ export function ProductDetails({
             label="Slug"
             error={fieldError(error, "slug")}
             hint={
-              draft.slug !== original.slug
-                ? undefined
-                : "The product's address on your website. Changing the title never changes it."
+              !product
+                ? "Generated from the title. You can change it after creating."
+                : draft.slug !== original.slug
+                  ? undefined
+                  : "The product's address on your website. Changing the title never changes it."
             }
           >
             <Input
               id="slug"
-              value={draft.slug}
+              value={product ? draft.slug : slugify(draft.title)}
+              readOnly={!product}
+              className={product ? "" : "!bg-gray-50 dark:!bg-white/[0.03]"}
               onChange={(e) => set({ slug: e.target.value })}
             />
-            {draft.slug !== original.slug && (
+            {product && draft.slug !== original.slug && (
               <p
                 role="alert"
                 className="text-xs text-warning-600 dark:text-orange-400"
@@ -296,8 +319,13 @@ export function ProductDetails({
             >
               Discard changes
             </Button>
-            <Button size="sm" type="submit" isLoading={saving} disabled={!dirty}>
-              Save
+            <Button
+              size="sm"
+              type="submit"
+              isLoading={saving}
+              disabled={!dirty || !draft.title.trim()}
+            >
+              {product ? "Save" : "Create product"}
             </Button>
           </div>
         )}
