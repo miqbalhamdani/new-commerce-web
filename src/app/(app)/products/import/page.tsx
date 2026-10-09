@@ -6,6 +6,7 @@ import { useEffect, useState } from "react"
 import Button from "@/components/ui/button/Button"
 import Input from "@/components/form/input/InputField"
 import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
+import { Dropzone } from "@/components/ui/common/Dropzone"
 import { Select } from "@/components/ui/common/Select"
 import { Card, Page } from "@/components/ui/common/Page"
 import { ApiError } from "@/lib/api/client"
@@ -117,19 +118,15 @@ export default function ImportPage() {
 
       {step === "choose" && (
         <Card className="p-6">
-          <label className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-gray-300 bg-gray-50 p-10 text-center text-theme-sm text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400">
+          <Dropzone
+            accept=".csv,text/csv"
+            onFiles={(files) => files[0] && void choose(files[0])}
+            className="p-10"
+          >
             <span className="font-medium text-gray-700 dark:text-gray-300">
               CSV file (up to 50 MB; comma or semicolon separated)
             </span>
-            <input
-              type="file"
-              accept=".csv,text/csv"
-              className="text-theme-sm file:mr-3 file:cursor-pointer file:rounded-lg file:border-0 file:bg-brand-500 file:px-4 file:py-2.5 file:text-sm file:font-medium file:text-white hover:file:bg-brand-600"
-              onChange={(e) =>
-                e.target.files?.[0] && void choose(e.target.files[0])
-              }
-            />
-          </label>
+          </Dropzone>
         </Card>
       )}
 

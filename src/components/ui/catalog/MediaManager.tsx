@@ -1,9 +1,10 @@
 "use client"
 
 import { ImagePlus } from "lucide-react"
-import { useRef, useState } from "react"
+import { useState } from "react"
 
 import Button from "@/components/ui/button/Button"
+import { Dropzone } from "@/components/ui/common/Dropzone"
 import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
 import { Select } from "@/components/ui/common/Select"
 import { Card } from "@/components/ui/common/Page"
@@ -32,11 +33,9 @@ export function MediaManager({
   onChanged: () => void
 }) {
   const api = useApi()
-  const input = useRef<HTMLInputElement>(null)
   const [uploads, setUploads] = useState<Upload[]>([])
   const [order, setOrder] = useState<Media[] | null>(null)
   const [dragging, setDragging] = useState<number | null>(null)
-  const [over, setOver] = useState(false)
   const [error, setError] = useState<ApiError | null>(null)
   const { data: variants } = useResource<{ data: Variant[] }>(
     `/v1/products/${product.id}/variants`,
@@ -98,41 +97,15 @@ export function MediaManager({
   return (
     <Card className="p-6">
       {canWrite && (
-        <div
-          onDragOver={(e) => {
-            if (e.dataTransfer.types.includes("Files")) {
-              e.preventDefault()
-              setOver(true)
-            }
-          }}
-          onDragLeave={() => setOver(false)}
-          onDrop={(e) => {
-            if (!e.dataTransfer.files.length) return
-            e.preventDefault()
-            setOver(false)
-            upload(e.dataTransfer.files)
-          }}
-          className={cx(
-            "mb-4 flex flex-col items-center gap-2 rounded-xl border border-dashed bg-gray-50 p-7 text-theme-sm text-gray-500 dark:bg-gray-900 dark:text-gray-400",
-            over
-              ? "border-brand-500 bg-brand-50 dark:bg-brand-500/[0.08]"
-              : "border-gray-300 dark:border-gray-700",
-          )}
+        <Dropzone
+          accept="image/jpeg,image/png,image/webp"
+          multiple
+          onFiles={upload}
+          className="mb-4"
         >
           <ImagePlus className="size-6" aria-hidden />
           <p>Drop JPEG, PNG or WebP images here (up to 20 MB each), or</p>
-          <Button size="sm" variant="outline" onClick={() => input.current?.click()}>
-            Choose files
-          </Button>
-          <input
-            ref={input}
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            multiple
-            hidden
-            onChange={(e) => e.target.files && upload(e.target.files)}
-          />
-        </div>
+        </Dropzone>
       )}
 
       {uploads.length > 0 && (
