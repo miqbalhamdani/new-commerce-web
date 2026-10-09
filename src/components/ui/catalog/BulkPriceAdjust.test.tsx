@@ -53,7 +53,7 @@ describe("BulkPriceAdjust (P1-047)", () => {
       screen.getByRole("button", { name: "Apply to 2 variants" }),
     )
     expect(screen.getByLabelText("Sale price (Rp) for S")).toHaveValue("180000")
-    expect(screen.getByLabelText("Price (Rp) for S")).toHaveValue(
+    expect(screen.getByLabelText("Regular price (Rp) for S")).toHaveValue(
       "200000",
     )
     expect(fetch.mock.calls.some(([, i]) => i?.method === "PUT")).toBe(false) // saving is still the person's call

@@ -30,7 +30,7 @@ const variants: Variant[] = ["Black", "White"].flatMap((c) =>
 beforeEach(() => vi.unstubAllGlobals())
 
 describe("VariantMatrix (P1-046)", () => {
-  it("renders 10 variants as 10 cards and saves them in one request; a failed card keeps its error", async () => {
+  it("renders a 2×5 grid as 10 rows and saves it in one request; a failed row shows its error", async () => {
     const fetch = mockApi(["variants:write"], (url, init) => {
       if (url.endsWith("/variants")) return json({ data: variants })
       if (url.endsWith("/variant-matrix") && init?.method === "PUT") {
@@ -67,8 +67,8 @@ describe("VariantMatrix (P1-046)", () => {
       <VariantMatrix product={product} canWrite onSaved={onSaved} />,
     )
 
-    await waitFor(() => expect(screen.getAllByRole("group")).toHaveLength(10))
-    const price = screen.getByLabelText("Price (Rp) for Black / S")
+    await waitFor(() => expect(screen.getAllByRole("row")).toHaveLength(11)) // header + 10
+    const price = screen.getByLabelText("Regular price (Rp) for Black / S")
     await userEvent.clear(price)
     await userEvent.type(price, "219000")
     await userEvent.click(screen.getByRole("button", { name: "Save variants" }))
@@ -87,7 +87,7 @@ describe("VariantMatrix (P1-046)", () => {
     expect(body.rows[0].regular_price).toBe(21900000)
     expect(new Headers(puts[0][1]!.headers).get("If-Match")).toBe("3")
     expect(
-      screen.getByRole("alert").closest("fieldset")?.getAttribute("data-row"),
+      screen.getByRole("alert").closest("tr")?.getAttribute("data-row"),
     ).toBe("3")
     expect(onSaved).toHaveBeenCalled()
   })
@@ -106,52 +106,7 @@ describe("VariantMatrix (P1-046)", () => {
     expect(screen.getByLabelText("Weight (g) for Black / L")).toHaveValue("230")
   })
 
-  it("adds a variant card with a value per option, and X removes one", async () => {
-    const fetch = mockApi(["variants:write"], (url, init) => {
-      if (url.endsWith("/variants")) return json({ data: variants.slice(0, 2) })
-      if (url.endsWith("/variant-matrix") && init?.method === "PUT")
-        return json({ results: [] })
-    })
-    renderSignedIn(
-      <VariantMatrix product={product} canWrite onSaved={() => {}} />,
-    )
-    await userEvent.click(
-      await screen.findByRole("button", { name: "Remove variant Black / S" }),
-    )
-    await userEvent.click(screen.getByRole("button", { name: "Add variant" }))
-    expect(screen.getAllByRole("group")).toHaveLength(2)
-    await userEvent.click(screen.getByRole("button", { name: "Save variants" }))
-    expect(screen.getByRole("alert")).toHaveTextContent("Fill in Colour")
-
-    await userEvent.type(screen.getByLabelText("Colour for variant 2"), "Red")
-    await userEvent.type(screen.getByLabelText("Size for variant 2"), "XL")
-    await userEvent.type(
-      screen.getByLabelText("Price (Rp) for Red / XL"),
-      "99000",
-    )
-    await userEvent.click(screen.getByRole("button", { name: "Save variants" }))
-
-    await waitFor(() =>
-      expect(
-        fetch.mock.calls.some(([u]) => String(u).endsWith("/variant-matrix")),
-      ).toBe(true),
-    )
-    const put = fetch.mock.calls.find(([u]) =>
-      String(u).endsWith("/variant-matrix"),
-    )!
-    const body = JSON.parse(String(put[1]!.body))
-    expect(body.option_names).toEqual(["Colour", "Size"])
-    expect(body.archive_missing).toBe(true)
-    expect(
-      body.rows.map((r: { option_values: string[] }) => r.option_values),
-    ).toEqual([
-      ["Black", "M"],
-      ["Red", "XL"],
-    ])
-    expect(body.rows[1].regular_price).toBe(9900000)
-  })
-
-  it("adding an option gives every card a box for it", async () => {
+  it("adds option values on comma and on leaving the box, not only Enter", async () => {
     mockApi(["variants:write"], (url) =>
       url.endsWith("/variants") ? json({ data: [] }) : undefined,
     )
@@ -162,11 +117,80 @@ describe("VariantMatrix (P1-046)", () => {
         onSaved={() => {}}
       />,
     )
-    expect(await screen.findByText(/No variants yet/)).toBeInTheDocument()
-    await userEvent.click(screen.getByRole("button", { name: "Add variant" }))
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Add option" }),
+    )
+    await userEvent.type(
+      screen.getByLabelText("Add a Colour value"),
+      "Red, Blue,",
+    )
     await userEvent.click(screen.getByRole("button", { name: "Add option" }))
-    expect(screen.getByLabelText("Option 1 name")).toHaveValue("Colour")
-    expect(screen.getByLabelText("Colour for variant 1")).toBeInTheDocument()
+    await userEvent.type(screen.getByLabelText("Add a Size value"), "M")
+    await userEvent.tab() // blur commits "M"
+    expect(screen.getByText("2 variants", { exact: false })).toBeInTheDocument()
+    expect(screen.getByLabelText("SKU for Blue / M")).toBeInTheDocument()
+  })
+
+  it("removes a variant only after confirming, and can show it again", async () => {
+    const fetch = mockApi(["variants:write"], (url, init) => {
+      if (url.endsWith("/variants")) return json({ data: variants })
+      if (url.endsWith("/variant-matrix") && init?.method === "PUT")
+        return json({ results: [] })
+    })
+    renderSignedIn(
+      <VariantMatrix product={product} canWrite onSaved={() => {}} />,
+    )
+    await waitFor(() => expect(screen.getAllByRole("row")).toHaveLength(11))
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Remove Black / S" }),
+    )
+    expect(
+      screen.getByRole("heading", { name: "Remove Black / S?" }),
+    ).toBeInTheDocument()
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }))
+    expect(screen.getAllByRole("row")).toHaveLength(11)
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Remove Black / S" }),
+    )
+    await userEvent.click(
+      screen.getByRole("button", { name: "Remove variant" }),
+    )
+    expect(screen.getAllByRole("row")).toHaveLength(10)
+    expect(screen.queryByLabelText("SKU for Black / S")).toBeNull()
+
+    await userEvent.click(screen.getByRole("button", { name: "Save variants" }))
+    await waitFor(() =>
+      expect(
+        fetch.mock.calls.some(([u]) => String(u).endsWith("/variant-matrix")),
+      ).toBe(true),
+    )
+    const put = fetch.mock.calls.find(([u]) =>
+      String(u).endsWith("/variant-matrix"),
+    )!
+    const body = JSON.parse(String(put[1]!.body))
+    expect(body.rows).toHaveLength(9)
+    expect(body.archive_missing).toBe(true)
+  })
+
+  it("brings removed variants back", async () => {
+    mockApi(["variants:write"], (url) =>
+      url.endsWith("/variants") ? json({ data: variants }) : undefined,
+    )
+    renderSignedIn(
+      <VariantMatrix product={product} canWrite onSaved={() => {}} />,
+    )
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Remove White / XXL" }),
+    )
+    await userEvent.click(
+      screen.getByRole("button", { name: "Remove variant" }),
+    )
+    await userEvent.click(
+      screen.getByRole("button", { name: "Show 1 removed" }),
+    )
+    expect(screen.getByLabelText("SKU for White / XXL")).toBeInTheDocument()
   })
 
   it("shows no write controls without variants:write", async () => {

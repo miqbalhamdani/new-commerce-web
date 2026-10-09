@@ -1,10 +1,15 @@
 import type { Variant } from "@/lib/api/types"
 import { moneyInput, parseMoney } from "@/lib/format"
 
-// The variants editor (P1-046, 04-api-spec.md §7.3): option names once for
-// the product, then one row per variant with a value for each option and its
-// SKU / regular price / sale price / weight. Rows hold what the person typed;
-// the request is built from them only on save.
+// The variant matrix (P1-046, 04-api-spec.md §7.3): option axes across the
+// top, every combination down the side, SKU / regular price / sale price /
+// weight per row. Cells hold what the person typed; the request is built
+// from them only on save.
+
+export interface Axis {
+  name: string
+  values: string[]
+}
 
 export const columns = [
   "sku",
@@ -22,39 +27,64 @@ export const emptyRow: Row = {
   weight_grams: "",
 }
 
-/** A variant as typed: a value per option, then the price columns. */
-export type VariantRow = Row & {
-  values: string[]
-  /** The live variant this row edits; a new row has none. */
-  id?: string
+/** Every combination of the axes' values, in axis order: 2 colours × 5 sizes is 10 rows. */
+export function combos(axes: Axis[]): string[][] {
+  return axes.reduce<string[][]>(
+    (acc, axis) =>
+      acc.flatMap((prefix) => axis.values.map((v) => [...prefix, v])),
+    [[]],
+  )
 }
 
-/** One row per live variant, its values in option order (BR-040). */
-export function rowsOf(variants: Variant[]): VariantRow[] {
-  return variants.map((v) => ({
-    id: v.id,
-    values: [...v.option_values],
-    sku: v.sku ?? "",
-    regular_price: moneyInput(v.regular_price),
-    sale_price: moneyInput(v.sale_price),
-    weight_grams: v.weight_grams ? String(v.weight_grams) : "",
+export const key = (values: string[]) => values.join("\u001f")
+
+/**
+ * The grid a product's live variants describe. Combinations with no live
+ * variant (Red / XL never sold, or archived) come back as removed, so they
+ * are not shown as empty rows and created on save.
+ */
+export function gridOf(
+  optionNames: string[],
+  variants: Variant[],
+): { axes: Axis[]; cells: Map<string, Row>; removed: Set<string> } {
+  const axes = optionNames.map((name, i) => ({
+    name,
+    values: [
+      ...new Set(
+        variants
+          .map((v) => v.option_values[i])
+          .filter((x): x is string => x !== undefined),
+      ),
+    ],
   }))
+  const cells = new Map<string, Row>()
+  for (const v of variants) {
+    cells.set(key(v.option_values), {
+      sku: v.sku ?? "",
+      regular_price: moneyInput(v.regular_price),
+      sale_price: moneyInput(v.sale_price),
+      weight_grams: v.weight_grams ? String(v.weight_grams) : "",
+    })
+  }
+  const removed = new Set(
+    combos(axes)
+      .map(key)
+      .filter((k) => !cells.has(k)),
+  )
+  return { axes, cells, removed }
 }
-
-export const label = (values: string[]) =>
-  values.filter(Boolean).join(" / ") || "the variant"
 
 /**
  * Paste from Excel: tab-separated cells, one line per row, written from the
  * focused cell rightwards and downwards. Cells past the grid's edge are
  * dropped.
  */
-export function paste<R extends Row>(
-  rows: R[],
+export function paste(
+  rows: Row[],
   startRow: number,
   startCol: number,
   text: string,
-): R[] {
+): Row[] {
   const lines = text.replace(/\r/g, "").replace(/\n$/, "").split("\n")
   const out = rows.map((r) => ({ ...r }))
   lines.forEach((line, i) => {
@@ -69,11 +99,7 @@ export function paste<R extends Row>(
 }
 
 /** Fill-down: copy one cell into every row below it. */
-export function fillDown<R extends Row>(
-  rows: R[],
-  fromRow: number,
-  col: Column,
-): R[] {
+export function fillDown(rows: Row[], fromRow: number, col: Column): Row[] {
   return rows.map((r, i) =>
     i > fromRow ? { ...r, [col]: rows[fromRow][col] } : r,
   )
@@ -81,24 +107,24 @@ export function fillDown<R extends Row>(
 
 export type CellErrors = Map<number, string>
 
+/** The grid's combinations less the ones removed: the rows on screen. */
+export const visible = (axes: Axis[], removed: Set<string>) =>
+  combos(axes).filter((c) => !removed.has(key(c)))
+
 /**
- * The PUT body for the rows as they stand, or the rows that cannot be sent:
- * an option left blank, the same options as an earlier row (BR-040), or an
- * input that is not a number. A blank SKU or sale price is null; a blank
- * price or weight is left as it is on the variant. Rows not sent are
- * archived (archive_missing).
+ * The PUT body for the grid as it stands, or the rows whose input is not a
+ * number. A blank SKU or sale price is null; a blank price or weight is
+ * left as it is on the variant. Removed combinations are not sent, so
+ * archive_missing archives them.
  */
-export function toRequest(names: string[], rows: VariantRow[]) {
+export function toRequest(
+  axes: Axis[],
+  rows: Row[],
+  removed: Set<string> = new Set(),
+) {
   const errors: CellErrors = new Map()
-  const seen = new Map<string, number>()
-  const body = rows.map((r, i) => {
-    const option_values = names.map((_, j) => (r.values[j] ?? "").trim())
-    const blank = option_values.findIndex((v) => !v)
-    const k = option_values.join("\u001f")
-    if (blank >= 0) errors.set(i, `Fill in ${names[blank] || "the option"}`)
-    else if (seen.has(k))
-      errors.set(i, `Same options as variant ${seen.get(k)! + 1}`)
-    else seen.set(k, i)
+  const body = visible(axes, removed).map((option_values, i) => {
+    const r = rows[i] ?? emptyRow
     const row: Record<string, unknown> = {
       option_values,
       sku: r.sku.trim() || null,
@@ -124,7 +150,7 @@ export function toRequest(names: string[], rows: VariantRow[]) {
   })
   return {
     body: {
-      option_names: names.map((n) => n.trim()),
+      option_names: axes.map((a) => a.name),
       rows: body,
       archive_missing: true,
     },
