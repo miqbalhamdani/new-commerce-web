@@ -1,28 +1,44 @@
 import { describe, expect, it } from "vitest"
 
+import type { Variant } from "@/lib/api/types"
+
 import {
-  combos,
   emptyRow,
   fillDown,
   paste,
+  rowsOf,
   toRequest,
-  type Axis,
-  type Row,
+  type VariantRow,
 } from "./matrix"
 
-const axes: Axis[] = [
-  { name: "Colour", values: ["Black", "White"] },
-  { name: "Size", values: ["S", "M", "L", "XL", "XXL"] },
-]
-const rows = (): Row[] => combos(axes).map(() => ({ ...emptyRow }))
+const names = ["Colour", "Size"]
+const rows = (): VariantRow[] =>
+  ["Black", "White"].flatMap((c) =>
+    ["S", "M", "L", "XL", "XXL"].map((s) => ({ ...emptyRow, values: [c, s] })),
+  )
 
 describe("matrix", () => {
-  it("a 2×5 grid is 10 rows in axis order", () => {
-    const c = combos(axes)
-    expect(c).toHaveLength(10)
-    expect(c[0]).toEqual(["Black", "S"])
-    expect(c[9]).toEqual(["White", "XXL"])
-    expect(combos([])).toEqual([[]])
+  it("one row per live variant, values in option order", () => {
+    const out = rowsOf([
+      {
+        id: "v1",
+        option_values: ["Black", "S"],
+        sku: null,
+        regular_price: 19900000,
+        sale_price: null,
+        weight_grams: 0,
+      } as unknown as Variant,
+    ])
+    expect(out).toEqual([
+      {
+        id: "v1",
+        values: ["Black", "S"],
+        sku: "",
+        regular_price: "199000",
+        sale_price: "",
+        weight_grams: "",
+      },
+    ])
   })
 
   it("pastes an Excel block from the focused cell", () => {
@@ -33,18 +49,20 @@ describe("matrix", () => {
       "TS-1\t199.000\t\t200\r\nTS-2\t199000\t149000\t210\n",
     )
     expect(out[1]).toEqual({
+      values: ["Black", "M"],
       sku: "TS-1",
       regular_price: "199.000",
       sale_price: "",
       weight_grams: "200",
     })
     expect(out[2]).toEqual({
+      values: ["Black", "L"],
       sku: "TS-2",
       regular_price: "199000",
       sale_price: "149000",
       weight_grams: "210",
     })
-    expect(out[0]).toEqual(emptyRow)
+    expect(out[0]).toEqual({ ...emptyRow, values: ["Black", "S"] })
   })
 
   it("drops what falls past the grid", () => {
@@ -60,16 +78,17 @@ describe("matrix", () => {
     expect(out[1].regular_price).toBe("")
   })
 
-  it("builds one request for the whole grid", () => {
+  it("builds one request for every row", () => {
     const r = rows()
     r[0] = {
+      values: [" Black ", "S"],
       sku: "TS-BLK-S",
       regular_price: "199.000",
       sale_price: "",
       weight_grams: "200",
     }
-    r[1] = { sku: "", regular_price: "abc", sale_price: "", weight_grams: "" }
-    const { body, errors } = toRequest(axes, r)
+    r[1] = { ...r[1], regular_price: "abc" }
+    const { body, errors } = toRequest(names, r)
     expect(body.rows).toHaveLength(10)
     expect(body.rows[0]).toEqual({
       option_values: ["Black", "S"],
@@ -80,5 +99,15 @@ describe("matrix", () => {
     })
     expect(errors.get(1)).toBe("Regular price is not an amount")
     expect(body.option_names).toEqual(["Colour", "Size"])
+  })
+
+  it("refuses a blank option and a repeat of an earlier row", () => {
+    const r = rows().slice(0, 3)
+    r[1] = { ...r[1], values: ["Black", " "] }
+    r[2] = { ...r[2], values: ["Black", "S"] }
+    const { errors } = toRequest(names, r)
+    expect(errors.get(1)).toBe("Fill in Size")
+    expect(errors.get(2)).toBe("Same options as variant 1")
+    expect(errors.has(0)).toBe(false)
   })
 })
