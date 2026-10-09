@@ -22,6 +22,7 @@ import { Dialog } from "@/components/ui/common/Dialog"
 import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
 import { Field } from "@/components/ui/common/Field"
 import { Select } from "@/components/ui/common/Select"
+import { SearchInput } from "@/components/ui/common/SearchInput"
 import { Empty, Loading, Page } from "@/components/ui/common/Page"
 import { ApiError } from "@/lib/api/client"
 import type { Role, User, UserPage } from "@/lib/api/types"
@@ -43,6 +44,7 @@ export default function TeamPage() {
   const canWrite = useCan("users:write")
   const { user: me, tenant } = useSession()
   const [cursor, setCursor] = useState<string | null>(null)
+  const [q, setQ] = useState("")
   const { data, error, loading, reload } = useResource<UserPage>(
     canRead ? `/v1/users?limit=50${cursor ? `&cursor=${cursor}` : ""}` : null,
   )
@@ -53,6 +55,10 @@ export default function TeamPage() {
   // Only an owner can grant or change the owner role (BR-023).
   const grantable = (roles ?? []).filter(
     (r) => r.name !== "owner" || me?.role === "owner",
+  )
+  // Client-side filter: /v1/users has no q param; a team fits in one page.
+  const shown = (data?.data ?? []).filter((u) =>
+    `${u.name} ${u.email}`.toLowerCase().includes(q.trim().toLowerCase()),
   )
 
   if (!canRead)
@@ -84,6 +90,13 @@ export default function TeamPage() {
         )
       }
     >
+      <SearchInput
+        aria-label="Search team"
+        placeholder="Search by name or email"
+        className="mb-4 w-full max-w-xs"
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+      />
       <ErrorNotice
         error={error ?? rowError}
         title="Could not update the team"
@@ -92,6 +105,8 @@ export default function TeamPage() {
         <Loading />
       ) : data && data.data.length === 0 ? (
         <Empty title="Nobody yet" />
+      ) : data && shown.length === 0 ? (
+        <Empty title="No one matches your search" />
       ) : data ? (
         <ListTable>
           <TableHeader className={headerRow}>
@@ -116,7 +131,7 @@ export default function TeamPage() {
             </TableRow>
           </TableHeader>
           <TableBody className={bodyRows}>
-            {data.data.map((u: User) => {
+            {shown.map((u: User) => {
               const editable =
                 canWrite && (u.role !== "owner" || me?.role === "owner")
               return (
