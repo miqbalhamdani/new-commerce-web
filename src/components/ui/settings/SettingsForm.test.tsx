@@ -30,8 +30,19 @@ describe("SettingsForm (P1-068, P1-083)", () => {
       <SettingsForm settings={settings} canSave onSaved={onSaved} />,
     )
     expect(screen.getByLabelText("Shop name")).toHaveValue("Erigo")
-    expect(screen.getByLabelText("Time zone")).toHaveTextContent(
-      "WIB — Asia/Jakarta",
+    expect(
+      screen.getByRole("radio", { name: "WIB — Asia/Jakarta" }),
+    ).toBeChecked()
+
+    // The time zone is a segmented toggle: one click picks a zone.
+    await userEvent.click(
+      screen.getByRole("radio", { name: "WITA — Asia/Makassar" }),
+    )
+    expect(
+      screen.getByRole("radio", { name: "WITA — Asia/Makassar" }),
+    ).toBeChecked()
+    await userEvent.click(
+      screen.getByRole("radio", { name: "WIB — Asia/Jakarta" }),
     )
 
     const prefix = screen.getByLabelText("Order number prefix")
