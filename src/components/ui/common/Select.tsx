@@ -10,7 +10,13 @@ import {
 import { CheckLineIcon, ChevronDownIcon } from "@/icons"
 import { cx } from "@/lib/utils"
 
-export type SelectOption = { value: string; label: string; disabled?: boolean }
+export type SelectOption = {
+  value: string
+  label: string
+  disabled?: boolean
+  /** Indents the option in the panel (a tree); the trigger shows it flat. */
+  depth?: number
+}
 
 /* ListboxButton computes aria-describedby from its own Description context,
    discarding the prop; re-apply ours after Headless UI's spread. */
@@ -109,9 +115,14 @@ export function Select({
             key={o.value}
             value={o.value}
             disabled={o.disabled}
-            className="group flex cursor-pointer items-center justify-between gap-2 rounded-md px-3 py-2 text-sm text-gray-700 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50 data-[focus]:bg-gray-100 dark:text-gray-300 dark:data-[focus]:bg-white/5"
+            className="group flex cursor-pointer items-center justify-between gap-2 rounded-md px-3 py-2 text-sm text-gray-700 data-[disabled]:cursor-not-allowed data-[focus]:bg-gray-100 data-[disabled]:opacity-50 dark:text-gray-300 dark:data-[focus]:bg-white/5"
           >
-            <span className="truncate">{o.label}</span>
+            <span
+              className="truncate"
+              style={o.depth ? { paddingLeft: o.depth * 16 } : undefined}
+            >
+              {o.label}
+            </span>
             <CheckLineIcon
               aria-hidden
               className="invisible size-4 shrink-0 text-brand-500 group-data-[selected]:visible"

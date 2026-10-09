@@ -2,12 +2,13 @@ import { describe, expect, it } from "vitest"
 
 import type { Category } from "@/lib/api/types"
 
-import { buildTree, isSelfOrDescendant, moveMessage } from "./tree"
+import { buildTree, inTreeOrder, isSelfOrDescendant, moveMessage } from "./tree"
 
 const cat = (id: string, parent: string | null, name = id): Category => ({
   id,
   parent_id: parent,
   name,
+  label: null,
   kind: "category",
   path: name,
   archived_at: null,
@@ -36,6 +37,14 @@ describe("buildTree", () => {
   it("treats an orphan as a root", () => {
     expect(buildTree([cat("jackets", "missing")])[0].category.id).toBe(
       "jackets",
+    )
+  })
+})
+
+describe("inTreeOrder", () => {
+  it("walks depth-first with each node's depth", () => {
+    expect(inTreeOrder(list).map((n) => `${n.depth}:${n.category.id}`)).toEqual(
+      ["0:apparel", "1:outer", "2:jackets", "1:tees", "0:sale"],
     )
   })
 })

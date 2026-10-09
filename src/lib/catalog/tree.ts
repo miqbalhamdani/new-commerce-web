@@ -24,6 +24,21 @@ export function buildTree(categories: Category[]): TreeNode[] {
   return roots
 }
 
+/** The tree flattened depth-first, each node with its depth: the parent picker's order. */
+export function inTreeOrder(
+  categories: Category[],
+): { category: Category; depth: number }[] {
+  const out: { category: Category; depth: number }[] = []
+  const walk = (nodes: TreeNode[], depth: number) => {
+    for (const n of nodes) {
+      out.push({ category: n.category, depth })
+      walk(n.children, depth + 1)
+    }
+  }
+  walk(buildTree(categories), 0)
+  return out
+}
+
 /**
  * Whether target is node itself or below it: a move there would make a cycle,
  * which the client blocks before the server refuses it (BR-034).
