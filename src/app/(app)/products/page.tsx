@@ -8,6 +8,7 @@ import Input from "@/components/form/input/InputField"
 import { ButtonLink } from "@/components/ui/common/ButtonLink"
 import { Dialog } from "@/components/ui/common/Dialog"
 import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
+import { SearchInput } from "@/components/ui/common/SearchInput"
 import { Select } from "@/components/ui/common/Select"
 import { BulkActions } from "@/components/ui/catalog/BulkActions"
 import { ProductTable } from "@/components/ui/catalog/ProductTable"
@@ -94,11 +95,10 @@ function ProductList() {
       }
     >
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <Input
-          type="search"
+        <SearchInput
           aria-label="Search by title or SKU"
           placeholder="Search by title or exact SKU"
-          className="max-w-xs"
+          className="w-full max-w-xs"
           defaultValue={filters.q}
           onKeyDown={(e) =>
             e.key === "Enter" && update({ q: e.currentTarget.value.trim() })

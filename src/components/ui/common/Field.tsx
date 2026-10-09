@@ -35,7 +35,7 @@ export function Field({
    onChange through (value: string) and cannot be controlled the way the forms
    here are. */
 
-const fieldClasses = (hasError?: boolean) =>
+export const fieldClasses = (hasError?: boolean) =>
   cx(
     "w-full rounded-lg border bg-transparent px-4 py-2.5 text-sm shadow-theme-xs",
     "placeholder:text-gray-400 focus:outline-none focus:ring dark:bg-gray-900 dark:placeholder:text-white/30",
