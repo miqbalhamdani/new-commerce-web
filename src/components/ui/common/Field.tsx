@@ -30,10 +30,10 @@ export function Field({
   )
 }
 
-/* The three native controls below carry the vendored InputField's classes but
-   keep their native prop shape: the vendored TextArea and Select funnel
-   onChange through (value: string) and cannot be controlled the way the forms
-   here are. */
+/* The native controls below carry the vendored InputField's classes but keep
+   their native prop shape: the vendored TextArea and Checkbox funnel onChange
+   through a plain value and cannot be controlled the way the forms here are.
+   Selects live in ui/common/Select.tsx (Headless UI). */
 
 export const fieldClasses = (hasError?: boolean) =>
   cx(
@@ -89,20 +89,5 @@ export function Checkbox({ className, ...props }: Omit<React.ComponentProps<"inp
         />
       </svg>
     </span>
-  )
-}
-
-/** A native select styled like the inputs; enough for a short list. */
-export function NativeSelect({ className, ...props }: React.ComponentProps<"select">) {
-  return (
-    <select
-      className={cx(
-        "h-11 rounded-lg border border-gray-300 bg-transparent px-3 pr-8 text-sm text-gray-800 shadow-theme-xs",
-        "focus:border-brand-300 focus:outline-none focus:ring focus:ring-brand-500/10",
-        "dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:focus:border-brand-800",
-        className,
-      )}
-      {...props}
-    />
   )
 }
