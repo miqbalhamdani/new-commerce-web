@@ -5,7 +5,8 @@ import { useState } from "react"
 import Button from "@/components/ui/button/Button"
 import Input from "@/components/form/input/InputField"
 import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
-import { Field, NativeSelect } from "@/components/ui/common/Field"
+import { Field } from "@/components/ui/common/Field"
+import { Select } from "@/components/ui/common/Select"
 import { ApiError } from "@/lib/api/client"
 import type { Settings } from "@/lib/api/types"
 import { asApiError, fieldError, useApi } from "@/lib/api/use-api"
@@ -92,17 +93,13 @@ export function SettingsForm({
           error={fieldError(error, "timezone")}
           hint="For showing times in the admin."
         >
-          <NativeSelect
+          <Select
             id="timezone"
             value={form.timezone}
-            onChange={(e) => setForm({ ...form, timezone: e.target.value })}
-          >
-            {zones.map((z) => (
-              <option key={z.value} value={z.value}>
-                {z.label}
-              </option>
-            ))}
-          </NativeSelect>
+            onChange={(v) => setForm({ ...form, timezone: v })}
+            options={zones}
+            error={Boolean(fieldError(error, "timezone"))}
+          />
         </Field>
         <Field
           id="order-prefix"

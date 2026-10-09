@@ -5,7 +5,7 @@ import { useState } from "react"
 import Button from "@/components/ui/button/Button"
 import Input from "@/components/form/input/InputField"
 import { Dialog } from "@/components/ui/common/Dialog"
-import { NativeSelect } from "@/components/ui/common/Field"
+import { Select } from "@/components/ui/common/Select"
 import {
   applyAdjustment,
   previewAdjustment,
@@ -81,29 +81,26 @@ export function BulkPriceAdjust({
         }
       >
         <div className="flex flex-wrap gap-2">
-          <NativeSelect
+          <Select
             aria-label="Price"
             value={a.target}
-            onChange={(e) =>
-              setA({ ...a, target: e.target.value as Adjustment["target"] })
-            }
-          >
-            <option value="regular_price">Regular price</option>
-            <option value="sale_price">Sale price</option>
-          </NativeSelect>
-          <NativeSelect
+            onChange={(v) => setA({ ...a, target: v as Adjustment["target"] })}
+            options={[
+              { value: "regular_price", label: "Regular price" },
+              { value: "sale_price", label: "Sale price" },
+            ]}
+          />
+          <Select
             aria-label="Direction"
             value={a.direction}
-            onChange={(e) =>
-              setA({
-                ...a,
-                direction: e.target.value as Adjustment["direction"],
-              })
+            onChange={(v) =>
+              setA({ ...a, direction: v as Adjustment["direction"] })
             }
-          >
-            <option value="down">Lower by</option>
-            <option value="up">Raise by</option>
-          </NativeSelect>
+            options={[
+              { value: "down", label: "Lower by" },
+              { value: "up", label: "Raise by" },
+            ]}
+          />
           <Input
             aria-label="Amount"
             className="w-28"
@@ -116,16 +113,15 @@ export function BulkPriceAdjust({
               })
             }
           />
-          <NativeSelect
+          <Select
             aria-label="Unit"
             value={a.unit}
-            onChange={(e) =>
-              setA({ ...a, unit: e.target.value as Adjustment["unit"] })
-            }
-          >
-            <option value="percent">%</option>
-            <option value="amount">Rp</option>
-          </NativeSelect>
+            onChange={(v) => setA({ ...a, unit: v as Adjustment["unit"] })}
+            options={[
+              { value: "percent", label: "%" },
+              { value: "amount", label: "Rp" },
+            ]}
+          />
         </div>
         <div className="mt-4 max-h-64 overflow-auto">
           <table className="w-full text-sm" aria-label="Preview">

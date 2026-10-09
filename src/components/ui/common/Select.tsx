@@ -75,7 +75,9 @@ export function Select({
       >
         {/* Every label is stacked invisibly in the same grid cell so the
             trigger keeps the width of the widest option, like a native
-            select, instead of resizing on each pick. */}
+            select, instead of resizing on each pick. The text lives in a
+            ::before/attr() so it still takes up width but stays out of
+            textContent — the trigger's text is the selected label alone. */}
         <span className="grid overflow-hidden">
           <span className="col-start-1 row-start-1 truncate">
             {selected?.label ?? " "}
@@ -84,10 +86,9 @@ export function Select({
             <span
               key={o.value}
               aria-hidden
-              className="invisible col-start-1 row-start-1 truncate"
-            >
-              {o.label}
-            </span>
+              data-label={o.label}
+              className="invisible col-start-1 row-start-1 truncate before:content-[attr(data-label)]"
+            />
           ))}
         </span>
         <ChevronDownIcon
