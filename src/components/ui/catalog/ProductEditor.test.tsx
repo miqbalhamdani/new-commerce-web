@@ -18,7 +18,25 @@ describe("ProductEditor (new product)", () => {
     const fetch = mockApi(["products:write"], (url, init) => {
       if (url.includes("/v1/brands"))
         return json({ data: [{ id: "b1", name: "Erigo" }], next_cursor: null })
-      if (url.endsWith("/v1/categories")) return json({ data: [] })
+      if (url.endsWith("/v1/categories"))
+        return json({
+          data: [
+            {
+              id: "c1",
+              name: "Body Care",
+              kind: "category",
+              parent_id: null,
+              path: "body_care",
+            },
+            {
+              id: "c2",
+              name: "Body Cream",
+              kind: "category",
+              parent_id: "c1",
+              path: "body_care.body_cream",
+            },
+          ],
+        })
       if (url.endsWith("/v1/products") && init?.method === "POST")
         return json({ id: "p9", title: "Tee" }, 201)
     })
@@ -42,12 +60,23 @@ describe("ProductEditor (new product)", () => {
     expect(create).toBeDisabled()
     await userEvent.type(screen.getByLabelText("Title"), "Tee")
     expect(screen.getByLabelText("Slug")).toHaveValue("tee")
+    await userEvent.click(screen.getByLabelText("Category (main tree)"))
+    await userEvent.click(
+      await screen.findByRole("option", { name: "Body Cream" }),
+    )
+    expect(screen.getByLabelText("Category (main tree)")).toHaveTextContent(
+      "Body Cream",
+    )
+    await userEvent.keyboard("{Escape}")
     await userEvent.click(create)
 
     await waitFor(() => expect(onSaved).toHaveBeenCalled())
     const post = fetch.mock.calls.find(
       ([u, i]) => String(u).endsWith("/v1/products") && i?.method === "POST",
     )
-    expect(JSON.parse(String(post![1]!.body))).toEqual({ title: "Tee" })
+    expect(JSON.parse(String(post![1]!.body))).toEqual({
+      title: "Tee",
+      category_ids: ["c2"],
+    })
   })
 })

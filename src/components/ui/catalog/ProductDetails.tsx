@@ -6,8 +6,8 @@ import { useEffect, useMemo, useState } from "react"
 import Button from "@/components/ui/button/Button"
 import Input from "@/components/form/input/InputField"
 import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
-import { Checkbox, Field, Textarea } from "@/components/ui/common/Field"
-import { Select } from "@/components/ui/common/Select"
+import { Field, Textarea } from "@/components/ui/common/Field"
+import { MultiSelect, Select } from "@/components/ui/common/Select"
 import { ApiError } from "@/lib/api/client"
 import type { BrandPage, Category, Product } from "@/lib/api/types"
 import { asApiError, fieldError, useApi, useResource } from "@/lib/api/use-api"
@@ -19,6 +19,7 @@ import {
   type ProductDraft,
 } from "@/lib/catalog/product-form"
 import { slugify } from "@/lib/catalog/slug"
+import { inTreeOrder } from "@/lib/catalog/tree"
 
 const kindLabel: Record<string, string> = {
   category: "Category (main tree)",
@@ -216,38 +217,36 @@ export function OrganizationFields({
             {fieldError(error, "category_ids")}
           </p>
         )}
-        <div className="mt-2 flex flex-col gap-3">
-          {[...byKind.entries()].map(([kind, list]) => (
-            <fieldset
-              key={kind}
-              className="rounded-lg border border-gray-200 p-3 dark:border-gray-800"
-            >
-              <legend className="px-1 text-xs font-medium text-gray-600 dark:text-gray-400">
-                {kindLabel[kind] ?? kind}
-              </legend>
-              {list.map((c) => (
-                <label
-                  key={c.id}
-                  className="flex items-center gap-2 py-0.5 text-sm"
-                  style={{
-                    paddingLeft: (c.path.split(".").length - 1) * 14,
-                  }}
-                >
-                  <Checkbox
-                    checked={draft.category_ids.includes(c.id)}
-                    onChange={(e) =>
-                      set({
-                        category_ids: e.target.checked
-                          ? [...draft.category_ids, c.id]
-                          : draft.category_ids.filter((x) => x !== c.id),
-                      })
-                    }
-                  />
-                  {c.name}
-                </label>
-              ))}
-            </fieldset>
-          ))}
+        <div className="mt-3 flex flex-col gap-4">
+          {[...byKind.entries()].map(([kind, list]) => {
+            const ids = new Set(list.map((c) => c.id))
+            return (
+              <Field
+                key={kind}
+                id={`categories-${kind}`}
+                label={kindLabel[kind] ?? kind}
+              >
+                <MultiSelect
+                  id={`categories-${kind}`}
+                  placeholder="None"
+                  value={draft.category_ids.filter((x) => ids.has(x))}
+                  onChange={(picked) =>
+                    set({
+                      category_ids: [
+                        ...draft.category_ids.filter((x) => !ids.has(x)),
+                        ...picked,
+                      ],
+                    })
+                  }
+                  options={inTreeOrder(list).map(({ category, depth }) => ({
+                    value: category.id,
+                    label: category.name,
+                    depth,
+                  }))}
+                />
+              </Field>
+            )
+          })}
         </div>
       </div>
     </fieldset>
