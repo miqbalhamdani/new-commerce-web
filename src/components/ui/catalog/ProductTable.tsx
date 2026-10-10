@@ -1,6 +1,8 @@
 "use client"
 
+import { Archive } from "lucide-react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 
 import Badge from "@/components/ui/badge/Badge"
 import {
@@ -10,6 +12,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Checkbox } from "@/components/ui/common/Field"
+import { RowMenu } from "@/components/ui/common/RowMenu"
 import {
   bodyRows,
   headerRow,
@@ -17,6 +20,7 @@ import {
   td,
   th,
 } from "@/components/ui/common/Listing"
+import { PencilIcon } from "@/icons"
 import type { ProductListItem } from "@/lib/api/types"
 import { formatMoney } from "@/lib/format"
 
@@ -32,11 +36,13 @@ const bodyCell = td
 /**
  * The catalog table (P1-033): each row's main-tree categories, brand, status,
  * live variant count and price range. selectable adds the checkboxes and the
- * per-row failure messages bulk actions need (P1-076).
+ * per-row failure messages bulk actions need (P1-076). onArchive adds the row
+ * menu (Edit, Archive). A row opens the product.
  */
 export function ProductTable({
   rows,
   selectable,
+  onArchive,
 }: {
   rows: ProductListItem[]
   selectable?: {
@@ -44,7 +50,11 @@ export function ProductTable({
     toggle: (id: string) => void
     failed: Map<string, string>
   }
+  onArchive?: (p: ProductListItem) => void
 }) {
+  const router = useRouter()
+  // Clicks on the checkbox, the title link and the menu stay theirs.
+  const stop = (e: React.MouseEvent) => e.stopPropagation()
   return (
     <ListTable>
       <TableHeader className={headerRow}>
@@ -72,18 +82,29 @@ export function ProductTable({
           <TableCell isHeader className={`${headerCell} text-right`}>
             Price
           </TableCell>
+          {onArchive && (
+            <TableCell isHeader className={`${headerCell} w-px`}>
+              <span className="sr-only">Actions</span>
+            </TableCell>
+          )}
         </TableRow>
       </TableHeader>
       <TableBody className={bodyRows}>
         {rows.map((p) => (
-          <TableRow key={p.id}>
+          <TableRow
+            key={p.id}
+            onClick={() => router.push(`/products/${p.id}`)}
+            className="cursor-pointer hover:bg-gray-50 dark:hover:bg-white/[0.02]"
+          >
             {selectable && (
               <TableCell className={bodyCell}>
-                <Checkbox
-                  aria-label={`Select ${p.title}`}
-                  checked={selectable.selected.has(p.id)}
-                  onChange={() => selectable.toggle(p.id)}
-                />
+                <span className="inline-flex" onClick={stop}>
+                  <Checkbox
+                    aria-label={`Select ${p.title}`}
+                    checked={selectable.selected.has(p.id)}
+                    onChange={() => selectable.toggle(p.id)}
+                  />
+                </span>
               </TableCell>
             )}
             <TableCell className={bodyCell}>
@@ -101,6 +122,7 @@ export function ProductTable({
                 <div>
                   <Link
                     href={`/products/${p.id}`}
+                    onClick={stop}
                     className="font-medium text-gray-800 hover:text-brand-500 dark:text-white/90 dark:hover:text-brand-400"
                   >
                     {p.title}
@@ -144,6 +166,30 @@ export function ProductTable({
                 ? formatMoney(p.price_min)
                 : `${formatMoney(p.price_min)} – ${formatMoney(p.price_max)}`}
             </TableCell>
+            {onArchive && (
+              <TableCell className={`${bodyCell} !py-2 text-right`}>
+                <RowMenu
+                  label={`Actions for ${p.title}`}
+                  actions={[
+                    {
+                      label: "Edit",
+                      icon: <PencilIcon />,
+                      onSelect: () => router.push(`/products/${p.id}`),
+                    },
+                    ...(p.status === "archived"
+                      ? []
+                      : [
+                          {
+                            label: "Archive",
+                            icon: <Archive />,
+                            destructive: true,
+                            onSelect: () => onArchive(p),
+                          },
+                        ]),
+                  ]}
+                />
+              </TableCell>
+            )}
           </TableRow>
         ))}
       </TableBody>
