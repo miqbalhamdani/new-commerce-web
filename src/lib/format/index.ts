@@ -65,3 +65,12 @@ export function formatRelative(iso: string | null | undefined, now = Date.now())
   }
   return "just now"
 }
+
+/**
+ * An <input type="date"> value as the RFC 3339 WIB instant the API wants
+ * (BR-007): "2026-10-10" -> "2026-10-10T00:00:00+07:00", or end of day for a
+ * "to" bound. Pure string work -- no Date math, no browser-zone surprises.
+ */
+export function dateInputRFC3339(date: string, endOfDay = false): string {
+  return `${date}T${endOfDay ? "23:59:59" : "00:00:00"}+07:00`
+}

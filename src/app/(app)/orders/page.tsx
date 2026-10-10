@@ -4,6 +4,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { Suspense, useEffect, useState } from "react"
 
 import Button from "@/components/ui/button/Button"
+import { ButtonLink } from "@/components/ui/common/ButtonLink"
 import { Dialog } from "@/components/ui/common/Dialog"
 import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
 import { MultiSelect } from "@/components/ui/common/Select"
@@ -83,8 +84,24 @@ function OrderList() {
   }
 
   const view = activeView(filters)
+  const filterQuery = filtersToQuery(filters).toString()
   return (
-    <Page wide title="Orders" description="The day's work, by what it needs next.">
+    <Page
+      wide
+      title="Orders"
+      description="The day's work, by what it needs next."
+      actions={
+        <>
+          <ButtonLink
+            href={`/orders/export${filterQuery ? `?${filterQuery}` : ""}`}
+            variant="outline"
+          >
+            Export CSV
+          </ButtonLink>
+          {canWrite && <ButtonLink href="/orders/new">New order</ButtonLink>}
+        </>
+      }
+    >
       <div
         role="group"
         aria-label="Saved views"

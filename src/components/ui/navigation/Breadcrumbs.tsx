@@ -15,6 +15,7 @@ const labels: Record<string, string> = {
   "": "Home",
   orders: "Orders",
   customers: "Customers",
+  export: "Export",
   products: "Products",
   categories: "Categories",
   brands: "Brands",
