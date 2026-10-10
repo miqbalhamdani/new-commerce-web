@@ -122,12 +122,6 @@ export function ProductEditor({
               )}
             </Section>
             <Section
-              title="Attributes"
-              description="Free-form details such as material, fit or care."
-            >
-              <AttributesFields form={form} canWrite={editable} />
-            </Section>
-            <Section
               id="variants"
               title="Variants"
               description="Each combination of options is a variant with its own SKU, price and weight."
@@ -216,6 +210,12 @@ export function ProductEditor({
               description="Brand and categories keep the catalog searchable."
             >
               <OrganizationFields form={form} canWrite={editable} />
+            </Section>
+            <Section
+              title="Attributes"
+              description="Free-form details such as material, fit or care."
+            >
+              <AttributesFields form={form} canWrite={editable} />
             </Section>
           </aside>
         </div>
