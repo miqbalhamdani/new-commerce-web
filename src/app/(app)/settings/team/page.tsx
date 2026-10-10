@@ -178,7 +178,7 @@ export default function TeamPage() {
                         <Button
                           size="sm"
                           className="!py-1.5"
-                          variant="ghost"
+                          variant="outline"
                           onClick={() =>
                             void act(`/v1/users/${u.id}/resend-invite`, "POST")
                           }
@@ -189,8 +189,8 @@ export default function TeamPage() {
                       {editable && u.status === "active" && u.id !== me?.id && (
                         <Button
                           size="sm"
-                          className="!py-1.5"
-                          variant="ghost"
+                          className="!py-1.5 !text-error-600 !ring-error-300 hover:!bg-error-50 dark:!text-error-400 dark:!ring-error-500/40 dark:hover:!bg-error-500/10"
+                          variant="outline"
                           onClick={() =>
                             void act(`/v1/users/${u.id}`, "DELETE")
                           }
@@ -202,7 +202,7 @@ export default function TeamPage() {
                         <Button
                           size="sm"
                           className="!py-1.5"
-                          variant="ghost"
+                          variant="outline"
                           onClick={() =>
                             void act(`/v1/users/${u.id}`, "PATCH", {
                               status: "active",
