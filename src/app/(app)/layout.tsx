@@ -1,8 +1,9 @@
 "use client"
 
-import { SidebarProvider, SidebarTrigger } from "@/components/Sidebar"
-import { AppSidebar } from "@/components/ui/navigation/AppSidebar"
-import { Breadcrumbs } from "@/components/ui/navigation/Breadcrumbs"
+import { SidebarProvider, useSidebar } from "@/context/SidebarContext"
+import AppHeader from "@/layout/AppHeader"
+import AppSidebar from "@/layout/AppSidebar"
+import Backdrop from "@/layout/Backdrop"
 import { useSession } from "@/lib/auth/session"
 import { useRouter } from "next/navigation"
 import { useEffect } from "react"
@@ -42,15 +43,27 @@ export default function AppLayout({
 
   return (
     <SidebarProvider>
-      <AppSidebar />
-      <div className="w-full">
-        <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center gap-2 border-b border-gray-200 bg-white px-4 dark:border-gray-800 dark:bg-gray-950">
-          <SidebarTrigger className="-ml-1" />
-          <div className="mr-2 h-4 w-px bg-gray-200 dark:bg-gray-800" />
-          <Breadcrumbs />
-        </header>
-        <main>{children}</main>
-      </div>
+      <Shell>{children}</Shell>
     </SidebarProvider>
+  )
+}
+
+/** TailAdmin's admin layout: the content column shifts with the sidebar. */
+function Shell({ children }: { children: React.ReactNode }) {
+  const { isExpanded, isHovered, isMobileOpen } = useSidebar()
+
+  return (
+    <div className="min-h-screen xl:flex">
+      <AppSidebar />
+      <Backdrop />
+      <div
+        className={`flex-1 transition-all duration-300 ease-in-out ${
+          isExpanded || isHovered ? "lg:ml-[290px]" : "lg:ml-[90px]"
+        } ${isMobileOpen ? "ml-0" : ""}`}
+      >
+        <AppHeader />
+        <main className="mx-auto max-w-screen-2xl p-4 md:p-6">{children}</main>
+      </div>
+    </div>
   )
 }

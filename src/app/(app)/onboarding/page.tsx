@@ -1,10 +1,11 @@
 "use client"
 
-import Link from "next/link"
 import { useState } from "react"
 
-import { Button } from "@/components/Button"
-import { Input } from "@/components/Input"
+import Button from "@/components/ui/button/Button"
+import Input from "@/components/form/input/InputField"
+import Label from "@/components/form/Label"
+import { ButtonLink } from "@/components/ui/common/ButtonLink"
 import { SettingsForm } from "@/components/ui/settings/SettingsForm"
 import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
 import { Card, Empty, Loading, Page } from "@/components/ui/common/Page"
@@ -38,18 +39,41 @@ export default function OnboardingPage() {
       title="Get started"
       description="Three short steps, then add your products."
     >
-      <ol className="mb-6 flex gap-4 text-sm" aria-label="Steps">
+      <ol className="mb-6 flex flex-wrap items-center gap-3" aria-label="Steps">
         {steps.map((s, i) => (
           <li
             key={s}
             aria-current={i === step ? "step" : undefined}
-            className={
-              i === step
-                ? "font-semibold text-gray-900 dark:text-gray-50"
-                : "text-gray-500"
-            }
+            className="flex items-center gap-3"
           >
-            {i + 1}. {s}
+            {i > 0 && (
+              <span
+                aria-hidden
+                className="h-px w-8 bg-gray-200 dark:bg-gray-800"
+              />
+            )}
+            <span className="flex items-center gap-2 text-theme-sm">
+              <span
+                className={
+                  i < step
+                    ? "flex size-8 items-center justify-center rounded-full bg-brand-500 text-white"
+                    : i === step
+                      ? "flex size-8 items-center justify-center rounded-full text-brand-500 ring-2 ring-inset ring-brand-500"
+                      : "flex size-8 items-center justify-center rounded-full bg-gray-100 text-gray-500 dark:bg-white/[0.03] dark:text-gray-400"
+                }
+              >
+                {i + 1}
+              </span>
+              <span
+                className={
+                  i === step
+                    ? "font-medium text-gray-800 dark:text-white/90"
+                    : "text-gray-500 dark:text-gray-400"
+                }
+              >
+                {s}
+              </span>
+            </span>
           </li>
         ))}
       </ol>
@@ -96,9 +120,9 @@ function FirstBrand({ onDone }: { onDone: () => void }) {
   }
   return (
     <form onSubmit={save} className="flex flex-col gap-3">
-      <label htmlFor="brand" className="text-sm font-medium">
+      <Label htmlFor="brand" className="mb-0">
         The brand you sell
-      </label>
+      </Label>
       <Input
         id="brand"
         value={value}
@@ -106,10 +130,10 @@ function FirstBrand({ onDone }: { onDone: () => void }) {
       />
       <ErrorNotice error={error} />
       <div className="flex justify-between">
-        <Button type="button" variant="ghost" onClick={onDone}>
+        <Button size="sm" type="button" variant="ghost" onClick={onDone}>
           Skip — not every product has a brand
         </Button>
-        <Button type="submit" disabled={!value.trim()}>
+        <Button size="sm" type="submit" disabled={!value.trim()}>
           Continue
         </Button>
       </div>
@@ -146,42 +170,47 @@ function FirstCategories({ done }: { done: boolean }) {
   }
   if (finished) {
     return (
-      <div className="flex flex-col gap-3 text-sm">
-        <p className="font-medium">Your shop is set up.</p>
+      <div className="flex flex-col gap-3 text-theme-sm text-gray-700 dark:text-gray-300">
+        <p className="font-medium text-gray-800 dark:text-white/90">
+          Your shop is set up.
+        </p>
         <div className="flex gap-2">
-          <Button asChild>
-            <Link href="/products">Add your first product</Link>
-          </Button>
-          <Button asChild variant="secondary">
-            <Link href="/products/import">Import a spreadsheet</Link>
-          </Button>
+          <ButtonLink href="/products">Add your first product</ButtonLink>
+          <ButtonLink href="/products/import" variant="outline">
+            Import a spreadsheet
+          </ButtonLink>
         </div>
       </div>
     )
   }
   return (
     <form onSubmit={save} className="flex flex-col gap-3">
-      <label htmlFor="root" className="text-sm font-medium">
+      <Label htmlFor="root" className="mb-0">
         Main category
-      </label>
+      </Label>
       <Input id="root" value={root} onChange={(e) => setRoot(e.target.value)} />
-      <label htmlFor="children" className="text-sm font-medium">
+      <Label htmlFor="children" className="mb-0">
         Under it (comma separated)
-      </label>
+      </Label>
       <Input
         id="children"
         value={children}
         onChange={(e) => setChildren(e.target.value)}
       />
-      <p className="text-xs text-gray-500">
+      <p className="text-xs text-gray-500 dark:text-gray-400">
         You can rearrange these any time by dragging them in Categories.
       </p>
       <ErrorNotice error={error} />
       <div className="flex justify-between">
-        <Button type="button" variant="ghost" onClick={() => setFinished(true)}>
+        <Button
+          size="sm"
+          type="button"
+          variant="ghost"
+          onClick={() => setFinished(true)}
+        >
           Skip
         </Button>
-        <Button type="submit" disabled={!root.trim()}>
+        <Button size="sm" type="submit" disabled={!root.trim()}>
           Finish
         </Button>
       </div>

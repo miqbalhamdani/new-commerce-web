@@ -1,4 +1,5 @@
-import { cx, focusInput, focusRing, hasErrorInput } from "@/lib/utils"
+import Label from "@/components/form/Label"
+import { cx } from "@/lib/utils"
 
 /** A labelled control with its error under it. */
 export function Field({
@@ -15,32 +16,43 @@ export function Field({
   children: React.ReactNode
 }) {
   return (
-    <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className="text-sm font-medium text-gray-900 dark:text-gray-50">
-        {label}
-      </label>
+    <div>
+      <Label htmlFor={id}>{label}</Label>
       {children}
       {error ? (
-        <p id={`${id}-error`} className="text-xs text-red-700 dark:text-red-400">
+        <p id={`${id}-error`} className="mt-1.5 text-xs text-error-500">
           {error}
         </p>
       ) : hint ? (
-        <p className="text-xs text-gray-500 dark:text-gray-400">{hint}</p>
+        <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">{hint}</p>
       ) : null}
     </div>
   )
 }
 
-export function Textarea({ className, hasError, ...props }: React.ComponentProps<"textarea"> & { hasError?: boolean }) {
+/* The three native controls below carry the vendored InputField's classes but
+   keep their native prop shape: the vendored TextArea and Select funnel
+   onChange through (value: string) and cannot be controlled the way the forms
+   here are. */
+
+const fieldClasses = (hasError?: boolean) =>
+  cx(
+    "w-full rounded-lg border bg-transparent px-4 py-2.5 text-sm shadow-theme-xs",
+    "placeholder:text-gray-400 focus:outline-none focus:ring dark:bg-gray-900 dark:placeholder:text-white/30",
+    hasError
+      ? "border-error-500 text-error-800 focus:ring-error-500/10 dark:border-error-500 dark:text-error-400"
+      : "border-gray-300 text-gray-800 focus:border-brand-300 focus:ring-brand-500/10 dark:border-gray-700 dark:text-white/90 dark:focus:border-brand-800",
+  )
+
+export function Textarea({
+  className,
+  hasError,
+  ...props
+}: React.ComponentProps<"textarea"> & { hasError?: boolean }) {
   return (
     <textarea
-      className={cx(
-        "w-full rounded-md border px-2.5 py-2 text-sm shadow-sm outline-none",
-        "border-gray-300 bg-white text-gray-900 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-50",
-        focusInput,
-        hasError && hasErrorInput,
-        className,
-      )}
+      aria-invalid={hasError || undefined}
+      className={cx(fieldClasses(hasError), className)}
       {...props}
     />
   )
@@ -50,7 +62,10 @@ export function Checkbox({ className, ...props }: Omit<React.ComponentProps<"inp
   return (
     <input
       type="checkbox"
-      className={cx("size-4 rounded border-gray-300 text-blue-600 dark:border-gray-700", focusRing, className)}
+      className={cx(
+        "size-4 rounded border-gray-300 text-brand-500 focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-800",
+        className,
+      )}
       {...props}
     />
   )
@@ -61,9 +76,9 @@ export function NativeSelect({ className, ...props }: React.ComponentProps<"sele
   return (
     <select
       className={cx(
-        "h-9 rounded-md border px-2.5 text-sm shadow-sm outline-none",
-        "border-gray-300 bg-white text-gray-900 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-50",
-        focusInput,
+        "h-11 rounded-lg border border-gray-300 bg-transparent px-3 pr-8 text-sm text-gray-800 shadow-theme-xs",
+        "focus:border-brand-300 focus:outline-none focus:ring focus:ring-brand-500/10",
+        "dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:focus:border-brand-800",
         className,
       )}
       {...props}

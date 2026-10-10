@@ -3,10 +3,11 @@
 import { useRouter } from "next/navigation"
 import { useActionState, useEffect, useState } from "react"
 
-import { Logo } from "@/../public/Logo"
-import { Button } from "@/components/Button"
-import { Input } from "@/components/Input"
+import Label from "@/components/form/Label"
+import Button from "@/components/ui/button/Button"
 import { AuthError, useSession } from "@/lib/auth/session"
+
+import { PasswordInput } from "../PasswordInput"
 
 /**
  * P1-079: the invitation link lands here with its token in the URL fragment,
@@ -41,75 +42,61 @@ export default function AcceptInvitePage() {
   )
 
   return (
-    <main className="flex min-h-screen items-start justify-center px-6 pt-24 sm:items-center sm:pb-24 sm:pt-0">
-      <div className="w-full max-w-sm">
-        <Logo className="h-8 w-8 text-blue-500" aria-hidden={true} />
-        <h1 className="mt-6 text-lg font-semibold text-gray-900 dark:text-gray-50">
-          Join your team
-        </h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Choose a password to finish setting up your account.
-        </p>
+    <div>
+      <h1 className="text-xl font-semibold text-gray-800 dark:text-white/90">
+        Join your team
+      </h1>
+      <p className="mt-1 text-theme-sm text-gray-500 dark:text-gray-400">
+        Choose a password to finish setting up your account.
+      </p>
 
-        {token === "" ||
-        (token === null &&
-          typeof window !== "undefined" &&
-          !window.location.hash) ? (
-          <p
-            role="alert"
-            className="mt-8 rounded-md bg-red-50 p-3 text-sm text-red-900 dark:bg-red-950/70 dark:text-red-400"
-          >
-            This link is incomplete. Open the invitation email again, or ask for
-            a new invitation.
-          </p>
-        ) : (
-          <form action={submit} className="mt-8 flex flex-col gap-4">
-            {error && (
-              <div
-                role="alert"
-                className="rounded-md bg-red-50 p-3 text-sm text-red-900 dark:bg-red-950/70 dark:text-red-400"
-              >
-                {error}
-              </div>
-            )}
-            <div className="flex flex-col gap-2">
-              <label htmlFor="password" className="text-sm font-medium">
-                Password
-              </label>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="new-password"
-                required
-                minLength={8}
-                autoFocus
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <label htmlFor="confirm" className="text-sm font-medium">
-                The same password again
-              </label>
-              <Input
-                id="confirm"
-                name="confirm"
-                type="password"
-                autoComplete="new-password"
-                required
-                minLength={8}
-              />
-            </div>
-            <Button
-              type="submit"
-              className="mt-2 w-full"
-              isLoading={pending}
-              loadingText="Setting up…"
+      {token === "" ||
+      (token === null &&
+        typeof window !== "undefined" &&
+        !window.location.hash) ? (
+        <p
+          role="alert"
+          className="mt-6 rounded-xl border border-error-500 bg-error-50 p-3 text-theme-sm text-error-800 dark:border-error-500/30 dark:bg-error-500/15 dark:text-error-400"
+        >
+          This link is incomplete. Open the invitation email again, or ask for a
+          new invitation.
+        </p>
+      ) : (
+        <form action={submit} className="mt-6 flex flex-col gap-5">
+          {error && (
+            <div
+              role="alert"
+              className="rounded-xl border border-error-500 bg-error-50 p-3 text-theme-sm text-error-800 dark:border-error-500/30 dark:bg-error-500/15 dark:text-error-400"
             >
-              Set password and sign in
-            </Button>
-          </form>
-        )}
-      </div>
-    </main>
+              {error}
+            </div>
+          )}
+          <div>
+            <Label htmlFor="password">Password</Label>
+            <PasswordInput
+              id="password"
+              name="password"
+              autoComplete="new-password"
+              required
+              minLength={8}
+              autoFocus
+            />
+          </div>
+          <div>
+            <Label htmlFor="confirm">The same password again</Label>
+            <PasswordInput
+              id="confirm"
+              name="confirm"
+              autoComplete="new-password"
+              required
+              minLength={8}
+            />
+          </div>
+          <Button type="submit" className="mt-1 w-full" isLoading={pending}>
+            Set password and sign in
+          </Button>
+        </form>
+      )}
+    </div>
   )
 }

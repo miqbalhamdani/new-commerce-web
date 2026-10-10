@@ -43,14 +43,23 @@ There is no Playwright yet; `e2e` arrives with the first journey test.
 ```
 src/
   app/
-    (auth)/login/       unauthenticated. no shell
+    (auth)/             unauthenticated. centred card, no shell (login, accept-invite)
     (app)/              authenticated. sidebar, header, guard
-  components/           VENDORED third-party. configure, do not edit
-    ui/navigation/      AppSidebar, Breadcrumbs, UserProfile, DropdownUserProfile -- ours
+  layout/               AppSidebar, AppHeader, Backdrop -- derived from TailAdmin, ours to edit
+  context/              SidebarContext (vendored), ThemeContext (next-themes shim, PATCH 5)
+  icons/                VENDORED TailAdmin SVGs, imported via @svgr/webpack
+  components/
+    ui/{alert,avatar,badge,button,dropdown,modal,table}/   VENDORED TailAdmin
+    form/               VENDORED TailAdmin (Label, input/*)
+    common/             VENDORED TailAdmin (ComponentCard, PageBreadCrumb, ThemeToggleButton)
+    header/             UserDropdown -- derived from TailAdmin, ours to edit
+    ui/common/          OURS: Page, Card, Dialog (on the vendored Modal), Field, Listing,
+                        ErrorNotice, ButtonLink
+    ui/{catalog,navigation,settings}/   OURS: the screens' components
   lib/
     api/                schema.d.ts (GENERATED) + client.ts (apiFetch, ApiError)
     auth/               session, token refresh, useCan
-    utils.ts            the template's cx / focusRing / focusInput / hasErrorInput
+    utils.ts            cx (clsx + tailwind-merge), nothing else
 contracts/              submodule, pinned to a tag -- READ ONLY
 ```
 
@@ -62,17 +71,25 @@ provider and the session provider, so the login screen does not get a sidebar.
 
 ## Styling
 
-`src/components/` is a **vendored third-party component set** -- Button, Input, Sidebar, Table,
-the charts. Prefer configuring those files over editing them: an edit is lost the next time a
-component is re-pulled from upstream. `src/components/ui/navigation/` is ours and is fine to
-change. `LICENSE.md` covers the vendored code and stays as long as it does.
+The UI is **TailAdmin** (free-nextjs-admin-dashboard @ `3f6902572e9d`, the Tailwind-v3
+snapshot of the v2 design, MIT -- `LICENSE.md`). The vendored dirs are listed in the layout
+above: configure, do not edit. **Every deliberate deviation lives in
+`src/components/PATCHES.md`** and is marked `PATCH(new-commerce)` in its file; on a re-pull,
+re-apply them. `src/layout/` and `src/components/header/` are derived from TailAdmin's app
+chrome and are ours to edit freely. `.prettierignore` keeps prettier away from the vendored
+files so re-pull diffs stay honest.
 
-`src/lib/utils.ts` holds the shared `cx`, `focusRing`, `focusInput` and `hasErrorInput`. Use
-those; do not add a second copy. Its `formatters.currency` is template code that defaults to USD
-and major units -- never use it for money (see Money).
+Design tokens come from the TailAdmin theme in `tailwind.config.ts` (brand/gray/success/
+error/warning scales, `text-theme-*`, `shadow-theme-*`); `globals.css` carries its `menu-*`
+and scrollbar classes. Use the tokens, not raw Tailwind palette colors: errors are
+`error-*`, warnings `warning-*`, links and accents `brand-*`. Tables go through
+`ui/common/Listing.tsx` (`ListTable`, `th`, `td`). `src/lib/utils.ts` holds `cx`; do not add
+a second copy.
 
 Tailwind **3**, configured in `tailwind.config.ts`. Dark mode is `next-themes` with
-`attribute="class"`, and the switcher lives in the user menu the template ships.
+`attribute="class"`; the header's `ThemeToggleButton` flips light/dark and the user menu
+offers "Use system theme". The vendored `context/ThemeContext.tsx` is a shim over
+next-themes (PATCH 5) -- never mount a second theme provider.
 
 All UI copy is English (BR-016).
 
@@ -84,10 +101,9 @@ All UI copy is English (BR-016).
 undefined", so a missing row has to be handled rather than crashing at runtime -- genuinely worth
 having.
 
-It is off because the vendored chart components (`BarChart`, `ComboChart`,
-`ConditionalBarChart`, `CustomTooltips`, `chartUtils`) produce 19 errors under it and were not
-written for it. Patching them is churn in code we did not write and will re-pull. Worth turning
-back on if those components are ever dropped.
+It was off because the old template's chart components produced 19 errors under it. Those
+are gone with the TailAdmin rewrite, so turning it on is now only a matter of fixing our own
+code -- a worthwhile follow-up, not yet done.
 
 ---
 

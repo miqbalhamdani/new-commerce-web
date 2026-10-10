@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 
-import { Button } from "@/components/Button"
+import Button from "@/components/ui/button/Button"
 import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
 import { ApiError } from "@/lib/api/client"
 import type { Product } from "@/lib/api/types"
@@ -57,13 +57,14 @@ export function PublishBar({
     <div className="flex flex-col gap-3">
       <div className="flex gap-2">
         {product.status === "draft" && (
-          <Button isLoading={busy} onClick={() => setStatus("active")}>
+          <Button size="sm" isLoading={busy} onClick={() => setStatus("active")}>
             Publish
           </Button>
         )}
         {product.status === "active" && (
           <Button
-            variant="secondary"
+            size="sm"
+            variant="outline"
             isLoading={busy}
             onClick={() => setStatus("draft")}
           >
@@ -74,7 +75,7 @@ export function PublishBar({
       {failures.length > 0 ? (
         <div
           role="alert"
-          className="rounded-md bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950/60 dark:text-amber-200"
+          className="rounded-xl border border-warning-500 bg-warning-50 p-3 text-theme-sm text-warning-700 dark:border-warning-500/30 dark:bg-warning-500/15 dark:text-orange-400"
         >
           <p className="font-medium">Not published yet. Fix these first:</p>
           <ul className="mt-1 list-disc pl-5">

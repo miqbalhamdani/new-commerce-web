@@ -2,8 +2,8 @@
 
 import { useState } from "react"
 
-import { Button } from "@/components/Button"
-import { Input } from "@/components/Input"
+import Button from "@/components/ui/button/Button"
+import Input from "@/components/form/input/InputField"
 import { Dialog } from "@/components/ui/common/Dialog"
 import { NativeSelect } from "@/components/ui/common/Field"
 import {
@@ -46,7 +46,8 @@ export function BulkPriceAdjust({
   return (
     <>
       <Button
-        variant="secondary"
+        size="sm"
+        variant="outline"
         className="mb-3"
         onClick={() => setOpen(true)}
       >
@@ -63,10 +64,11 @@ export function BulkPriceAdjust({
         }
         footer={
           <>
-            <Button variant="secondary" onClick={() => setOpen(false)}>
+            <Button size="sm" variant="outline" onClick={() => setOpen(false)}>
               Cancel
             </Button>
             <Button
+              size="sm"
               disabled={preview.length === 0}
               onClick={() => {
                 setRows(applyAdjustment(rows, preview, a.target))
@@ -128,7 +130,7 @@ export function BulkPriceAdjust({
         <div className="mt-4 max-h-64 overflow-auto">
           <table className="w-full text-sm" aria-label="Preview">
             <thead>
-              <tr className="text-left text-xs text-gray-500">
+              <tr className="text-left text-theme-xs font-medium text-gray-500 dark:text-gray-400">
                 <th className="py-1">Variant</th>
                 <th className="py-1 text-right">Now</th>
                 <th className="py-1 text-right">After</th>
@@ -151,7 +153,7 @@ export function BulkPriceAdjust({
             </tbody>
           </table>
           {preview.length === 0 && (
-            <p className="text-sm text-gray-500">
+            <p className="text-theme-sm text-gray-500 dark:text-gray-400">
               No chosen variant has a price to start from.
             </p>
           )}

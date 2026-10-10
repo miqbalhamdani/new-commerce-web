@@ -1,0 +1,14 @@
+# Vendored TailAdmin files: keep upstream formatting so re-pull diffs stay clean.
+src/icons/
+src/context/
+src/hooks/useModal.ts
+src/components/ui/alert/
+src/components/ui/avatar/
+src/components/ui/badge/
+src/components/ui/button/
+src/components/ui/dropdown/
+src/components/ui/modal/
+src/components/ui/table/
+src/components/form/
+src/components/common/
+src/components/header/

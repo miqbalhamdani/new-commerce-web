@@ -1,11 +1,11 @@
 "use client"
 
-import Link from "next/link"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { Suspense, useEffect, useState } from "react"
 
-import { Button } from "@/components/Button"
-import { Input } from "@/components/Input"
+import Button from "@/components/ui/button/Button"
+import Input from "@/components/form/input/InputField"
+import { ButtonLink } from "@/components/ui/common/ButtonLink"
 import { Dialog } from "@/components/ui/common/Dialog"
 import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
 import { NativeSelect } from "@/components/ui/common/Field"
@@ -83,10 +83,12 @@ function ProductList() {
       actions={
         canWrite && (
           <>
-            <Button variant="secondary" asChild>
-              <Link href="/products/import">Import CSV</Link>
+            <ButtonLink href="/products/import" variant="outline">
+              Import CSV
+            </ButtonLink>
+            <Button size="sm" onClick={() => setCreating(true)}>
+              New product
             </Button>
-            <Button onClick={() => setCreating(true)}>New product</Button>
           </>
         )
       }
@@ -197,7 +199,8 @@ function ProductList() {
       {data?.next_cursor && (
         <div className="mt-4 flex justify-end">
           <Button
-            variant="secondary"
+            size="sm"
+            variant="outline"
             onClick={() => setCursor(data.next_cursor)}
           >
             Next page
@@ -252,10 +255,10 @@ function CreateDialog({
         />
         <ErrorNotice error={error} />
         <div className="flex justify-end gap-2">
-          <Button type="button" variant="secondary" onClick={onClose}>
+          <Button size="sm" variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" isLoading={busy} disabled={!title.trim()}>
+          <Button size="sm" type="submit" isLoading={busy} disabled={!title.trim()}>
             Create
           </Button>
         </div>

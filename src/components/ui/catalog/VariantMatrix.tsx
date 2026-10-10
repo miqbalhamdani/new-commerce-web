@@ -3,8 +3,9 @@
 import { X } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 
-import { Button } from "@/components/Button"
-import { Input } from "@/components/Input"
+import Button from "@/components/ui/button/Button"
+import Input from "@/components/form/input/InputField"
+import { Checkbox } from "@/components/ui/common/Field"
 import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
 import { Card } from "@/components/ui/common/Page"
 import { ApiError } from "@/lib/api/client"
@@ -146,7 +147,8 @@ export function VariantMatrix({
         ))}
         {canWrite && (
           <Button
-            variant="secondary"
+            size="sm"
+            variant="outline"
             className="self-start"
             onClick={() => {
               setAxes([
@@ -159,7 +161,7 @@ export function VariantMatrix({
             Add option
           </Button>
         )}
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-gray-500 dark:text-gray-400">
           {grid.length} variant{grid.length === 1 ? "" : "s"}. Paste a block
           from Excel into any cell; Colour comes first when there is one.
         </p>
@@ -170,7 +172,7 @@ export function VariantMatrix({
       <div className="overflow-x-auto">
         <table className="w-full text-sm" aria-label="Variants">
           <thead>
-            <tr className="border-b border-gray-200 text-left text-xs text-gray-500 dark:border-gray-800">
+            <tr className="border-b border-gray-100 text-left text-theme-xs font-medium text-gray-500 dark:border-white/[0.05] dark:text-gray-400">
               {canWrite && (
                 <th className="w-8 py-2">
                   <span className="sr-only">Select</span>
@@ -200,14 +202,13 @@ export function VariantMatrix({
                   key={key(combo) || "single"}
                   data-row={i}
                   className={cx(
-                    "border-b border-gray-100 dark:border-gray-900",
-                    problem && "bg-red-50 dark:bg-red-950/40",
+                    "border-b border-gray-100 dark:border-white/[0.05]",
+                    problem && "bg-error-50 dark:bg-error-500/15",
                   )}
                 >
                   {canWrite && (
                     <td>
-                      <input
-                        type="checkbox"
+                      <Checkbox
                         aria-label={`Select ${combo.join(" / ") || "variant"}`}
                         checked={selected.has(i)}
                         onChange={(e) => {
@@ -239,7 +240,8 @@ export function VariantMatrix({
                         value={rows[i][c]}
                         disabled={!canWrite}
                         inputMode={c === "sku" ? "text" : "numeric"}
-                        hasError={Boolean(problem)}
+                        className="!h-9 !px-3"
+                        error={Boolean(problem)}
                         onFocus={() => setFocus({ row: i, col })}
                         onChange={(e) =>
                           setRows(
@@ -260,7 +262,7 @@ export function VariantMatrix({
                   {problem && (
                     <td
                       role="alert"
-                      className="py-1 text-xs text-red-700 dark:text-red-400"
+                      className="py-1 text-xs text-error-600 dark:text-error-400"
                     >
                       {problem}
                     </td>
@@ -276,7 +278,8 @@ export function VariantMatrix({
       {canWrite && (
         <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
           <Button
-            variant="secondary"
+            size="sm"
+            variant="outline"
             disabled={!focus}
             onClick={() =>
               focus && setRows(fillDown(rows, focus.row, columns[focus.col]))
@@ -285,6 +288,7 @@ export function VariantMatrix({
             Fill down
           </Button>
           <Button
+            size="sm"
             isLoading={saving}
             disabled={!dirty && rowErrors.size === 0}
             onClick={save}
@@ -314,10 +318,10 @@ function AxisEditor({
     setValue("")
   }
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded border border-gray-200 p-2 dark:border-gray-800">
+    <div className="flex flex-wrap items-center gap-2 rounded-lg border border-gray-200 p-2 dark:border-gray-800">
       <Input
         aria-label="Option name"
-        className="w-32"
+        className="!h-9 w-32"
         value={axis.name}
         disabled={!canWrite}
         onChange={(e) => onChange({ ...axis, name: e.target.value })}
@@ -325,7 +329,7 @@ function AxisEditor({
       {axis.values.map((v) => (
         <span
           key={v}
-          className="flex items-center gap-1 rounded bg-gray-100 px-2 py-1 text-xs dark:bg-gray-800"
+          className="flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-1 text-theme-xs font-medium text-gray-700 dark:bg-white/[0.08] dark:text-gray-300"
         >
           {v}
           {canWrite && (
@@ -349,7 +353,7 @@ function AxisEditor({
           <Input
             aria-label={`Add a ${axis.name} value`}
             placeholder="Add value"
-            className="w-28"
+            className="!h-9 w-28"
             value={value}
             onChange={(e) => setValue(e.target.value)}
             onKeyDown={(e) => {
@@ -359,7 +363,7 @@ function AxisEditor({
               }
             }}
           />
-          <Button variant="ghost" onClick={() => onChange(null)}>
+          <Button size="sm" variant="ghost" onClick={() => onChange(null)}>
             Remove option
           </Button>
         </>

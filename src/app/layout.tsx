@@ -1,18 +1,14 @@
 import { SessionProvider } from "@/lib/auth/session"
 import type { Metadata } from "next"
 import { ThemeProvider } from "next-themes"
-import localFont from "next/font/local"
+import { Outfit } from "next/font/google"
 import "./globals.css"
 
-const geistSans = localFont({
-  src: "./fonts/GeistVF.woff",
-  variable: "--font-geist-sans",
-  weight: "100 900",
-})
-const geistMono = localFont({
-  src: "./fonts/GeistMonoVF.woff",
-  variable: "--font-geist-mono",
-  weight: "100 900",
+// TailAdmin's typeface. globals.css points font-outfit at this variable, and
+// the body renders in it.
+const outfit = Outfit({
+  subsets: ["latin"],
+  variable: "--font-outfit",
 })
 
 export const metadata: Metadata = {
@@ -32,7 +28,7 @@ export default function RootLayout({
           discards the tree. */}
       <body
         suppressHydrationWarning
-        className={`${geistSans.variable} ${geistMono.variable} h-full bg-gray-50 antialiased dark:bg-gray-950`}
+        className={`${outfit.variable} h-full bg-gray-50 font-outfit antialiased dark:bg-gray-900`}
       >
         <ThemeProvider
           defaultTheme="system"

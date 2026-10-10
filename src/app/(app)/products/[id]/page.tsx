@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { use, useState } from "react"
 
-import { Badge } from "@/components/Badge"
+import Badge from "@/components/ui/badge/Badge"
 import { BulkPriceAdjust } from "@/components/ui/catalog/BulkPriceAdjust"
 import { MediaManager } from "@/components/ui/catalog/MediaManager"
 import { PublishBar } from "@/components/ui/catalog/PublishBar"
@@ -55,19 +55,20 @@ export default function ProductPage({
       actions={
         <>
           <Badge
-            variant={
+            size="sm"
+            color={
               product.status === "active"
                 ? "success"
                 : archived
                   ? "warning"
-                  : "neutral"
+                  : "light"
             }
           >
             {product.status}
           </Badge>
           <Link
             href="/products"
-            className="text-sm text-gray-600 hover:underline dark:text-gray-400"
+            className="text-theme-sm text-gray-500 hover:text-brand-500 dark:text-gray-400 dark:hover:text-brand-400"
             onClick={(e) => {
               if (dirty && !confirm("Leave without saving your changes?"))
                 e.preventDefault()
@@ -88,8 +89,8 @@ export default function ProductPage({
         )}
         <section id="details" aria-labelledby="details-title">
           <h2
-            id="details"
-            className="mb-3 text-sm font-semibold text-gray-900 dark:text-gray-50"
+            id="details-title"
+            className="mb-3 text-base font-semibold text-gray-800 dark:text-white/90"
           >
             Details
           </h2>
@@ -102,8 +103,8 @@ export default function ProductPage({
         </section>
         <section id="images" aria-labelledby="images-title" tabIndex={-1}>
           <h2
-            id="images"
-            className="mb-3 text-sm font-semibold text-gray-900 dark:text-gray-50"
+            id="images-title"
+            className="mb-3 text-base font-semibold text-gray-800 dark:text-white/90"
           >
             Images
           </h2>
@@ -115,8 +116,8 @@ export default function ProductPage({
         </section>
         <section id="variants" aria-labelledby="variants-title" tabIndex={-1}>
           <h2
-            id="variants"
-            className="mb-3 text-sm font-semibold text-gray-900 dark:text-gray-50"
+            id="variants-title"
+            className="mb-3 text-base font-semibold text-gray-800 dark:text-white/90"
           >
             Variants
           </h2>
