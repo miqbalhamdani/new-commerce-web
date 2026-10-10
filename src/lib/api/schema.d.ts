@@ -202,10 +202,11 @@ export interface paths {
         put?: never;
         /**
          * Create a category
-         * @description `path` is derived from the name and parent and is never accepted (BR-008, BR-032). A
-         *     parent must be a live category of the same kind in this tenant, else `422` on
-         *     `parent_id`. Same-named siblings get distinct labels (BR-035). Requires
-         *     `categories:write`.
+         * @description `path` is derived from the parent and the label and is never accepted (BR-008,
+         *     BR-032). `label` defaults to the slugified name; a sent label that a sibling already
+         *     has is `422` on `label`. A parent must be a live category of the same kind in this
+         *     tenant, else `422` on `parent_id`. Same-named siblings get distinct derived labels
+         *     (BR-035). Requires `categories:write`.
          */
         post: operations["createCategory"];
         delete?: never;
@@ -232,18 +233,18 @@ export interface paths {
         put?: never;
         post?: never;
         /**
-         * Archive a category
-         * @description Archives (BR-012). A category with live children or live products in its subtree is
-         *     `409 category_in_use`, with `errors` naming `children` and `products` and their counts
-         *     (BR-036). Requires `categories:write`.
+         * Delete a category
+         * @description Soft-deletes (sets `archived_at`, BR-012) and removes the category from its products,
+         *     bumping their `version`. A category with live children is `409 category_in_use`, with
+         *     `errors` naming `children` and its count (BR-036). Requires `categories:write`.
          */
         delete: operations["archiveCategory"];
         options?: never;
         head?: never;
         /**
-         * Rename or move a category
-         * @description A rename or move rewrites every descendant's path in one statement and leaves product
-         *     links alone (BR-032, BR-033). Moving beneath itself or a descendant is `422` on
+         * Rename, relabel or move a category
+         * @description A rename, relabel or move rewrites every descendant's path in one statement and leaves
+         *     product links alone (BR-032, BR-033). `label: null` goes back to the derived label. Moving beneath itself or a descendant is `422` on
          *     `parent_id` (BR-034); `parent_id: null` makes it a root. `kind` cannot change. No
          *     `If-Match`: last save wins (BR-010). Requires `categories:write`.
          */
@@ -820,10 +821,15 @@ export interface components {
             id: string;
             kind: components["schemas"]["CategoryKind"];
             name: string;
+            /**
+             * @description This category's own path segment when the client set one; `null` while it is
+             *     derived from the name (BR-032).
+             */
+            label: string | null;
             /** Format: uuid */
             parent_id: string | null;
             /**
-             * @description Derived by the database from names and parents; read-only (BR-032).
+             * @description Derived by the database from labels and parents; read-only (BR-032).
              * @example apparel.outerwear.jackets
              */
             path: string;
@@ -843,12 +849,16 @@ export interface components {
         };
         CategoryCreate: {
             name: string;
+            /** @description This category's own path segment; defaults to the slugified name (BR-032). */
+            label?: string;
             /** Format: uuid */
             parent_id?: string;
             kind?: components["schemas"]["CategoryKind"];
         };
         CategoryUpdate: {
             name?: string;
+            /** @description `null` goes back to the label derived from the name (BR-032). */
+            label?: string | null;
             /** Format: uuid */
             parent_id?: string | null;
         };
@@ -1348,8 +1358,8 @@ export interface components {
         };
         /**
          * @description `version_conflict` when `If-Match` is stale, `duplicate_sku` when a SKU is already taken
-         *     within the tenant, `category_in_use` when deleting a category that has children or
-         *     products, or `illegal_transition` when an order status move is not in the allow-list.
+         *     within the tenant, `category_in_use` when deleting a category that has children,
+         *     or `illegal_transition` when an order status move is not in the allow-list.
          */
         Conflict: {
             headers: {
@@ -1771,7 +1781,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Archived. */
+            /** @description Deleted. */
             204: {
                 headers: {
                     [name: string]: unknown;
