@@ -54,7 +54,8 @@ src/
     common/             VENDORED TailAdmin (ComponentCard, PageBreadCrumb, ThemeToggleButton)
     header/             UserDropdown -- derived from TailAdmin, ours to edit
     ui/common/          OURS: Page, Card, Dialog (on the vendored Modal), Field, Listing,
-                        ErrorNotice, ButtonLink
+                        ErrorNotice, ButtonLink, Select (Headless UI Listbox), SearchInput,
+                        Dropzone, ProgressBar, Stepper
     ui/{catalog,navigation,settings}/   OURS: the screens' components
   lib/
     api/                schema.d.ts (GENERATED) + client.ts (apiFetch, ApiError)
@@ -83,8 +84,11 @@ Design tokens come from the TailAdmin theme in `tailwind.config.ts` (brand/gray/
 error/warning scales, `text-theme-*`, `shadow-theme-*`); `globals.css` carries its `menu-*`
 and scrollbar classes. Use the tokens, not raw Tailwind palette colors: errors are
 `error-*`, warnings `warning-*`, links and accents `brand-*`. Tables go through
-`ui/common/Listing.tsx` (`ListTable`, `th`, `td`). `src/lib/utils.ts` holds `cx`; do not add
-a second copy.
+`ui/common/Listing.tsx` (`ListTable`, `th`, `td`). Form controls come from `ui/common/`:
+`Select` (a controlled @headlessui/react Listbox — the panel is portalled, so it works inside
+table shells and the Modal; there is no native `<select>` left), `Field`'s `Checkbox`/
+`Textarea`, `SearchInput`, `Dropzone`, `ProgressBar`, `Stepper`. `src/lib/utils.ts` holds
+`cx`; do not add a second copy.
 
 Tailwind **3**, configured in `tailwind.config.ts`. Dark mode is `next-themes` with
 `attribute="class"`; the header's `ThemeToggleButton` flips light/dark and the user menu

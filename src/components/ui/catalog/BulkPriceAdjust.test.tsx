@@ -40,7 +40,10 @@ describe("BulkPriceAdjust (P1-047)", () => {
     await userEvent.click(
       await screen.findByRole("button", { name: "Adjust prices" }),
     )
-    await userEvent.selectOptions(screen.getByLabelText("Price"), "sale_price")
+    await userEvent.click(screen.getByLabelText("Price"))
+    await userEvent.click(
+      await screen.findByRole("option", { name: "Sale price" }),
+    )
     const preview = screen.getByRole("table", { name: "Preview" })
     expect(within(preview).getAllByRole("row")).toHaveLength(3)
     expect(preview).toHaveTextContent("Rp 180.000")

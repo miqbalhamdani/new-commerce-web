@@ -30,7 +30,9 @@ describe("SettingsForm (P1-068, P1-083)", () => {
       <SettingsForm settings={settings} canSave onSaved={onSaved} />,
     )
     expect(screen.getByLabelText("Shop name")).toHaveValue("Erigo")
-    expect(screen.getByLabelText("Time zone")).toHaveValue("Asia/Jakarta")
+    expect(screen.getByLabelText("Time zone")).toHaveTextContent(
+      "WIB — Asia/Jakarta",
+    )
 
     const prefix = screen.getByLabelText("Order number prefix")
     await userEvent.clear(prefix)

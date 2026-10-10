@@ -21,6 +21,7 @@ import {
 import { Dialog } from "@/components/ui/common/Dialog"
 import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
 import { Empty, Loading, Page } from "@/components/ui/common/Page"
+import { SearchInput } from "@/components/ui/common/SearchInput"
 import { ApiError } from "@/lib/api/client"
 import type { Brand, BrandPage } from "@/lib/api/types"
 import { asApiError, fieldError, useApi, useResource } from "@/lib/api/use-api"
@@ -97,11 +98,10 @@ export default function BrandsPage() {
       )}
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <Input
-          type="search"
+        <SearchInput
           aria-label="Search brands"
           placeholder="Search brands"
-          className="max-w-xs"
+          className="w-full max-w-xs"
           value={q}
           onChange={(e) => {
             setQ(e.target.value)

@@ -30,12 +30,12 @@ export function Field({
   )
 }
 
-/* The three native controls below carry the vendored InputField's classes but
-   keep their native prop shape: the vendored TextArea and Select funnel
-   onChange through (value: string) and cannot be controlled the way the forms
-   here are. */
+/* The native controls below carry the vendored InputField's classes but keep
+   their native prop shape: the vendored TextArea and Checkbox funnel onChange
+   through a plain value and cannot be controlled the way the forms here are.
+   Selects live in ui/common/Select.tsx (Headless UI). */
 
-const fieldClasses = (hasError?: boolean) =>
+export const fieldClasses = (hasError?: boolean) =>
   cx(
     "w-full rounded-lg border bg-transparent px-4 py-2.5 text-sm shadow-theme-xs",
     "placeholder:text-gray-400 focus:outline-none focus:ring dark:bg-gray-900 dark:placeholder:text-white/30",
@@ -58,30 +58,36 @@ export function Textarea({
   )
 }
 
+/** Custom-drawn box, but the real input IS the box: role, .checked, label
+    clicks and keyboard stay native; only the paint is ours. */
 export function Checkbox({ className, ...props }: Omit<React.ComponentProps<"input">, "type">) {
   return (
-    <input
-      type="checkbox"
-      className={cx(
-        "size-4 rounded border-gray-300 text-brand-500 focus:ring-2 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-800",
-        className,
-      )}
-      {...props}
-    />
-  )
-}
-
-/** A native select styled like the inputs; enough for a short list. */
-export function NativeSelect({ className, ...props }: React.ComponentProps<"select">) {
-  return (
-    <select
-      className={cx(
-        "h-11 rounded-lg border border-gray-300 bg-transparent px-3 pr-8 text-sm text-gray-800 shadow-theme-xs",
-        "focus:border-brand-300 focus:outline-none focus:ring focus:ring-brand-500/10",
-        "dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:focus:border-brand-800",
-        className,
-      )}
-      {...props}
-    />
+    <span className={cx("relative inline-flex size-4 shrink-0", className)}>
+      <input
+        type="checkbox"
+        className={cx(
+          "peer size-4 cursor-pointer appearance-none rounded border border-gray-300 bg-transparent transition-colors",
+          "checked:border-brand-500 checked:bg-brand-500",
+          "focus:outline-none focus:ring-2 focus:ring-brand-500/30",
+          "disabled:cursor-not-allowed disabled:opacity-60",
+          "dark:border-gray-700 dark:bg-gray-900 dark:checked:border-brand-500 dark:checked:bg-brand-500",
+        )}
+        {...props}
+      />
+      <svg
+        aria-hidden
+        viewBox="0 0 12 12"
+        fill="none"
+        className="pointer-events-none absolute inset-0 m-auto hidden size-3 text-white peer-checked:block"
+      >
+        <path
+          d="M2.5 6.5L4.75 8.75L9.5 3.5"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    </span>
   )
 }

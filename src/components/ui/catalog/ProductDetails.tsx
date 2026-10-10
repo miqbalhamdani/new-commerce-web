@@ -5,7 +5,8 @@ import { useEffect, useMemo, useState } from "react"
 import Button from "@/components/ui/button/Button"
 import Input from "@/components/form/input/InputField"
 import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
-import { Checkbox, Field, NativeSelect, Textarea } from "@/components/ui/common/Field"
+import { Checkbox, Field, Textarea } from "@/components/ui/common/Field"
+import { Select } from "@/components/ui/common/Select"
 import { Card } from "@/components/ui/common/Page"
 import { ApiError } from "@/lib/api/client"
 import type { BrandPage, Category, Product } from "@/lib/api/types"
@@ -137,18 +138,19 @@ export function ProductDetails({
             />
           </Field>
           <Field id="brand" label="Brand" error={fieldError(error, "brand_id")}>
-            <NativeSelect
+            <Select
               id="brand"
               value={draft.brand_id}
-              onChange={(e) => set({ brand_id: e.target.value })}
-            >
-              <option value="">No brand</option>
-              {brands?.data.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name}
-                </option>
-              ))}
-            </NativeSelect>
+              onChange={(v) => set({ brand_id: v })}
+              options={[
+                { value: "", label: "No brand" },
+                ...(brands?.data.map((b) => ({
+                  value: b.id,
+                  label: b.name,
+                })) ?? []),
+              ]}
+              error={Boolean(fieldError(error, "brand_id"))}
+            />
           </Field>
           <div id="categories" tabIndex={-1}>
             <p className="text-sm font-medium text-gray-700 dark:text-gray-400">

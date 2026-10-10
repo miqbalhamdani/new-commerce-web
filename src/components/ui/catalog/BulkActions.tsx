@@ -6,7 +6,7 @@ import Button from "@/components/ui/button/Button"
 import Input from "@/components/form/input/InputField"
 import { Dialog } from "@/components/ui/common/Dialog"
 import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
-import { NativeSelect } from "@/components/ui/common/Field"
+import { Select } from "@/components/ui/common/Select"
 import { ApiError } from "@/lib/api/client"
 import type { BulkResult, Variant } from "@/lib/api/types"
 import { asApiError, useApi } from "@/lib/api/use-api"
@@ -121,16 +121,17 @@ export function BulkActions({
         }
       >
         <div className="flex flex-wrap gap-2">
-          <NativeSelect
+          <Select
             aria-label="Direction"
             value={price.direction}
-            onChange={(e) =>
-              setPrice({ ...price, direction: e.target.value as "up" | "down" })
+            onChange={(v) =>
+              setPrice({ ...price, direction: v as "up" | "down" })
             }
-          >
-            <option value="down">Lower by</option>
-            <option value="up">Raise by</option>
-          </NativeSelect>
+            options={[
+              { value: "down", label: "Lower by" },
+              { value: "up", label: "Raise by" },
+            ]}
+          />
           <Input
             aria-label="Amount"
             className="w-28"
@@ -143,19 +144,17 @@ export function BulkActions({
               })
             }
           />
-          <NativeSelect
+          <Select
             aria-label="Unit"
             value={price.unit}
-            onChange={(e) =>
-              setPrice({
-                ...price,
-                unit: e.target.value as "amount" | "percent",
-              })
+            onChange={(v) =>
+              setPrice({ ...price, unit: v as "amount" | "percent" })
             }
-          >
-            <option value="percent">%</option>
-            <option value="amount">Rp</option>
-          </NativeSelect>
+            options={[
+              { value: "percent", label: "%" },
+              { value: "amount", label: "Rp" },
+            ]}
+          />
         </div>
       </Dialog>
     </div>
