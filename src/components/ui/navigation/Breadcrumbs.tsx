@@ -13,6 +13,7 @@ import { usePathname } from "next/navigation"
  */
 const labels: Record<string, string> = {
   "": "Home",
+  orders: "Orders",
   products: "Products",
   categories: "Categories",
   brands: "Brands",

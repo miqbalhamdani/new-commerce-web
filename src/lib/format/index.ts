@@ -45,3 +45,23 @@ export function formatDateTime(iso: string | null | undefined, timeZone = "Asia/
     timeZone,
   }).format(new Date(iso))
 }
+
+/** "3 hours ago" in the largest fitting unit; "just now" under a minute. */
+export function formatRelative(iso: string | null | undefined, now = Date.now()): string {
+  if (!iso) return "—"
+  const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" })
+  const s = (new Date(iso).getTime() - now) / 1000
+  const abs = Math.abs(s)
+  const units: [Intl.RelativeTimeFormatUnit, number][] = [
+    ["year", 31536000],
+    ["month", 2592000],
+    ["week", 604800],
+    ["day", 86400],
+    ["hour", 3600],
+    ["minute", 60],
+  ]
+  for (const [unit, secs] of units) {
+    if (abs >= secs) return rtf.format(Math.round(s / secs), unit)
+  }
+  return "just now"
+}
