@@ -5,16 +5,14 @@ import { cx } from "@/lib/utils"
 
 /**
  * A search box with the magnifier in it. `className` sizes the wrapper (the
- * input is w-full inside); `trailing` is the optional right-edge adornment
- * (the header's ⌘K badge). Everything else lands on the native input, ref
+ * input is w-full inside). Everything else lands on the native input, ref
  * included.
  */
 export function SearchInput({
   className,
-  trailing,
   type = "search",
   ...props
-}: React.ComponentProps<"input"> & { trailing?: React.ReactNode }) {
+}: React.ComponentProps<"input">) {
   return (
     <span className={cx("relative block", className)}>
       <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2">
@@ -37,14 +35,9 @@ export function SearchInput({
       </span>
       <input
         type={type}
-        className={cx(fieldClasses(), "h-11 pl-11", trailing && "pr-14")}
+        className={cx(fieldClasses(), "h-11 pl-11")}
         {...props}
       />
-      {trailing && (
-        <span className="absolute right-2.5 top-1/2 -translate-y-1/2">
-          {trailing}
-        </span>
-      )}
     </span>
   )
 }

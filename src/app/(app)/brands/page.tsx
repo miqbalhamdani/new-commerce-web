@@ -10,7 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Checkbox } from "@/components/ui/common/Field"
+import { Checkbox, Field } from "@/components/ui/common/Field"
 import {
   bodyRows,
   headerRow,
@@ -21,83 +21,39 @@ import {
 import { Dialog } from "@/components/ui/common/Dialog"
 import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
 import { Empty, Loading, Page } from "@/components/ui/common/Page"
+import { RowMenu } from "@/components/ui/common/RowMenu"
 import { SearchInput } from "@/components/ui/common/SearchInput"
+import { PencilIcon, TrashBinIcon } from "@/icons"
 import { ApiError } from "@/lib/api/client"
 import type { Brand, BrandPage } from "@/lib/api/types"
 import { asApiError, fieldError, useApi, useResource } from "@/lib/api/use-api"
 import { useCan } from "@/lib/auth/session"
+import { slugify } from "@/lib/catalog/slug"
 
 // P1-031: brands (01-product-requirements.md §4, 04-api-spec.md §6.1).
+// Deleting is the API's soft delete (archived_at, BR-012); deleted brands are
+// not shown anywhere here.
+
+/** null: closed; "new": adding; a Brand: editing it. */
+type Editing = Brand | "new" | null
 
 export default function BrandsPage() {
   const canWrite = useCan("brands:write")
-  const api = useApi()
   const [q, setQ] = useState("")
-  const [archived, setArchived] = useState(false)
   const [cursor, setCursor] = useState<string | null>(null)
-  const params = new URLSearchParams({
-    archived: String(archived),
-    limit: "50",
-  })
+  const params = new URLSearchParams({ limit: "50" })
   if (q.trim()) params.set("q", q.trim())
   if (cursor) params.set("cursor", cursor)
   const { data, error, loading, reload } = useResource<BrandPage>(
     `/v1/brands?${params}`,
   )
 
-  const [name, setName] = useState("")
-  const [createError, setCreateError] = useState<ApiError | null>(null)
-  const [saving, setSaving] = useState(false)
-  const [archiving, setArchiving] = useState<Brand | null>(null)
-
-  async function create(e: React.FormEvent) {
-    e.preventDefault()
-    setSaving(true)
-    try {
-      await api("/v1/brands", { method: "POST", body: { name } })
-      setName("")
-      setCreateError(null)
-      reload()
-    } catch (err) {
-      setCreateError(asApiError(err))
-    } finally {
-      setSaving(false)
-    }
-  }
+  const [editing, setEditing] = useState<Editing>(null)
+  const [deleting, setDeleting] = useState<Brand | null>(null)
 
   return (
     <Page title="Brands" description="The labels your products are sold under.">
-      {canWrite && !archived && (
-        <form
-          onSubmit={create}
-          className="mb-6 flex flex-wrap items-start gap-2"
-        >
-          <div className="min-w-60 flex-1">
-            <Input
-              aria-label="New brand name"
-              placeholder="New brand name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              error={Boolean(fieldError(createError, "name"))}
-            />
-            {createError && (
-              <p className="mt-1 text-xs text-error-600 dark:text-error-400">
-                {createError.message}
-              </p>
-            )}
-          </div>
-          <Button
-            size="sm"
-            type="submit"
-            isLoading={saving}
-            disabled={!name.trim()}
-          >
-            Add brand
-          </Button>
-        </form>
-      )}
-
-      <div className="mb-4 flex flex-wrap items-center gap-3">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <SearchInput
           aria-label="Search brands"
           placeholder="Search brands"
@@ -108,26 +64,19 @@ export default function BrandsPage() {
             setCursor(null)
           }}
         />
-        <label className="flex items-center gap-2 text-theme-sm text-gray-700 dark:text-gray-400">
-          <Checkbox
-            checked={archived}
-            onChange={(e) => {
-              setArchived(e.target.checked)
-              setCursor(null)
-            }}
-          />
-          Show archived
-        </label>
+        {canWrite && (
+          <Button size="sm" onClick={() => setEditing("new")}>
+            Add brand
+          </Button>
+        )}
       </div>
 
       <ErrorNotice error={error} title="Could not load brands" />
       {loading && !data ? (
         <Loading />
       ) : data && data.data.length === 0 ? (
-        <Empty title={archived ? "No archived brands" : "No brands yet"}>
-          {!archived &&
-            canWrite &&
-            "Add the first one above. A product's brand is optional."}
+        <Empty title="No brands yet">
+          {canWrite && "Use Add brand. A product's brand is optional."}
         </Empty>
       ) : data ? (
         <ListTable>
@@ -139,22 +88,55 @@ export default function BrandsPage() {
               <TableCell isHeader className={th}>
                 Slug
               </TableCell>
-              {canWrite && !archived && (
-                <TableCell isHeader className={`${th} text-right`}>
-                  Actions
+              {canWrite && (
+                <TableCell isHeader className={`${th} w-px`}>
+                  <span className="sr-only">Actions</span>
                 </TableCell>
               )}
             </TableRow>
           </TableHeader>
           <TableBody className={bodyRows}>
             {data.data.map((b) => (
-              <BrandRow
+              // The row opens Edit for the mouse; the menu's Edit is the
+              // keyboard path.
+              <TableRow
                 key={b.id}
-                brand={b}
-                canWrite={canWrite && !archived}
-                onArchive={setArchiving}
-                onSaved={reload}
-              />
+                onClick={canWrite ? () => setEditing(b) : undefined}
+                className={
+                  canWrite
+                    ? "cursor-pointer hover:bg-gray-50 dark:hover:bg-white/[0.02]"
+                    : undefined
+                }
+              >
+                <TableCell className={td}>
+                  <span className="font-medium text-gray-800 dark:text-white/90">
+                    {b.name}
+                  </span>
+                </TableCell>
+                <TableCell className={`${td} text-gray-500 dark:text-gray-400`}>
+                  {b.slug}
+                </TableCell>
+                {canWrite && (
+                  <TableCell className={`${td} !py-2 text-right`}>
+                    <RowMenu
+                      label={`Actions for ${b.name}`}
+                      actions={[
+                        {
+                          label: "Edit",
+                          icon: <PencilIcon />,
+                          onSelect: () => setEditing(b),
+                        },
+                        {
+                          label: "Delete",
+                          icon: <TrashBinIcon />,
+                          destructive: true,
+                          onSelect: () => setDeleting(b),
+                        },
+                      ]}
+                    />
+                  </TableCell>
+                )}
+              </TableRow>
             ))}
           </TableBody>
         </ListTable>
@@ -171,116 +153,134 @@ export default function BrandsPage() {
         </div>
       )}
 
-      <ArchiveDialog
-        brand={archiving}
-        onClose={() => setArchiving(null)}
+      {editing !== null && (
+        <BrandDialog
+          key={editing === "new" ? "new" : editing.id}
+          brand={editing === "new" ? null : editing}
+          onClose={() => setEditing(null)}
+          onDone={reload}
+        />
+      )}
+      <DeleteDialog
+        brand={deleting}
+        onClose={() => setDeleting(null)}
         onDone={reload}
       />
     </Page>
   )
 }
 
-function BrandRow({
+/**
+ * Add or edit. The slug follows the name until "Edit slug" is ticked; then it
+ * is sent as typed (BR-030). Editing a brand whose slug was already customised
+ * starts ticked, so saving does not overwrite it.
+ */
+function BrandDialog({
   brand,
-  canWrite,
-  onArchive,
-  onSaved,
+  onClose,
+  onDone,
 }: {
-  brand: Brand
-  canWrite: boolean
-  onArchive: (b: Brand) => void
-  onSaved: () => void
+  brand: Brand | null
+  onClose: () => void
+  onDone: () => void
 }) {
   const api = useApi()
-  const [editing, setEditing] = useState(false)
-  const [name, setName] = useState(brand.name)
+  const [name, setName] = useState(brand?.name ?? "")
+  const [customSlug, setCustomSlug] = useState(
+    brand ? brand.slug !== slugify(brand.name) : false,
+  )
+  const [slug, setSlug] = useState(brand?.slug ?? "")
   const [error, setError] = useState<ApiError | null>(null)
+  const [saving, setSaving] = useState(false)
+  const shownSlug = customSlug ? slug : slugify(name)
 
-  async function save() {
+  async function save(e: React.FormEvent) {
+    e.preventDefault()
+    setSaving(true)
     try {
-      await api(`/v1/brands/${brand.id}`, { method: "PATCH", body: { name } })
-      setEditing(false)
-      setError(null)
-      onSaved()
+      const body = customSlug ? { name, slug } : { name }
+      await api(brand ? `/v1/brands/${brand.id}` : "/v1/brands", {
+        method: brand ? "PATCH" : "POST",
+        body,
+      })
+      onClose()
+      onDone()
     } catch (err) {
       setError(asApiError(err))
+    } finally {
+      setSaving(false)
     }
   }
 
+  const nameError = fieldError(error, "name")
+  const slugError = fieldError(error, "slug")
   return (
-    <TableRow>
-      <TableCell className={td}>
-        {editing ? (
-          <div>
-            <Input
-              className="!h-9"
-              aria-label={`Rename ${brand.name}`}
-              value={name}
-              autoFocus
-              onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") void save()
-                if (e.key === "Escape") setEditing(false)
-              }}
-              error={Boolean(error)}
-            />
-            {error && (
-              <p className="mt-1 text-xs text-error-600 dark:text-error-400">
-                {error.message}
-              </p>
-            )}
-          </div>
-        ) : (
-          <span className="font-medium text-gray-800 dark:text-white/90">
-            {brand.name}
-          </span>
-        )}
-      </TableCell>
-      <TableCell className={`${td} text-gray-500 dark:text-gray-400`}>
-        {brand.slug}
-      </TableCell>
-      {canWrite && (
-        <TableCell className={`${td} text-right`}>
-          {editing ? (
-            <div className="flex justify-end gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setEditing(false)}
-              >
-                Cancel
-              </Button>
-              <Button size="sm" onClick={save}>
-                Save
-              </Button>
-            </div>
-          ) : (
-            <div className="flex justify-end gap-2">
-              <Button
-                size="sm"
-                className="!py-1.5"
-                variant="ghost"
-                onClick={() => setEditing(true)}
-              >
-                Rename
-              </Button>
-              <Button
-                size="sm"
-                className="!py-1.5"
-                variant="ghost"
-                onClick={() => onArchive(brand)}
-              >
-                Archive
-              </Button>
-            </div>
-          )}
-        </TableCell>
-      )}
-    </TableRow>
+    <Dialog
+      open
+      onOpenChange={(o) => !o && onClose()}
+      title={brand ? `Edit ${brand.name}` : "Add a brand"}
+    >
+      <form onSubmit={save} className="flex flex-col gap-4">
+        <Field id="brand-name" label="Name" error={nameError}>
+          <Input
+            id="brand-name"
+            value={name}
+            autoFocus
+            onChange={(e) => setName(e.target.value)}
+            error={Boolean(nameError)}
+          />
+        </Field>
+        <Field
+          id="brand-slug"
+          label="Slug"
+          error={slugError}
+          hint={
+            customSlug
+              ? "Lower-case letters and digits joined by hyphens."
+              : "Generated from the name."
+          }
+        >
+          <Input
+            id="brand-slug"
+            value={shownSlug}
+            readOnly={!customSlug}
+            className={customSlug ? "" : "!bg-gray-50 dark:!bg-white/[0.03]"}
+            onChange={(e) => setSlug(e.target.value)}
+            error={Boolean(slugError)}
+          />
+        </Field>
+        <label className="flex items-center gap-2 text-theme-sm text-gray-700 dark:text-gray-400">
+          <Checkbox
+            checked={customSlug}
+            onChange={(e) => {
+              // Start editing from what was shown, not a stale value.
+              if (e.target.checked) setSlug(shownSlug)
+              setCustomSlug(e.target.checked)
+            }}
+          />
+          Edit slug
+        </label>
+        {error && !nameError && !slugError && <ErrorNotice error={error} />}
+        <div className="flex justify-end gap-2">
+          <Button size="sm" type="button" variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            size="sm"
+            type="submit"
+            isLoading={saving}
+            disabled={!name.trim() || (customSlug && !slug.trim())}
+          >
+            {brand ? "Save" : "Add brand"}
+          </Button>
+        </div>
+      </form>
+    </Dialog>
   )
 }
 
-function ArchiveDialog({
+/** Deleting is never blocked; it takes the brand off its products (BR-012). */
+function DeleteDialog({
   brand,
   onClose,
   onDone,
@@ -292,11 +292,12 @@ function ArchiveDialog({
   const api = useApi()
   const [error, setError] = useState<ApiError | null>(null)
   const [busy, setBusy] = useState(false)
-  async function archive() {
+  async function remove() {
     if (!brand) return
     setBusy(true)
     try {
       await api(`/v1/brands/${brand.id}`, { method: "DELETE" })
+      setError(null)
       onClose()
       onDone()
     } catch (err) {
@@ -309,8 +310,8 @@ function ArchiveDialog({
     <Dialog
       open={brand !== null}
       onOpenChange={(open) => !open && onClose()}
-      title={`Archive ${brand?.name ?? ""}?`}
-      description="Products keep this brand. The name stays reserved: a new brand cannot reuse it."
+      title={`Delete ${brand?.name ?? ""}?`}
+      description="Products using this brand will have their brand cleared. This can't be undone."
       footer={
         <>
           <Button size="sm" variant="outline" onClick={onClose}>
@@ -320,9 +321,9 @@ function ArchiveDialog({
             size="sm"
             variant="destructive"
             isLoading={busy}
-            onClick={archive}
+            onClick={remove}
           >
-            Archive
+            Delete
           </Button>
         </>
       }

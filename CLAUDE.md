@@ -54,8 +54,8 @@ src/
     common/             VENDORED TailAdmin (ComponentCard, PageBreadCrumb, ThemeToggleButton)
     header/             UserDropdown -- derived from TailAdmin, ours to edit
     ui/common/          OURS: Page, Card, Dialog (on the vendored Modal), Field, Listing,
-                        ErrorNotice, ButtonLink, Select (Headless UI Listbox), SearchInput,
-                        Dropzone, ProgressBar, Stepper
+                        ErrorNotice, ButtonLink, Select (Headless UI Listbox), RowMenu
+                        (Headless UI Menu), SearchInput, Dropzone, ProgressBar, Stepper
     ui/{catalog,navigation,settings}/   OURS: the screens' components
   lib/
     api/                schema.d.ts (GENERATED) + client.ts (apiFetch, ApiError)
@@ -87,7 +87,7 @@ and scrollbar classes. Use the tokens, not raw Tailwind palette colors: errors a
 `ui/common/Listing.tsx` (`ListTable`, `th`, `td`). Form controls come from `ui/common/`:
 `Select` (a controlled @headlessui/react Listbox — the panel is portalled, so it works inside
 table shells and the Modal; there is no native `<select>` left), `Field`'s `Checkbox`/
-`Textarea`, `SearchInput`, `Dropzone`, `ProgressBar`, `Stepper`. `src/lib/utils.ts` holds
+`Textarea`, `RowMenu` (a row's actions behind three dots), `SearchInput`, `Dropzone`, `ProgressBar`, `Stepper`. `src/lib/utils.ts` holds
 `cx`; do not add a second copy.
 
 Tailwind **3**, configured in `tailwind.config.ts`. Dark mode is `next-themes` with
@@ -162,8 +162,9 @@ state, an effect, or an event handler.
    (`description`, `brand_id`, `sale_price` to end a sale) and is `422` elsewhere. Never echo a
    response back as a `PATCH` body: responses carry `null` for every empty field.
 2. **Never send server-managed fields** (BR-008): `id`, `tenant_id`, `version`, `created_at`,
-   `updated_at`, `path`, any `*_at` stamp, `brands.slug`. They are `422` on create and update
-   alike. Product `slug` is editable (BR-042) -- warn that old links break.
+   `updated_at`, `path`, any `*_at` stamp. They are `422` on create and update alike. Slugs are
+   editable: a product's (BR-042) -- warn that old links break -- and a brand's, which follows
+   its name when omitted (BR-030).
 3. **Never send a field the endpoint does not define**: it is `422 unknown_field` (BR-089). Strip
    UI-only state before submit. `price` and `on_sale` are read-only; a manual order never sends
    `unit_price`.
