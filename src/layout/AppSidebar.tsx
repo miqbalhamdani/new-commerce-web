@@ -12,6 +12,7 @@ import { useSidebar } from "@/context/SidebarContext"
 import { HorizontaLDots } from "@/icons"
 import { useSession } from "@/lib/auth/session"
 import {
+  Contact,
   ShoppingCart,
   Boxes,
   FolderTree,
@@ -43,6 +44,12 @@ const navigation = [
     permission: "categories:read",
   },
   { name: "Brands", href: "/brands", icon: Boxes, permission: "brands:read" },
+  {
+    name: "Customers",
+    href: "/customers",
+    icon: Contact,
+    permission: "customers:read",
+  },
   { name: "Team", href: "/settings/team", icon: Users, permission: "users:read" },
   { name: "Settings", href: "/settings", icon: Settings, permission: "settings:read" },
   {
