@@ -82,21 +82,21 @@ export default function TeamPage() {
     <Page
       title="Team"
       description="Who can sign in to your shop's admin, and what each person can do."
-      actions={
-        canWrite && (
+    >
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <SearchInput
+          aria-label="Search team"
+          placeholder="Search by name or email"
+          className="w-full max-w-xs"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+        />
+        {canWrite && (
           <Button size="sm" onClick={() => setInviting(true)}>
             Invite someone
           </Button>
-        )
-      }
-    >
-      <SearchInput
-        aria-label="Search team"
-        placeholder="Search by name or email"
-        className="mb-4 w-full max-w-xs"
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-      />
+        )}
+      </div>
       <ErrorNotice
         error={error ?? rowError}
         title="Could not update the team"
