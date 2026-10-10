@@ -1,5 +1,6 @@
 "use client"
 
+import { EyeOff, Globe } from "lucide-react"
 import { useState } from "react"
 
 import Button from "@/components/ui/button/Button"
@@ -55,23 +56,29 @@ export function PublishBar({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex gap-2">
-        {product.status === "draft" && (
-          <Button size="sm" isLoading={busy} onClick={() => setStatus("active")}>
-            Publish
-          </Button>
-        )}
-        {product.status === "active" && (
-          <Button
-            size="sm"
-            variant="outline"
-            isLoading={busy}
-            onClick={() => setStatus("draft")}
-          >
-            Unpublish
-          </Button>
-        )}
-      </div>
+      {product.status === "draft" && (
+        <Button
+          size="sm"
+          className="w-full"
+          startIcon={<Globe aria-hidden className="size-4" />}
+          isLoading={busy}
+          onClick={() => setStatus("active")}
+        >
+          Publish product
+        </Button>
+      )}
+      {product.status === "active" && (
+        <Button
+          size="sm"
+          variant="outline"
+          className="w-full"
+          startIcon={<EyeOff aria-hidden className="size-4" />}
+          isLoading={busy}
+          onClick={() => setStatus("draft")}
+        >
+          Unpublish
+        </Button>
+      )}
       {failures.length > 0 ? (
         <div
           role="alert"

@@ -59,15 +59,19 @@ export function Textarea({
 }
 
 /** Custom-drawn box, but the real input IS the box: role, .checked, label
-    clicks and keyboard stay native; only the paint is ours. */
-export function Checkbox({ className, ...props }: Omit<React.ComponentProps<"input">, "type">) {
+    clicks and keyboard stay native; only the paint is ours. A "some
+    selected" box sets the input's indeterminate through a ref. */
+export function Checkbox({
+  className,
+  ...props
+}: Omit<React.ComponentProps<"input">, "type">) {
   return (
     <span className={cx("relative inline-flex size-4 shrink-0", className)}>
       <input
         type="checkbox"
         className={cx(
           "peer size-4 cursor-pointer appearance-none rounded border border-gray-300 bg-transparent transition-colors",
-          "checked:border-brand-500 checked:bg-brand-500",
+          "checked:border-brand-500 checked:bg-brand-500 indeterminate:border-brand-500 indeterminate:bg-brand-500",
           "focus:outline-none focus:ring-2 focus:ring-brand-500/30",
           "disabled:cursor-not-allowed disabled:opacity-60",
           "dark:border-gray-700 dark:bg-gray-900 dark:checked:border-brand-500 dark:checked:bg-brand-500",
@@ -86,6 +90,19 @@ export function Checkbox({ className, ...props }: Omit<React.ComponentProps<"inp
           strokeWidth="1.8"
           strokeLinecap="round"
           strokeLinejoin="round"
+        />
+      </svg>
+      <svg
+        aria-hidden
+        viewBox="0 0 12 12"
+        fill="none"
+        className="pointer-events-none absolute inset-0 m-auto hidden size-3 text-white peer-indeterminate:block"
+      >
+        <path
+          d="M3 6h6"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
         />
       </svg>
     </span>

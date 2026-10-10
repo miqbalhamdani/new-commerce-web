@@ -2,14 +2,16 @@
 
 import { useState } from "react"
 
+import { Radio, RadioGroup } from "@headlessui/react"
+
 import Button from "@/components/ui/button/Button"
 import Input from "@/components/form/input/InputField"
 import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
 import { Field } from "@/components/ui/common/Field"
-import { Select } from "@/components/ui/common/Select"
 import { ApiError } from "@/lib/api/client"
 import type { Settings } from "@/lib/api/types"
 import { asApiError, fieldError, useApi } from "@/lib/api/use-api"
+import { cx } from "@/lib/utils"
 
 /** Indonesia's three zones; the wire stays WIB whatever is chosen (BR-007). */
 export const timezones = [
@@ -93,13 +95,48 @@ export function SettingsForm({
           error={fieldError(error, "timezone")}
           hint="For showing times in the admin."
         >
-          <Select
+          {/* A segmented toggle: three zones, one tap each. Headless UI
+              radios are not native inputs, so the surrounding disabled
+              fieldset does not reach them — disable explicitly. */}
+          <RadioGroup
             id="timezone"
+            aria-label="Time zone"
             value={form.timezone}
             onChange={(v) => setForm({ ...form, timezone: v })}
-            options={zones}
-            error={Boolean(fieldError(error, "timezone"))}
-          />
+            disabled={!canSave}
+            className={cx(
+              "grid grid-cols-3 overflow-hidden rounded-lg border shadow-theme-xs dark:bg-gray-900",
+              fieldError(error, "timezone")
+                ? "border-error-500"
+                : "border-gray-300 dark:border-gray-700",
+            )}
+          >
+            {zones.map((z) => {
+              const [short, zone] = z.label.split(" — ")
+              return (
+                <Radio
+                  key={z.value}
+                  value={z.value}
+                  aria-label={z.label}
+                  className={cx(
+                    "flex min-w-0 cursor-pointer flex-col items-center justify-center gap-0.5 px-2 py-2.5 text-center",
+                    "border-l border-gray-300 first:border-l-0 dark:border-gray-700 [&:nth-child(n+4)]:border-t",
+                    "focus:outline-none data-[focus]:ring-2 data-[focus]:ring-inset data-[focus]:ring-brand-300",
+                    "text-gray-800 dark:text-white/90",
+                    "data-[checked]:bg-brand-50 data-[checked]:text-brand-600 dark:data-[checked]:bg-brand-500/15 dark:data-[checked]:text-brand-400",
+                    "data-[disabled]:cursor-not-allowed data-[disabled]:opacity-60",
+                  )}
+                >
+                  <span className="text-sm font-medium">{short}</span>
+                  {zone && (
+                    <span className="w-full truncate text-xs text-gray-500 dark:text-gray-400">
+                      {zone}
+                    </span>
+                  )}
+                </Radio>
+              )
+            })}
+          </RadioGroup>
         </Field>
         <Field
           id="order-prefix"

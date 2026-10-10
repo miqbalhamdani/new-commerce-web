@@ -1,10 +1,17 @@
 import { describe, expect, it } from "vitest"
 
-import { formatDateTime, formatMoney, moneyInput, parseMoney } from "./index"
+import {
+  formatDateTime,
+  formatMoney,
+  groupDigits,
+  moneyInput,
+  parseMoney,
+} from "./index"
 
 describe("money", () => {
   it("formats minor units as rupiah", () => {
-    expect(formatMoney(19900000)).toBe("Rp 199.000")
+    expect(formatMoney(19900000)).toBe("Rp\u00a0199,000")
+    expect(formatMoney(129900000)).toBe("Rp\u00a01,299,000")
     expect(formatMoney(null)).toBe("—")
   })
   it("parses what people type, as minor units", () => {
@@ -16,7 +23,15 @@ describe("money", () => {
     expect(parseMoney("")).toBeNull()
   })
   it("round-trips through the input", () => {
+    expect(moneyInput(19900000)).toBe("199,000")
     expect(parseMoney(moneyInput(19900000))).toBe(19900000)
+    expect(parseMoney("1,299,000")).toBe(129900000)
+  })
+  it("groups digits as they are typed", () => {
+    expect(groupDigits("1500000")).toBe("1,500,000")
+    expect(groupDigits("Rp 15.000x")).toBe("15,000")
+    expect(groupDigits("007")).toBe("7")
+    expect(groupDigits("")).toBe("")
   })
 })
 

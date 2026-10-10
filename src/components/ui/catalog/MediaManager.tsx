@@ -1,14 +1,14 @@
 "use client"
 
-import { ImagePlus } from "lucide-react"
+import { ImagePlus, Trash2 } from "lucide-react"
 import { useState } from "react"
 
 import Button from "@/components/ui/button/Button"
+import { Dialog } from "@/components/ui/common/Dialog"
 import { Dropzone } from "@/components/ui/common/Dropzone"
 import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
 import { ProgressBar } from "@/components/ui/common/ProgressBar"
 import { Select } from "@/components/ui/common/Select"
-import { Card } from "@/components/ui/common/Page"
 import { ApiError } from "@/lib/api/client"
 import type { Media, Product, Variant } from "@/lib/api/types"
 import { asApiError, useApi, useResource } from "@/lib/api/use-api"
@@ -38,6 +38,10 @@ export function MediaManager({
   const [order, setOrder] = useState<Media[] | null>(null)
   const [dragging, setDragging] = useState<number | null>(null)
   const [error, setError] = useState<ApiError | null>(null)
+  // The image waiting on the delete confirmation, with its 1-based number.
+  const [deleting, setDeleting] = useState<{ id: string; n: number } | null>(
+    null,
+  )
   const { data: variants } = useResource<{ data: Variant[] }>(
     `/v1/products/${product.id}/variants`,
   )
@@ -96,7 +100,7 @@ export function MediaManager({
   }
 
   return (
-    <Card className="p-6">
+    <div>
       {canWrite && (
         <Dropzone
           accept="image/jpeg,image/png,image/webp"
@@ -141,30 +145,48 @@ export function MediaManager({
           className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5"
           aria-label="Images"
         >
-          {media.map((m, i) => (
-            <li
-              key={m.id}
-              draggable={canWrite}
-              onDragStart={() => setDragging(i)}
-              onDragOver={(e) => dragging !== null && e.preventDefault()}
-              onDrop={() => void drop(i)}
-              className={cx(
-                "flex flex-col gap-2 rounded-xl border border-gray-200 p-2 dark:border-gray-800",
-                dragging === i && "opacity-50",
-              )}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element -- the store's own derivative */}
-              <img
-                src={m.derivatives["800"] ?? m.url}
-                alt={`Image ${i + 1}`}
-                className="aspect-square w-full rounded-lg object-cover"
-              />
-              {i === 0 && (
-                <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Cover</span>
-              )}
-              {canWrite ? (
-                <>
+          {media.map((m, i) => {
+            const variant = variants?.data.find((v) => v.id === m.variant_id)
+            return (
+              <li
+                key={m.id}
+                draggable={canWrite}
+                onDragStart={() => setDragging(i)}
+                onDragOver={(e) => dragging !== null && e.preventDefault()}
+                onDrop={() => void drop(i)}
+                className={cx(
+                  "flex flex-col gap-2 rounded-xl border border-gray-200 p-2 dark:border-gray-800",
+                  canWrite && "cursor-grab active:cursor-grabbing",
+                  dragging === i && "opacity-50",
+                )}
+              >
+                <div className="relative">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- the store's own derivative */}
+                  <img
+                    src={m.derivatives["800"] ?? m.url}
+                    alt={i === 0 ? `Image ${i + 1}, cover` : `Image ${i + 1}`}
+                    className="aspect-square w-full rounded-lg object-cover"
+                  />
+                  {i === 0 && (
+                    <span className="absolute left-2 top-2 rounded-full bg-white/90 px-2 py-0.5 text-theme-xs font-medium text-gray-800 shadow-theme-xs dark:bg-gray-900/80 dark:text-white/90">
+                      Cover
+                    </span>
+                  )}
+                  {canWrite && (
+                    <button
+                      type="button"
+                      aria-label={`Delete image ${i + 1}`}
+                      onClick={() => setDeleting({ id: m.id, n: i + 1 })}
+                      className="absolute right-2 top-2 flex size-8 items-center justify-center rounded-lg bg-white/90 text-gray-600 shadow-theme-xs hover:text-error-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-error-500/40 dark:bg-gray-900/80 dark:text-gray-300 dark:hover:text-error-400"
+                    >
+                      <Trash2 aria-hidden className="size-4" />
+                    </button>
+                  )}
+                </div>
+                {canWrite ? (
                   <Select
+                    size="sm"
+                    className="w-full"
                     aria-label={`Variant for image ${i + 1}`}
                     value={m.variant_id ?? ""}
                     onChange={(v) =>
@@ -176,34 +198,55 @@ export function MediaManager({
                       )
                     }
                     options={[
-                      { value: "", label: "Whole product" },
+                      { value: "", label: "All variants" },
                       ...(variants?.data.map((v) => ({
                         value: v.id,
-                        label: v.option_values.join(" / ") || v.sku || "Variant",
+                        label:
+                          v.option_values.join(" / ") || v.sku || "Variant",
                       })) ?? []),
                     ]}
                   />
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() =>
-                      void act(() =>
-                        api(`/v1/media/${m.id}`, { method: "DELETE" }),
-                      )
-                    }
-                  >
-                    Delete
-                  </Button>
-                </>
-              ) : (
-                m.variant_id && (
-                  <span className="text-xs text-gray-500">Variant image</span>
-                )
-              )}
-            </li>
-          ))}
+                ) : (
+                  m.variant_id && (
+                    <span className="truncate text-theme-xs text-gray-500 dark:text-gray-400">
+                      {variant?.option_values.join(" / ") || "Variant image"}
+                    </span>
+                  )
+                )}
+              </li>
+            )
+          })}
         </ul>
       )}
-    </Card>
+
+      <Dialog
+        open={deleting !== null}
+        onOpenChange={(open) => !open && setDeleting(null)}
+        title={`Delete image ${deleting?.n ?? ""}?`}
+        description="It's removed from the product and the store. This can't be undone."
+        footer={
+          <>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setDeleting(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={() => {
+                const id = deleting!.id
+                setDeleting(null)
+                void act(() => api(`/v1/media/${id}`, { method: "DELETE" }))
+              }}
+            >
+              Delete image
+            </Button>
+          </>
+        }
+      />
+    </div>
   )
 }

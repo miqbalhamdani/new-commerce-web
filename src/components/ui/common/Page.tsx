@@ -13,7 +13,10 @@ export function Page({
   actions,
   children,
   wide,
+  back,
 }: {
+  /** A way back, above the title: "← Products". */
+  back?: React.ReactNode
   title: string
   description?: string
   actions?: React.ReactNode
@@ -22,6 +25,7 @@ export function Page({
 }) {
   return (
     <div className={cx("mx-auto", wide ? "max-w-full" : "max-w-5xl")}>
+      {back && <div className="mb-2">{back}</div>}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-semibold text-gray-800 dark:text-white/90">
           {title}
@@ -51,6 +55,44 @@ export function Card({ className, children }: { className?: string; children: Re
     >
       {children}
     </div>
+  )
+}
+
+/**
+ * A titled card: a heading and one muted line saying what it holds, then the
+ * body. id is the anchor publish failures scroll to.
+ */
+export function Section({
+  id,
+  title,
+  description,
+  children,
+}: {
+  id?: string
+  title: string
+  description?: string
+  children: React.ReactNode
+}) {
+  const headingId = id ? `${id}-title` : undefined
+  return (
+    <section id={id} aria-labelledby={headingId} tabIndex={-1}>
+      <Card>
+        <div className="p-6 pb-5">
+          <h2
+            id={headingId}
+            className="text-base font-semibold text-gray-800 dark:text-white/90"
+          >
+            {title}
+          </h2>
+          {description && (
+            <p className="mt-1 text-theme-sm text-gray-500 dark:text-gray-400">
+              {description}
+            </p>
+          )}
+        </div>
+        <div className="px-6 pb-6">{children}</div>
+      </Card>
+    </section>
   )
 }
 

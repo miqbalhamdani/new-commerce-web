@@ -1,19 +1,21 @@
 // Money and time as the API sends them, for people to read.
 //
 // Money is a plain integer of minor units, always IDR, no currency field
-// (BR-006, BR-029): 19900000 is Rp 199.000. Time arrives as +07:00 (BR-007)
+// (BR-006, BR-029): 19900000 is Rp 199,000. Time arrives as +07:00 (BR-007)
 // and is shown in the shop's own zone.
 
-const idr = new Intl.NumberFormat("id-ID", {
-  style: "currency",
-  currency: "IDR",
-  maximumFractionDigits: 0,
-})
+const grouped = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 })
 
-/** 19900000 -> "Rp 199.000". */
+/** 19900000 -> "Rp 199,000" (a no-break space keeps it on one line). */
 export function formatMoney(minor: number | null | undefined): string {
   if (minor === null || minor === undefined) return "—"
-  return idr.format(minor / 100).replace(/ /g, " ")
+  return `Rp\u00a0${grouped.format(minor / 100)}`
+}
+
+/** Digits only, grouped in threes as someone types: "1500000" -> "1,500,000". */
+export function groupDigits(text: string): string {
+  const digits = text.replace(/\D/g, "").replace(/^0+(?=\d)/, "")
+  return digits ? grouped.format(Number(digits)) : ""
 }
 
 /**
@@ -27,9 +29,11 @@ export function parseMoney(input: string): number | null {
   return Number(clean) * 100
 }
 
-/** Minor units as the plain number a price input shows: 19900000 -> "199000". */
+/** Minor units as a price input shows them: 19900000 -> "199,000". */
 export function moneyInput(minor: number | null | undefined): string {
-  return minor === null || minor === undefined ? "" : String(minor / 100)
+  return minor === null || minor === undefined
+    ? ""
+    : grouped.format(minor / 100)
 }
 
 /** An instant in the shop's time zone: "6 Oct 2026, 16.15". */

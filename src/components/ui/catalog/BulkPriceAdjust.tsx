@@ -5,6 +5,7 @@ import { useState } from "react"
 import Button from "@/components/ui/button/Button"
 import Input from "@/components/form/input/InputField"
 import { Dialog } from "@/components/ui/common/Dialog"
+import { Field } from "@/components/ui/common/Field"
 import { Select } from "@/components/ui/common/Select"
 import {
   applyAdjustment,
@@ -12,7 +13,7 @@ import {
   type Adjustment,
 } from "@/lib/catalog/adjust"
 import type { Row } from "@/lib/catalog/matrix"
-import { formatMoney } from "@/lib/format"
+import { formatMoney, groupDigits } from "@/lib/format"
 
 /**
  * Bulk price adjustment in the matrix (P1-047): on the selected rows, or all
@@ -45,23 +46,18 @@ export function BulkPriceAdjust({
 
   return (
     <>
-      <Button
-        size="sm"
-        variant="outline"
-        className="mb-3"
-        onClick={() => setOpen(true)}
-      >
-        Adjust prices{selected.size ? ` (${selected.size} selected)` : ""}
+      <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
+        Adjust prices {selected.size ? `(${selected.size} selected)` : "(all)"}
       </Button>
       <Dialog
         open={open}
         onOpenChange={setOpen}
         title="Adjust prices"
-        description={
+        description={`Changes ${
           selected.size
-            ? `${selected.size} selected variants.`
-            : "Every variant in the grid."
-        }
+            ? `the ${selected.size} selected variant${selected.size === 1 ? "" : "s"}`
+            : `all ${rows.length} variants`
+        }. Nothing is saved until you click Save variants.`}
         footer={
           <>
             <Button size="sm" variant="outline" onClick={() => setOpen(false)}>
@@ -80,48 +76,75 @@ export function BulkPriceAdjust({
           </>
         }
       >
-        <div className="flex flex-wrap gap-2">
-          <Select
-            aria-label="Price"
-            value={a.target}
-            onChange={(v) => setA({ ...a, target: v as Adjustment["target"] })}
-            options={[
-              { value: "regular_price", label: "Regular price" },
-              { value: "sale_price", label: "Sale price" },
-            ]}
-          />
-          <Select
-            aria-label="Direction"
-            value={a.direction}
-            onChange={(v) =>
-              setA({ ...a, direction: v as Adjustment["direction"] })
-            }
-            options={[
-              { value: "down", label: "Lower by" },
-              { value: "up", label: "Raise by" },
-            ]}
-          />
-          <Input
-            aria-label="Amount"
-            className="w-28"
-            inputMode="numeric"
-            value={String(a.value)}
-            onChange={(e) =>
-              setA({
-                ...a,
-                value: Number(e.target.value.replace(/[^\d.]/g, "")) || 0,
-              })
-            }
-          />
-          <Select
-            aria-label="Unit"
-            value={a.unit}
-            onChange={(v) => setA({ ...a, unit: v as Adjustment["unit"] })}
-            options={[
-              { value: "percent", label: "%" },
-              { value: "amount", label: "Rp" },
-            ]}
-          />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field id="adjust-target" label="Price to change">
+            <Select
+              id="adjust-target"
+              className="w-full"
+              value={a.target}
+              onChange={(v) =>
+                setA({ ...a, target: v as Adjustment["target"] })
+              }
+              options={[
+                { value: "regular_price", label: "Regular price" },
+                { value: "sale_price", label: "Sale price" },
+              ]}
+            />
+          </Field>
+          <Field id="adjust-direction" label="Change">
+            <Select
+              id="adjust-direction"
+              className="w-full"
+              value={a.direction}
+              onChange={(v) =>
+                setA({ ...a, direction: v as Adjustment["direction"] })
+              }
+              options={[
+                { value: "down", label: "Lower it" },
+                { value: "up", label: "Raise it" },
+              ]}
+            />
+          </Field>
+          <div className="sm:col-span-2">
+            <Field id="adjust-amount" label="By">
+              <div className="flex gap-2">
+                <Input
+                  id="adjust-amount"
+                  className="tabular-nums"
+                  inputMode="numeric"
+                  value={
+                    a.unit === "amount"
+                      ? groupDigits(String(a.value))
+                      : String(a.value)
+                  }
+                  onChange={(e) =>
+                    setA({
+                      ...a,
+                      value:
+                        Number(
+                          e.target.value.replace(
+                            a.unit === "amount" ? /\D/g : /[^\d.]/g,
+                            "",
+                          ),
+                        ) || 0,
+                    })
+                  }
+                />
+                <Select
+                  aria-label="Unit"
+                  className="w-24 shrink-0"
+                  value={a.unit}
+                  onChange={(v) =>
+                    setA({ ...a, unit: v as Adjustment["unit"] })
+                  }
+                  options={[
+                    { value: "percent", label: "%" },
+                    { value: "amount", label: "Rp" },
+                  ]}
+                />
+              </div>
+            </Field>
+          </div>
         </div>
         <div className="mt-4 max-h-64 overflow-auto">
           <table className="w-full text-sm" aria-label="Preview">

@@ -27,9 +27,16 @@ export const emptyRow: Row = {
   weight_grams: "",
 }
 
-/** Every combination of the axes' values, in axis order: 2 colours × 5 sizes is 10 rows. */
+/** The options that have values yet: only these make combinations or columns. */
+export const live = (axes: Axis[]) => axes.filter((a) => a.values.length > 0)
+
+/**
+ * Every combination of the axes' values, in axis order: 2 colours × 5 sizes
+ * is 10 rows. An option with no values yet is skipped, so adding one does
+ * not empty the grid.
+ */
 export function combos(axes: Axis[]): string[][] {
-  return axes.reduce<string[][]>(
+  return live(axes).reduce<string[][]>(
     (acc, axis) =>
       acc.flatMap((prefix) => axis.values.map((v) => [...prefix, v])),
     [[]],
@@ -38,11 +45,15 @@ export function combos(axes: Axis[]): string[][] {
 
 export const key = (values: string[]) => values.join("\u001f")
 
-/** The grid a product's live variants describe. */
+/**
+ * The grid a product's live variants describe. Combinations with no live
+ * variant (Red / XL never sold, or archived) come back as removed, so they
+ * are not shown as empty rows and created on save.
+ */
 export function gridOf(
   optionNames: string[],
   variants: Variant[],
-): { axes: Axis[]; cells: Map<string, Row> } {
+): { axes: Axis[]; cells: Map<string, Row>; removed: Set<string> } {
   const axes = optionNames.map((name, i) => ({
     name,
     values: [
@@ -62,7 +73,70 @@ export function gridOf(
       weight_grams: v.weight_grams ? String(v.weight_grams) : "",
     })
   }
-  return { axes, cells }
+  // A product with no variants yet has nothing removed: its rows are new.
+  const removed = new Set(
+    variants.length
+      ? combos(axes)
+          .map(key)
+          .filter((k) => !cells.has(k))
+      : [],
+  )
+  return { axes, cells, removed }
+}
+
+/**
+ * What was typed, re-keyed after the options change so nothing typed is
+ * lost. from[n] is the index in `before` that option n of `after` came from
+ * (undefined for a new option); options match by position, so renaming one
+ * changes nothing. Each new combination takes the row of the first old one
+ * that agrees on every option both have values for, treating a value that is
+ * new as agreeing with any: adding Size gives Red / S and Red / M the row
+ * typed for Red, a new size L starts from Red / S, removing Size gives Red
+ * the row of Red / S. A copied row leaves its SKU on the first copy only.
+ * Removed rows stay removed.
+ */
+export function carry(
+  before: Axis[],
+  after: Axis[],
+  from: (number | undefined)[],
+  cells: Map<string, Row>,
+  removed: Set<string>,
+): { cells: Map<string, Row>; removed: Set<string> } {
+  const oldLive = before.flatMap((a, i) => (a.values.length ? [i] : []))
+  const newLive = after.flatMap((a, i) => (a.values.length ? [i] : []))
+  // [position in an old combination, position in a new one, the old values]
+  const shared = newLive.flatMap((n, pn) => {
+    const o = from[n]
+    const po = o === undefined ? -1 : oldLive.indexOf(o)
+    return po >= 0 ? [[po, pn, before[o!].values] as const] : []
+  })
+  const old = combos(before)
+  const next = { cells: new Map<string, Row>(), removed: new Set<string>() }
+  const skuTaken = new Set<string>()
+  for (const c of combos(after)) {
+    const exact = shared.every(([, pn, values]) => values.includes(c[pn]))
+    const matches = old.filter((o) =>
+      shared.every(
+        ([po, pn, values]) => o[po] === c[pn] || !values.includes(c[pn]),
+      ),
+    )
+    const kept = matches.find((o) => cells.has(key(o)) && !removed.has(key(o)))
+    if (kept) {
+      // SKUs are unique (BR-041): only the first row to take one keeps it.
+      const row = cells.get(key(kept))!
+      next.cells.set(
+        key(c),
+        skuTaken.has(key(kept)) ? { ...row, sku: "" } : row,
+      )
+      skuTaken.add(key(kept))
+    } else if (
+      exact &&
+      matches.length &&
+      matches.every((o) => removed.has(key(o)))
+    )
+      next.removed.add(key(c))
+  }
+  return next
 }
 
 /**
@@ -98,14 +172,23 @@ export function fillDown(rows: Row[], fromRow: number, col: Column): Row[] {
 
 export type CellErrors = Map<number, string>
 
+/** The grid's combinations less the ones removed: the rows on screen. */
+export const visible = (axes: Axis[], removed: Set<string>) =>
+  combos(axes).filter((c) => !removed.has(key(c)))
+
 /**
  * The PUT body for the grid as it stands, or the rows whose input is not a
  * number. A blank SKU or sale price is null; a blank price or weight is
- * left as it is on the variant.
+ * left as it is on the variant. Removed combinations are not sent, so
+ * archive_missing archives them.
  */
-export function toRequest(axes: Axis[], rows: Row[]) {
+export function toRequest(
+  axes: Axis[],
+  rows: Row[],
+  removed: Set<string> = new Set(),
+) {
   const errors: CellErrors = new Map()
-  const body = combos(axes).map((option_values, i) => {
+  const body = visible(axes, removed).map((option_values, i) => {
     const r = rows[i] ?? emptyRow
     const row: Record<string, unknown> = {
       option_values,
@@ -132,7 +215,7 @@ export function toRequest(axes: Axis[], rows: Row[]) {
   })
   return {
     body: {
-      option_names: axes.map((a) => a.name),
+      option_names: live(axes).map((a) => a.name),
       rows: body,
       archive_missing: true,
     },
