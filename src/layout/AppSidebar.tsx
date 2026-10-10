@@ -12,6 +12,8 @@ import { useSidebar } from "@/context/SidebarContext"
 import { HorizontaLDots } from "@/icons"
 import { useSession } from "@/lib/auth/session"
 import {
+  Contact,
+  ShoppingCart,
   Boxes,
   FolderTree,
   Package,
@@ -32,6 +34,8 @@ import { Logo } from "../../public/Logo"
  * support question -- absent beats disabled (BR-025).
  */
 const navigation = [
+  // Orders first: the PRD calls the order list ops' daily workspace (§6.1).
+  { name: "Orders", href: "/orders", icon: ShoppingCart, permission: "orders:read" },
   { name: "Products", href: "/products", icon: Package, permission: "products:read" },
   {
     name: "Categories",
@@ -40,6 +44,12 @@ const navigation = [
     permission: "categories:read",
   },
   { name: "Brands", href: "/brands", icon: Boxes, permission: "brands:read" },
+  {
+    name: "Customers",
+    href: "/customers",
+    icon: Contact,
+    permission: "customers:read",
+  },
   { name: "Team", href: "/settings/team", icon: Users, permission: "users:read" },
   { name: "Settings", href: "/settings", icon: Settings, permission: "settings:read" },
   {

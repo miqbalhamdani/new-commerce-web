@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react"
 
 import { apiFetch, ApiError } from "@/lib/api/client"
+import type { Job } from "@/lib/api/types"
 import { useSession } from "@/lib/auth/session"
 
 type Options = Parameters<typeof apiFetch>[2]
@@ -73,4 +74,47 @@ export function asApiError(e: unknown): ApiError {
 export function fieldError(error: ApiError | null, field: string): string | undefined {
   const e = error?.problem.errors?.find((x) => x.field === field)
   return e ? (e.detail ?? error?.message) : undefined
+}
+
+/**
+ * Polls a job while it is queued or running (BR-060), one second apart, the
+ * import wizard's loop made shared. refresh() re-reads a finished job: every
+ * GET signs a fresh 15-minute download link (BR-063).
+ */
+export function useJob(jobId: string | null) {
+  const api = useApi()
+  const [job, setJob] = useState<Job | null>(null)
+  const [error, setError] = useState<ApiError | null>(null)
+
+  useEffect(() => {
+    setJob(null)
+    setError(null)
+    if (!jobId) return
+    let stop = false
+    const tick = async () => {
+      try {
+        const j = await api<Job>(`/v1/jobs/${jobId}`)
+        if (stop) return
+        setJob(j)
+        if (j.state === "queued" || j.state === "running") setTimeout(tick, 1000)
+      } catch (err) {
+        if (!stop) setError(asApiError(err))
+      }
+    }
+    void tick()
+    return () => {
+      stop = true
+    }
+  }, [api, jobId])
+
+  const refresh = useCallback(async () => {
+    if (!jobId) return
+    try {
+      setJob(await api<Job>(`/v1/jobs/${jobId}`))
+    } catch (err) {
+      setError(asApiError(err))
+    }
+  }, [api, jobId])
+
+  return { job, error, refresh }
 }

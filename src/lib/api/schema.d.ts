@@ -724,6 +724,288 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Orders, filtered and cursor-paginated
+         * @description The ops workspace (BR-075). `status` repeats to OR values; the saved views are plain
+         *     filters — To confirm payment `status=pending`, To ship `status=paid&status=processing`,
+         *     Shipped `status=shipped`, Cancelled refund owed `refund_owed=true`, which returns exactly
+         *     the cancelled orders that were paid and not yet refunded. `q` matches `order_number` and
+         *     the customer's name, email and phone. `placed_from` and `placed_to` take an RFC 3339 time
+         *     with an offset, or a date, which means midnight WIB (BR-007). `item_count` is the summed
+         *     `qty`. Target: p95 first byte under 800 ms at 10k orders (P1-103). Requires `orders:read`.
+         */
+        get: operations["listOrders"];
+        put?: never;
+        /**
+         * Enter a manual (WhatsApp) order
+         * @description Line prices come from `variant_price()` exactly as checkout does — a `unit_price` anywhere
+         *     in the request is `422 unknown_field` (BR-046, BR-078). Archived variants are `422` naming
+         *     the line. `source` must be `manual`; the order is created `pending`, always
+         *     `bank_transfer`, with the customer and lines snapshotted (BR-076) and its number from the
+         *     tenant sequence (BR-077). `shipping` is a typed amount; `shipping_option` arrives with
+         *     `P1-218`. Requires `orders:write`.
+         */
+        post: operations["createOrder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        /**
+         * One order, with its allowed transitions and audit trail
+         * @description `allowed_transitions` comes from the BR-070 allow-list so the client never hardcodes it.
+         *     `history` is the order's audit rows, newest first, readable with `orders:read` alone
+         *     (BR-073). `payments` is `[]` until `P1-220`. Requires `orders:read`.
+         */
+        get: operations["getOrder"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Edit a pending order's address, note or shipping amount
+         * @description Accepts only `shipping_address`, `note` and `shipping`, and only while the order is
+         *     `pending`; any other status is `422` (BR-079). `If-Match` is required (BR-010); the total
+         *     is recomputed from the new shipping amount. Orders are never deleted (BR-079). Requires
+         *     `orders:write`.
+         */
+        patch: operations["updateOrder"];
+        trace?: never;
+    };
+    "/orders/{id}/mark-paid": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record a confirmed payment
+         * @description The operator's confirmation of a bank transfer, and on a Midtrans order the override for a
+         *     payment confirmed outside Midtrans — a later notification is then a no-op (BR-074). Calls
+         *     the one Transition (BR-071): repeating a move is a `200` no-op, a move not in the allow-list
+         *     is `409 illegal_transition` naming from and to (BR-070). No `If-Match` on any transition:
+         *     the row lock is the concurrency control. Every transition bumps `version` and writes one
+         *     audit row (BR-073). Requires `orders:write`.
+         */
+        post: operations["markOrderPaid"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/{id}/process": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start processing a paid order
+         * @description `paid → processing` (BR-070); no timestamp of its own. Same Transition semantics as
+         *     `mark-paid`. Requires `orders:write`.
+         */
+        post: operations["processOrder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/{id}/ship": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record the courier and tracking number and mark shipped
+         * @description `processing → shipped`. `tracking_number` is required, else `422`; `courier` defaults to
+         *     the order's `shipping_courier`, so a manual order with no chosen courier must send it
+         *     (BR-072). Shipping is recorded, not booked. Same Transition semantics as `mark-paid`.
+         *     Requires `orders:write`.
+         */
+        post: operations["shipOrder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/{id}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Close a shipped order
+         * @description `shipped → completed` (BR-070). Same Transition semantics as `mark-paid`. Requires
+         *     `orders:write`.
+         */
+        post: operations["completeOrder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel an order
+         * @description Allowed from `pending`, `paid` and `processing` (BR-070). The optional `reason` has no
+         *     column; it lands in the audit row (BR-073). Cancelling a paid order moves no money — the
+         *     refund is recorded separately (BR-075). Same Transition semantics as `mark-paid`.
+         *     Requires `orders:write`.
+         */
+        post: operations["cancelOrder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/{id}/refund": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record a refund made outside the system
+         * @description Not a status change: the order stays `cancelled`, `refunded_at` is set and `version` bumps.
+         *     Allowed once, on a cancelled order that was paid; anything else is `422` (BR-075). The
+         *     optional `note` lands in the audit row. The row lock serialises it like a transition.
+         *     Requires `orders:write`.
+         */
+        post: operations["refundOrder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Export orders to CSV as a background job
+         * @description The accounting integration (BR-065): one CSV row per order line, order fields repeated,
+         *     UTF-8 BOM, amounts written so a comma-decimal locale cannot corrupt them (BR-064). The
+         *     body takes the §5.1 list filters with `status` as an array. Answers `202 {job_id}`; poll
+         *     `GET /jobs/{id}` — every `GET` of the finished job signs a fresh 15-minute `download_url`
+         *     (BR-063). Requires `exports:read`.
+         */
+        post: operations["exportOrders"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/customers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Customers, searched and cursor-paginated
+         * @description Read-only: staff never create accounts, set passwords or see password hashes (BR-092).
+         *     `q` matches name, email and phone. Requires `customers:read`.
+         */
+        get: operations["listCustomers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/customers/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        /**
+         * One customer and their latest orders
+         * @description The profile plus up to 50 order-list rows, newest first. No credential field ever appears
+         *     (BR-092). Requires `customers:read`.
+         */
+        get: operations["getCustomer"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1258,6 +1540,227 @@ export interface components {
         AuditPage: {
             data: components["schemas"]["AuditEntry"][];
             next_cursor: string | null;
+        };
+        /**
+         * @description The BR-070 state machine's states.
+         * @enum {string}
+         */
+        OrderStatus: "pending" | "paid" | "processing" | "shipped" | "completed" | "cancelled";
+        /** @enum {string} */
+        OrderSource: "storefront" | "manual";
+        /** @description The customer as they were when the order was placed (BR-076), not a live reference. */
+        OrderCustomerSnapshot: {
+            name: string;
+            email: string | null;
+            phone: string | null;
+        };
+        ShippingAddress: {
+            line1: string;
+            line2: string | null;
+            city: string;
+            province: string;
+            postal_code: string;
+        };
+        ShippingAddressWrite: {
+            line1: string;
+            line2?: string | null;
+            city: string;
+            province: string;
+            postal_code: string;
+        };
+        /**
+         * @description A snapshot at the time of order (BR-076): the wire drops the `_snapshot` and `_amount`
+         *     suffixes. `sku` is empty for a variant that had none.
+         */
+        OrderLine: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            variant_id: string;
+            sku: string;
+            /** @example Erigo Basic Tee — Black / M */
+            title: string;
+            qty: number;
+            unit_price: components["schemas"]["Money"];
+            /** @description Per-line discount; manual orders only (BR-078). */
+            discount: components["schemas"]["Money"];
+        };
+        /**
+         * @description One Midtrans Snap attempt, newest first (BR-123). Always `[]` until `P1-220` builds
+         *     Midtrans at checkout; bank transfers never have a row.
+         */
+        OrderPayment: {
+            /** @example ERG-000123 */
+            provider_order_id: string;
+            /** @enum {string} */
+            status: "pending" | "paid" | "failed" | "amount_mismatch";
+            /** @description The last status confirmed by the Get Status API (BR-125). */
+            transaction_status: string | null;
+            amount: components["schemas"]["Money"];
+            /** Format: date-time */
+            paid_at: string | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        /**
+         * @description One entry of the order's audit trail (BR-073), embedded in the order so ops can read it
+         *     with `orders:read` alone — `GET /audit-log` keeps requiring `audit_log:read`. `from` and
+         *     `to` are set for `order.transition` and `null` for other actions; `actor` is `null` for
+         *     the system.
+         */
+        OrderHistoryEntry: {
+            actor: components["schemas"]["Ref"] | null;
+            /** @example order.transition */
+            action: string;
+            from: components["schemas"]["OrderStatus"] | null;
+            to: components["schemas"]["OrderStatus"] | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        /**
+         * @description An order in full. `allowed_transitions` comes from the BR-070 allow-list so clients never
+         *     hardcode it; recording a refund is not in it because it does not change `status` (BR-075).
+         *     `history` is newest first.
+         */
+        Order: {
+            /** Format: uuid */
+            id: string;
+            /** @example ERG-000123 */
+            order_number: string;
+            source: components["schemas"]["OrderSource"];
+            status: components["schemas"]["OrderStatus"];
+            /** @description Send it back in `If-Match` on `PATCH`; transitions take none (BR-010). */
+            version: number;
+            /**
+             * Format: uuid
+             * @description `null` for guest and manual orders.
+             */
+            customer_id: string | null;
+            customer: components["schemas"]["OrderCustomerSnapshot"];
+            shipping_address: components["schemas"]["ShippingAddress"];
+            note: string | null;
+            lines: components["schemas"]["OrderLine"][];
+            /** @description Σ qty·unit_price before any discount. */
+            subtotal: components["schemas"]["Money"];
+            shipping: components["schemas"]["Money"];
+            /** @description Σ line discounts, so `total = subtotal + shipping - discount` (BR-078). */
+            discount: components["schemas"]["Money"];
+            total: components["schemas"]["Money"];
+            /** @enum {string} */
+            payment_method: "bank_transfer" | "midtrans";
+            payments: components["schemas"]["OrderPayment"][];
+            /** @description Biteship courier code the shopper chose; `null` on manual orders (BR-121). */
+            shipping_courier: string | null;
+            shipping_service: string | null;
+            /** @description Set when shipped (BR-072); defaults to `shipping_courier`. */
+            courier: string | null;
+            tracking_number: string | null;
+            /** Format: date-time */
+            placed_at: string;
+            /** Format: date-time */
+            paid_at: string | null;
+            /** Format: date-time */
+            shipped_at: string | null;
+            /** Format: date-time */
+            completed_at: string | null;
+            /** Format: date-time */
+            cancelled_at: string | null;
+            /** Format: date-time */
+            refunded_at: string | null;
+            allowed_transitions: components["schemas"]["OrderStatus"][];
+            history: components["schemas"]["OrderHistoryEntry"][];
+        };
+        OrderShipRequest: {
+            /** @description Biteship courier code; defaults to the order's `shipping_courier` (BR-072). */
+            courier?: string;
+            tracking_number: string;
+        };
+        OrderCancelRequest: {
+            /** @description Recorded in the audit row only; there is no column (BR-073). */
+            reason?: string;
+        };
+        OrderRefundRequest: {
+            /** @description Recorded in the audit row only (BR-075). */
+            note?: string;
+        };
+        OrderCreateRequest: {
+            /** @enum {string} */
+            source: "manual";
+            customer: {
+                name: string;
+                email?: string | null;
+                phone?: string | null;
+            };
+            shipping_address: components["schemas"]["ShippingAddressWrite"];
+            lines: {
+                /** Format: uuid */
+                variant_id: string;
+                qty: number;
+                /** @description Per-line discount in minor units (BR-078). */
+                discount?: components["schemas"]["Money"];
+            }[];
+            /** @description A typed shipping amount; `shipping_option` arrives with `P1-218` (BR-121). */
+            shipping?: components["schemas"]["Money"];
+            note?: string;
+        };
+        OrderUpdateRequest: {
+            shipping_address?: components["schemas"]["ShippingAddressWrite"];
+            note?: string | null;
+            /** @description Replaces the shipping amount; the total is recomputed (BR-079). */
+            shipping?: components["schemas"]["Money"];
+        };
+        OrderListRow: {
+            /** Format: uuid */
+            id: string;
+            order_number: string;
+            source: components["schemas"]["OrderSource"];
+            status: components["schemas"]["OrderStatus"];
+            version: number;
+            customer: components["schemas"]["OrderCustomerSnapshot"];
+            /** @description Summed `qty` over the order's lines. */
+            item_count: number;
+            total: components["schemas"]["Money"];
+            /** Format: date-time */
+            placed_at: string;
+            /** Format: date-time */
+            paid_at: string | null;
+            /** Format: date-time */
+            refunded_at: string | null;
+        };
+        OrderPage: {
+            data: components["schemas"]["OrderListRow"][];
+            next_cursor: string | null;
+        };
+        /** @description The §5.1 order-list filters, with `status` as an array (BR-065). */
+        OrderExportRequest: {
+            status?: components["schemas"]["OrderStatus"][];
+            source?: components["schemas"]["OrderSource"];
+            /** Format: uuid */
+            customer_id?: string;
+            refund_owed?: boolean;
+            /** @description RFC 3339 with an offset, or a date meaning midnight WIB (BR-007). */
+            placed_from?: string;
+            placed_to?: string;
+            q?: string;
+        };
+        /** @description Never a password hash, session or token (BR-092). */
+        Customer: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            email: string;
+            phone: string | null;
+            order_count: number;
+            /** Format: date-time */
+            created_at: string;
+        };
+        CustomerPage: {
+            data: components["schemas"]["Customer"][];
+            next_cursor: string | null;
+        };
+        CustomerDetail: components["schemas"]["Customer"] & {
+            /** @description The customer's orders, newest first, up to 50. */
+            orders: components["schemas"]["OrderListRow"][];
         };
         /**
          * Format: int64
@@ -2573,6 +3076,391 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    listOrders: {
+        parameters: {
+            query?: {
+                status?: components["schemas"]["OrderStatus"][];
+                source?: components["schemas"]["OrderSource"];
+                customer_id?: string;
+                refund_owed?: boolean;
+                placed_from?: string;
+                placed_to?: string;
+                q?: string;
+                sort?: "-placed_at" | "placed_at";
+                /** @description Page size. Pairs with `cursor`; there is no `offset` in this API. */
+                limit?: components["parameters"]["Limit"];
+                /**
+                 * @description Opaque cursor from the previous page. Cursor pagination only — a deep `offset` on a large
+                 *     table is a sequential scan, so the parameter does not exist.
+                 */
+                cursor?: components["parameters"]["Cursor"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of orders. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderPage"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    createOrder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrderCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Created, pending. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Order"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    getOrder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The order. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Order"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateOrder: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description The `version` read from the resource. Required on every `PATCH`. The server checks it in
+                 *     the `UPDATE … WHERE version = $n` predicate; a stale value is `409 version_conflict`, not
+                 *     a silent no-op.
+                 *
+                 *     `version` travels here and never in the request body.
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrderUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description The order, with its new version. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Order"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    markOrderPaid: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The order, paid. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Order"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    processOrder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The order, processing. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Order"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    shipOrder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrderShipRequest"];
+            };
+        };
+        responses: {
+            /** @description The order, shipped. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Order"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    completeOrder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The order, completed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Order"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    cancelOrder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["OrderCancelRequest"];
+            };
+        };
+        responses: {
+            /** @description The order, cancelled. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Order"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    refundOrder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["OrderRefundRequest"];
+            };
+        };
+        responses: {
+            /** @description The order, with `refunded_at` set. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Order"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    exportOrders: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrderExportRequest"];
+            };
+        };
+        responses: {
+            /** @description Queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAccepted"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    listCustomers: {
+        parameters: {
+            query?: {
+                q?: string;
+                /** @description Page size. Pairs with `cursor`; there is no `offset` in this API. */
+                limit?: components["parameters"]["Limit"];
+                /**
+                 * @description Opaque cursor from the previous page. Cursor pagination only — a deep `offset` on a large
+                 *     table is a sequential scan, so the parameter does not exist.
+                 */
+                cursor?: components["parameters"]["Cursor"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of customers. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomerPage"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    getCustomer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The customer. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomerDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
 }

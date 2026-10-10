@@ -147,6 +147,7 @@ export function MultiSelect({
   disabled,
   error,
   placeholder = "None",
+  "aria-label": ariaLabel,
 }: {
   value: string[]
   onChange: (value: string[]) => void
@@ -155,6 +156,7 @@ export function MultiSelect({
   disabled?: boolean
   error?: boolean
   placeholder?: string
+  "aria-label"?: string
 }) {
   const picked = options.filter((o) => value.includes(o.value))
   return (
@@ -162,6 +164,7 @@ export function MultiSelect({
       <ListboxButton
         as={TriggerButton}
         id={id}
+        aria-label={ariaLabel}
         aria-invalid={error || undefined}
         describedBy={error && id ? `${id}-error` : undefined}
         className={cx(
