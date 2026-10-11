@@ -835,6 +835,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/webhooks/midtrans/{webhook_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                webhook_id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Midtrans reports a payment
+         * @description Called by Midtrans, never by a person: no token, no API key, no CORS (§11.10). The
+         *     `webhook_id` names the shop; the notification is trusted only once its `signature_key`
+         *     verifies with that shop's server key, and what it says is confirmed with Midtrans' Get
+         *     Status API before anything changes (BR-003, BR-124).
+         *
+         *     - Unknown `webhook_id`: `404`. Bad signature: `401`, nothing changes.
+         *     - Get Status not answering: `503`, so Midtrans retries.
+         *     - Otherwise `200`, whether or not anything changed: a replay, an unknown order id, or a
+         *       status that changes nothing are all answered `200` (BR-125).
+         *     - `settlement`, or `capture` with `fraud_status` `accept`, pays the attempt and moves a
+         *       pending order to `paid` (BR-074). An amount other than the attempt's is
+         *       `amount_mismatch`, flagged for an operator, and never pays. `expire`, `cancel` and
+         *       `deny` fail the attempt; the order stays `pending`.
+         */
+        post: operations["midtransNotification"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/orders": {
         parameters: {
             query?: never;
@@ -1772,8 +1806,8 @@ export interface components {
             discount: components["schemas"]["Money"];
         };
         /**
-         * @description One Midtrans Snap attempt, newest first (BR-123). Always `[]` until `P1-220` builds
-         *     Midtrans at checkout; bank transfers never have a row.
+         * @description One Midtrans Snap attempt, newest first (BR-123): `ERG-000123`, then `ERG-000123-2`, ….
+         *     Bank transfers never have a row.
          */
         OrderPayment: {
             /** @example ERG-000123 */
@@ -1868,6 +1902,24 @@ export interface components {
         OrderRefundRequest: {
             /** @description Recorded in the audit row only (BR-075). */
             note?: string;
+        };
+        /**
+         * @description Midtrans' HTTP notification. Only the fields the API reads are listed; Midtrans sends more,
+         *     and they are kept, not refused — this body is Midtrans', not a client's.
+         */
+        MidtransNotification: {
+            /** @example ERG-000123 */
+            order_id: string;
+            /** @example 200 */
+            status_code: string;
+            /** @example 409000.00 */
+            gross_amount: string;
+            signature_key: string;
+            /** @example settlement */
+            transaction_status?: string;
+            fraud_status?: string;
+        } & {
+            [key: string]: unknown;
         };
         ShippingRatesRequest: {
             destination_postal_code: string;
@@ -3478,6 +3530,41 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             422: components["responses"]["UnprocessableEntity"];
             502: components["responses"]["BadGateway"];
+        };
+    };
+    midtransNotification: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                webhook_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MidtransNotification"];
+            };
+        };
+        responses: {
+            /** @description Received. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            /** @description Midtrans' Get Status API did not answer; Midtrans retries. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
         };
     };
     listOrders: {

@@ -39,7 +39,7 @@ export function TransitionBar({
   const api = useApi()
   const [error, setError] = useState<ApiError | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
-  const [dialog, setDialog] = useState<"ship" | "cancel" | "refund" | null>(null)
+  const [dialog, setDialog] = useState<"ship" | "cancel" | "refund" | "markPaid" | null>(null)
 
   async function post(route: string, body?: Record<string, unknown>) {
     setBusy(route)
@@ -74,7 +74,15 @@ export function TransitionBar({
             variant={to === "cancelled" ? "outline" : "primary"}
             className="w-full"
             isLoading={busy === a.route}
-            onClick={() => (a.dialog ? setDialog(a.dialog) : void post(a.route))}
+            onClick={() =>
+              // Midtrans marks its own orders paid; doing it by hand is an
+              // override, so it asks first (BR-074). Bank transfer stays one click.
+              to === "paid" && order.payment_method === "midtrans"
+                ? setDialog("markPaid")
+                : a.dialog
+                  ? setDialog(a.dialog)
+                  : void post(a.route)
+            }
           >
             {a.label}
           </Button>
@@ -117,6 +125,29 @@ export function TransitionBar({
           setError(null)
         }}
       />
+      <Dialog
+        open={dialog === "markPaid"}
+        onOpenChange={(o) => {
+          if (!o) {
+            setDialog(null)
+            setError(null)
+          }
+        }}
+        title={`Mark ${order.order_number} as paid?`}
+        description="This order is paid through Midtrans, which marks it paid by itself when the shopper pays. Marking it here overrides Midtrans: do it only when you have confirmed the money arrived."
+        footer={
+          <>
+            <Button size="sm" variant="outline" onClick={() => setDialog(null)}>
+              Cancel
+            </Button>
+            <Button size="sm" isLoading={busy === "mark-paid"} onClick={() => void post("mark-paid")}>
+              Mark as paid anyway
+            </Button>
+          </>
+        }
+      >
+        <ErrorNotice error={dialog === "markPaid" ? error : null} />
+      </Dialog>
       <NoteDialog
         key={dialog ?? "closed"}
         open={dialog === "cancel" || dialog === "refund"}
