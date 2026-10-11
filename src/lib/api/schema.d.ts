@@ -701,6 +701,64 @@ export interface paths {
         patch: operations["updateSettings"];
         trace?: never;
     };
+    "/api-keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The shop's storefront API keys
+         * @description Requires `api_keys:read` (owner, admin). Unpaginated, newest first; revoked keys are not
+         *     listed. The key itself is never returned again after creation (BR-028).
+         */
+        get: operations["listApiKeys"];
+        put?: never;
+        /**
+         * Create a storefront API key
+         * @description The plaintext `key` (`sf_live_…`) is in this response and nowhere else, ever; only its
+         *     SHA-256 is stored (BR-028). `allowed_origin` is required: one exact `scheme://host[:port]`
+         *     in lower case, no path, no wildcard, no trailing slash, no default port — anything else is
+         *     `422` (BR-083). A website on two origins needs one key per origin. Requires
+         *     `api_keys:write`.
+         */
+        post: operations["createApiKey"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api-keys/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke a key
+         * @description Sets `revoked_at`; keys are revoked, never deleted (BR-028). Storefront requests with it
+         *     fail within 60 s, the resolution cache's lifetime (BR-085). A key already revoked is
+         *     `404`. Requires `api_keys:write`.
+         */
+        delete: operations["revokeApiKey"];
+        options?: never;
+        head?: never;
+        /**
+         * Rename a key or change its allowed origin
+         * @description No `If-Match`: last save wins (BR-010). Same `allowed_origin` rule as create. A revoked
+         *     key is `404`. Requires `api_keys:write`.
+         */
+        patch: operations["updateApiKey"];
+        trace?: never;
+    };
     "/audit-log": {
         parameters: {
             query?: never;
@@ -1520,6 +1578,37 @@ export interface components {
             name?: string;
             timezone?: string;
             order_prefix?: string;
+        };
+        ApiKey: {
+            /** Format: uuid */
+            id: string;
+            /** @example Main website */
+            name: string;
+            /** @example https://tokoabc.com */
+            allowed_origin: string;
+            created_by: components["schemas"]["Ref"] | null;
+            /** Format: date-time */
+            last_used_at: string | null;
+            /** Format: date-time */
+            revoked_at: string | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        /** @description An `ApiKey` plus its plaintext `key`, returned only by create. */
+        ApiKeyCreated: components["schemas"]["ApiKey"] & {
+            /** @example sf_live_3f9a91c2e8… */
+            key: string;
+        };
+        ApiKeyList: {
+            data: components["schemas"]["ApiKey"][];
+        };
+        ApiKeyCreate: {
+            name: string;
+            allowed_origin: string;
+        };
+        ApiKeyUpdate: {
+            name?: string;
+            allowed_origin?: string;
         };
         AuditEntry: {
             /** @example order.transition */
@@ -3039,6 +3128,108 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    listApiKeys: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Every live key. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiKeyList"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createApiKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApiKeyCreate"];
+            };
+        };
+        responses: {
+            /** @description The key, with its plaintext shown this once. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiKeyCreated"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    revokeApiKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Revoked. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateApiKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApiKeyUpdate"];
+            };
+        };
+        responses: {
+            /** @description The key, without its plaintext. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiKey"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
             422: components["responses"]["UnprocessableEntity"];
         };
     };

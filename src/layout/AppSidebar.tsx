@@ -13,6 +13,7 @@ import { HorizontaLDots } from "@/icons"
 import { useSession } from "@/lib/auth/session"
 import {
   Contact,
+  KeyRound,
   ShoppingCart,
   Boxes,
   FolderTree,
@@ -51,6 +52,12 @@ const navigation = [
     permission: "customers:read",
   },
   { name: "Team", href: "/settings/team", icon: Users, permission: "users:read" },
+  {
+    name: "API keys",
+    href: "/settings/api-keys",
+    icon: KeyRound,
+    permission: "api_keys:read",
+  },
   { name: "Settings", href: "/settings", icon: Settings, permission: "settings:read" },
   {
     name: "Audit log",

@@ -9,7 +9,8 @@ import { useEffect, useId, useRef } from "react"
  *
  * The Modal has no focus trap (an accepted gap of the vendored set), so this
  * wrapper at least moves focus to the title when it opens; Escape and the
- * overlay close it.
+ * overlay close it -- unless dismissible is false, for a dialog that must be
+ * acknowledged (a secret shown once): then only its own buttons close it.
  */
 export function Dialog({
   open,
@@ -18,6 +19,7 @@ export function Dialog({
   description,
   children,
   footer,
+  dismissible = true,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -25,6 +27,7 @@ export function Dialog({
   description?: string
   children?: React.ReactNode
   footer?: React.ReactNode
+  dismissible?: boolean
 }) {
   const titleId = useId()
   const titleRef = useRef<HTMLHeadingElement>(null)
@@ -38,7 +41,8 @@ export function Dialog({
   return (
     <Modal
       isOpen={open}
-      onClose={() => onOpenChange(false)}
+      onClose={() => dismissible && onOpenChange(false)}
+      showCloseButton={dismissible}
       labelledBy={titleId}
       className="m-4 max-w-lg p-6 lg:p-8"
     >
