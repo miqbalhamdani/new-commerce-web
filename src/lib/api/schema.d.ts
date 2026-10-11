@@ -813,6 +813,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/shipping/rates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Quote shipping for a manual order
+         * @description The same quote as the storefront's (§11.6) for lines the order would have: the shop's origin
+         *     and couriers, the variants' weights, cached 10 minutes (BR-120, BR-121). A manual order
+         *     sends one of these back as `shipping_option`. Requires `orders:write`.
+         */
+        post: operations["shippingRates"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/orders": {
         parameters: {
             query?: never;
@@ -1847,6 +1869,33 @@ export interface components {
             /** @description Recorded in the audit row only (BR-075). */
             note?: string;
         };
+        ShippingRatesRequest: {
+            destination_postal_code: string;
+            lines: {
+                /** Format: uuid */
+                variant_id: string;
+                qty: number;
+            }[];
+        };
+        ShippingOption: {
+            /** @example jne */
+            courier_code: string;
+            /** @example reg */
+            courier_service_code: string;
+            courier_name: string;
+            service_name: string;
+            price: components["schemas"]["Money"];
+            duration: string;
+        };
+        ShippingQuote: {
+            weight_grams: number;
+            options: components["schemas"]["ShippingOption"][];
+        };
+        /** @description A courier service picked from a quote; the server quotes again and charges that (BR-121). */
+        ShippingChoice: {
+            courier_code: string;
+            courier_service_code: string;
+        };
         OrderCreateRequest: {
             /** @enum {string} */
             source: "manual";
@@ -1863,8 +1912,9 @@ export interface components {
                 /** @description Per-line discount in minor units (BR-078). */
                 discount?: components["schemas"]["Money"];
             }[];
-            /** @description A typed shipping amount; `shipping_option` arrives with `P1-218` (BR-121). */
+            /** @description A typed shipping amount. Send this or `shipping_option`, not both. */
             shipping?: components["schemas"]["Money"];
+            shipping_option?: components["schemas"]["ShippingChoice"];
             note?: string;
         };
         OrderUpdateRequest: {
@@ -2029,6 +2079,15 @@ export interface components {
          *     or `illegal_transition` when an order status move is not in the allow-list.
          */
         Conflict: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /** @description `shipping_rates_unavailable` or `payment_unavailable`: Biteship or Midtrans did not answer. */
+        BadGateway: {
             headers: {
                 [name: string]: unknown;
             };
@@ -3391,6 +3450,34 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    shippingRates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShippingRatesRequest"];
+            };
+        };
+        responses: {
+            /** @description The options, cheapest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShippingQuote"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+            502: components["responses"]["BadGateway"];
         };
     };
     listOrders: {

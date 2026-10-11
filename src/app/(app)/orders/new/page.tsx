@@ -11,16 +11,19 @@ import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
 import { Field, Textarea } from "@/components/ui/common/Field"
 import { Empty, Page, Section } from "@/components/ui/common/Page"
 import { LinePicker } from "@/components/ui/orders/LinePicker"
+import { ShippingQuotePicker } from "@/components/ui/orders/ShippingQuotePicker"
 import { ApiError } from "@/lib/api/client"
 import type { Order } from "@/lib/api/types"
 import { asApiError, fieldError, useApi } from "@/lib/api/use-api"
 import { useCan } from "@/lib/auth/session"
 import { formatMoney, groupDigits } from "@/lib/format"
 import {
+  canQuote,
   canSubmit,
   createBody,
   emptyDraft,
   lineError,
+  quoteBody,
   totals,
   type NewOrderDraft,
 } from "@/lib/orders/new-order"
@@ -44,12 +47,20 @@ export default function NewOrderPage() {
     )
   }
 
+  // A picked courier was quoted for this postal code and these lines; any
+  // change to either drops it, and the picker remounts empty (BR-121).
   function set(next: Partial<NewOrderDraft>) {
-    setDraft((d) => ({ ...d, ...next }))
+    const requote = "postal_code" in next || "lines" in next
+    setDraft((d) => ({
+      ...d,
+      ...next,
+      ...(requote ? { shipping_option: null } : {}),
+    }))
   }
   function setLine(i: number, next: Partial<NewOrderDraft["lines"][number]>) {
     setDraft((d) => ({
       ...d,
+      shipping_option: "qty" in next ? null : d.shipping_option,
       lines: d.lines.map((l, j) => (j === i ? { ...l, ...next } : l)),
     }))
   }
@@ -245,19 +256,32 @@ export default function NewOrderPage() {
           <aside className="flex flex-col gap-6">
             <Section title="Shipping and note">
               <div className="flex flex-col gap-4">
-                <Field
-                  id="new-shipping"
-                  label="Shipping (Rp)"
-                  hint="A typed amount; courier rates arrive in Phase 3."
-                  error={field("shipping")}
-                >
-                  <Input
+                <ShippingQuotePicker
+                  key={JSON.stringify(quoteBody(draft))}
+                  body={quoteBody(draft)}
+                  disabled={!canQuote(draft)}
+                  picked={draft.shipping_option}
+                  onPick={(o) => set({ shipping_option: o, shipping: "" })}
+                />
+                {(field("shipping_option") ?? field("shipping")) && (
+                  <p role="alert" className="text-theme-xs text-error-500">
+                    {field("shipping_option") ?? field("shipping")}
+                  </p>
+                )}
+                {!draft.shipping_option && (
+                  <Field
                     id="new-shipping"
-                    inputMode="numeric"
-                    value={draft.shipping}
-                    onChange={(e) => set({ shipping: groupDigits(e.target.value) })}
-                  />
-                </Field>
+                    label="Or type a shipping amount (Rp)"
+                    hint="For a courier the shop arranges itself."
+                  >
+                    <Input
+                      id="new-shipping"
+                      inputMode="numeric"
+                      value={draft.shipping}
+                      onChange={(e) => set({ shipping: groupDigits(e.target.value) })}
+                    />
+                  </Field>
+                )}
                 <Field id="new-note" label="Note" hint="Optional." error={field("note")}>
                   <Textarea
                     id="new-note"
