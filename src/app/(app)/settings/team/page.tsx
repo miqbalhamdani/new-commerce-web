@@ -29,6 +29,7 @@ import type { Role, User, UserPage } from "@/lib/api/types"
 import { asApiError, fieldError, useApi, useResource } from "@/lib/api/use-api"
 import { useCan, useSession } from "@/lib/auth/session"
 import { formatDateTime } from "@/lib/format"
+import { cx } from "@/lib/utils"
 
 // P1-066: team and roles (04-api-spec.md §4; BR-023, BR-025..BR-027). The
 // role picker renders from GET /v1/roles, never a hardcoded list.
@@ -124,7 +125,7 @@ export default function TeamPage() {
                 Last sign-in
               </TableCell>
               {canWrite && (
-                <TableCell isHeader className={`${th} text-right`}>
+                <TableCell isHeader className={cx(th, "text-center")}>
                   Actions
                 </TableCell>
               )}
@@ -173,7 +174,7 @@ export default function TeamPage() {
                     {formatDateTime(u.last_login_at, tenant?.timezone)}
                   </TableCell>
                   {canWrite && (
-                    <TableCell className={`${td} text-right`}>
+                    <TableCell className={cx(td, "text-center")}>
                       {editable && u.status === "invited" && (
                         <Button
                           size="sm"
