@@ -81,21 +81,7 @@ function ProductList() {
   )
 
   return (
-    <Page
-      wide
-      title="Products"
-      description="Everything in your catalog."
-      actions={
-        canWrite && (
-          <>
-            <ButtonLink href="/products/import" variant="outline">
-              Import CSV
-            </ButtonLink>
-            <ButtonLink href="/products/new">New product</ButtonLink>
-          </>
-        )
-      }
-    >
+    <Page wide title="Products" description="Everything in your catalog.">
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <SearchInput
           aria-label="Search by title or SKU"
@@ -154,6 +140,14 @@ function ProductList() {
             { value: "title", label: "Title" },
           ]}
         />
+        {canWrite && (
+          <div className="ml-auto flex gap-3">
+            <ButtonLink href="/products/import" variant="outline">
+              Import CSV
+            </ButtonLink>
+            <ButtonLink href="/products/new">New product</ButtonLink>
+          </div>
+        )}
       </div>
 
       <ErrorNotice error={error} title="Could not load products" />
