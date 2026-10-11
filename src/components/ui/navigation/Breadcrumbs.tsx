@@ -22,6 +22,7 @@ const labels: Record<string, string> = {
   import: "Import",
   settings: "Settings",
   team: "Team",
+  "api-keys": "API keys",
   "audit-log": "Audit log",
   onboarding: "Get started",
 }

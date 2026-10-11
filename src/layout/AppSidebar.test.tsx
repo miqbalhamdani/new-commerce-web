@@ -17,6 +17,7 @@ const perms = {
     "categories:read",
     "brands:read",
     "users:read",
+    "api_keys:read",
     "settings:read",
     "settings:write",
     "audit_log:read",
@@ -26,6 +27,7 @@ const perms = {
     "categories:read",
     "brands:read",
     "users:read",
+    "api_keys:read",
     "settings:read",
     "audit_log:read",
   ],
@@ -50,19 +52,19 @@ describe("navigation by role (BR-025)", () => {
       </SidebarProvider>,
     )
     await screen.findByRole("link", { name: "Products" })
-    for (const name of ["Team", "Settings", "Audit log"]) {
+    for (const name of ["Team", "API keys", "Settings", "Audit log"]) {
       expect(screen.queryByRole("link", { name })).toBeNull()
     }
   })
 
-  it("owner sees team, settings and the audit log", async () => {
+  it("owner sees team, API keys, settings and the audit log", async () => {
     mockApi(perms.owner, () => undefined, "owner")
     renderSignedIn(
       <SidebarProvider>
         <AppSidebar />
       </SidebarProvider>,
     )
-    for (const name of ["Team", "Settings", "Audit log"]) {
+    for (const name of ["Team", "API keys", "Settings", "Audit log"]) {
       expect(await screen.findByRole("link", { name })).toBeInTheDocument()
     }
   })
@@ -78,5 +80,6 @@ describe("navigation by role (BR-025)", () => {
       await screen.findByRole("link", { name: "Settings" }),
     ).toBeInTheDocument()
     expect(screen.queryByRole("link", { name: "Team" })).toBeNull()
+    expect(screen.queryByRole("link", { name: "API keys" })).toBeNull()
   })
 })
