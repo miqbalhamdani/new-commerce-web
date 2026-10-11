@@ -20,6 +20,7 @@ import {
   Package,
   ScrollText,
   Settings,
+  Store,
   Users,
 } from "lucide-react"
 import Link from "next/link"
@@ -59,6 +60,12 @@ const navigation = [
     permission: "api_keys:read",
   },
   { name: "Settings", href: "/settings", icon: Settings, permission: "settings:read" },
+  {
+    name: "Storefront",
+    href: "/settings/storefront",
+    icon: Store,
+    permission: "settings:read",
+  },
   {
     name: "Audit log",
     href: "/audit-log",

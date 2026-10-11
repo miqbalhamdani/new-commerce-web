@@ -52,7 +52,7 @@ describe("navigation by role (BR-025)", () => {
       </SidebarProvider>,
     )
     await screen.findByRole("link", { name: "Products" })
-    for (const name of ["Team", "API keys", "Settings", "Audit log"]) {
+    for (const name of ["Team", "API keys", "Settings", "Storefront", "Audit log"]) {
       expect(screen.queryByRole("link", { name })).toBeNull()
     }
   })
@@ -64,7 +64,7 @@ describe("navigation by role (BR-025)", () => {
         <AppSidebar />
       </SidebarProvider>,
     )
-    for (const name of ["Team", "API keys", "Settings", "Audit log"]) {
+    for (const name of ["Team", "API keys", "Settings", "Storefront", "Audit log"]) {
       expect(await screen.findByRole("link", { name })).toBeInTheDocument()
     }
   })

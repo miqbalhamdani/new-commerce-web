@@ -701,6 +701,37 @@ export interface paths {
         patch: operations["updateSettings"];
         trace?: never;
     };
+    "/storefront-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * How the shop's website sells
+         * @description Contact email, Google sign-in, shipping origin and couriers, and payment methods. The
+         *     Midtrans server key is never returned: `midtrans_server_key_set` says whether there is
+         *     one (BR-129). Requires `settings:read` (owner, admin, viewer).
+         */
+        get: operations["getStorefrontSettings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change how the shop's website sells
+         * @description Only the owner (`settings:write`). Send only what changes (BR-009); `null` clears a
+         *     nullable field, the server key included. `midtrans_server_key` is write-only and stored
+         *     envelope-encrypted (BR-129). Enabling Midtrans without its environment, client key and
+         *     server key is `422`, and so is turning off both payment methods (BR-122).
+         *     `origin_postal_code` is 5 digits and `shipping_couriers` are Biteship courier codes
+         *     (BR-120). No `If-Match` (BR-010).
+         */
+        patch: operations["updateStorefrontSettings"];
+        trace?: never;
+    };
     "/api-keys": {
         parameters: {
             query?: never;
@@ -1578,6 +1609,50 @@ export interface components {
             name?: string;
             timezone?: string;
             order_prefix?: string;
+        };
+        /**
+         * @description A Biteship courier code (BR-120).
+         * @enum {string}
+         */
+        CourierCode: "jne" | "jnt" | "sicepat" | "anteraja" | "pos" | "tiki" | "ninja" | "lion" | "idexpress" | "sap" | "rpx" | "wahana";
+        StorefrontSettings: {
+            /**
+             * Format: email
+             * @description Reply-To on every email the shop sends (BR-128).
+             */
+            contact_email: string | null;
+            /** @description The shop's own Google OAuth client; `null` turns Google sign-in off (BR-127). */
+            google_client_id: string | null;
+            /** @example 40115 */
+            origin_postal_code: string | null;
+            shipping_couriers: components["schemas"]["CourierCode"][];
+            bank_transfer_enabled: boolean;
+            bank_transfer_instructions: string | null;
+            midtrans_enabled: boolean;
+            midtrans_environment: ("sandbox" | "production") | null;
+            midtrans_client_key: string | null;
+            midtrans_server_key_set: boolean;
+            /**
+             * Format: uri
+             * @description Where Midtrans tells the API about payments; sent with every Snap transaction (BR-124).
+             */
+            midtrans_notification_url: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        StorefrontSettingsUpdate: {
+            /** Format: email */
+            contact_email?: string | null;
+            google_client_id?: string | null;
+            origin_postal_code?: string | null;
+            shipping_couriers?: components["schemas"]["CourierCode"][];
+            bank_transfer_enabled?: boolean;
+            bank_transfer_instructions?: string | null;
+            midtrans_enabled?: boolean;
+            midtrans_environment?: ("sandbox" | "production") | null;
+            midtrans_client_key?: string | null;
+            /** @description Write-only; `null` removes it (and so needs Midtrans off). */
+            midtrans_server_key?: string | null;
         };
         ApiKey: {
             /** Format: uuid */
@@ -3124,6 +3199,55 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Settings"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    getStorefrontSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The settings. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorefrontSettings"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    updateStorefrontSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StorefrontSettingsUpdate"];
+            };
+        };
+        responses: {
+            /** @description The settings. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorefrontSettings"];
                 };
             };
             401: components["responses"]["Unauthorized"];
