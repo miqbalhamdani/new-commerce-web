@@ -438,7 +438,8 @@ export interface paths {
          * A background job's progress and result
          * @description Long work answers `202 {job_id}`; this is what the client polls (BR-060). The permission is
          *     the job's own: `products:write` for `product_import`, `exports:read` for `order_export`,
-         *     `channels:read` for `channel_import`, `media:read` for `image_derivatives`. Every `GET` of
+         *     `channels:read` for `channel_import`, `media:read` for `image_derivatives`,
+         *     `customers:purge` for `customer_purge`. Every `GET` of
          *     a finished job signs fresh 15-minute URLs (BR-063); the database stores keys.
          */
         get: operations["getJob"];
@@ -1128,6 +1129,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/customers/{id}/purge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Erase a customer's personal data as a background job
+         * @description Answers a data subject's deletion request (BR-097): anonymises the customer, signs them
+         *     out everywhere, and redacts the name, email, phone, street address and note on their
+         *     orders, including guest and manual orders placed with the same email. Totals, lines and
+         *     payments stay. Cannot be undone. No body. Answers `202 {job_id}`; poll `GET /jobs/{id}`,
+         *     whose result is `{orders}`, the number of orders redacted. A purged customer can be
+         *     purged again harmlessly. Requires `customers:purge` (owner).
+         */
+        post: operations["purgeCustomer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/customers/{id}": {
         parameters: {
             query?: never;
@@ -1457,7 +1485,7 @@ export interface components {
             next_cursor: string | null;
         };
         /** @enum {string} */
-        JobKind: "product_import" | "order_export" | "channel_import" | "image_derivatives";
+        JobKind: "product_import" | "order_export" | "channel_import" | "image_derivatives" | "customer_purge";
         Job: {
             /** Format: uuid */
             id: string;
@@ -1474,7 +1502,7 @@ export interface components {
             /**
              * @description `null` until `done`. Per kind: `product_import` carries `created`, `updated` and
              *     `error_report_url` (+ `expires_in`), `null` when nothing failed; `order_export` carries
-             *     `download_url`.
+             *     `download_url`; `customer_purge` carries `orders`.
              */
             result: {
                 [key: string]: unknown;
@@ -2019,6 +2047,11 @@ export interface components {
             order_count: number;
             /** Format: date-time */
             created_at: string;
+            /**
+             * Format: date-time
+             * @description When the customer's personal data was erased (BR-097); `null` until then.
+             */
+            purged_at: string | null;
         };
         CustomerPage: {
             data: components["schemas"]["Customer"][];
@@ -3925,6 +3958,31 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    purgeCustomer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAccepted"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     getCustomer: {

@@ -291,7 +291,7 @@ empty.
 | 0 Foundation | Sign in, app shell |
 | 1 Catalog | Brands (P1-031), categories (P1-032), product list with bulk actions (P1-033, P1-076), product editor (P1-034), variant matrix (P1-046, P1-047), media (P1-048), publish (P1-075), import wizard (P1-074), team (P1-066), onboarding (P1-068), audit log (P1-078) |
 | 2 Orders | Order list, detail, manual entry, customers, order export (P1-108…112) |
-| 3 Storefront | API keys (P1-201), storefront settings (P1-217), payment attempts (P1-229) |
+| 3 Storefront | API keys (P1-201), storefront settings (P1-217), payment attempts (P1-229), deleting a customer's personal data (P1-215, owner only) |
 | 4 · 5 | Channels: marketplace product import (P1-309) |
 
 **Never:** stock, quantities or sold-out (BR-017), marketplace order sync or price push (BR-100),
