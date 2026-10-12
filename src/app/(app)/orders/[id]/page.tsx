@@ -29,6 +29,14 @@ import { useResource } from "@/lib/api/use-api"
 import { useCan, useSession } from "@/lib/auth/session"
 import { formatDateTime, formatMoney, formatRelative } from "@/lib/format"
 
+/** A Midtrans attempt's state, for ops (BR-124, BR-125). */
+const paymentStatus = {
+  pending: "Waiting for payment",
+  paid: "Paid",
+  failed: "Failed or expired",
+  amount_mismatch: "Amount does not match — check in Midtrans",
+} as const
+
 // P1-109: the order detail (04-api-spec.md §5.2) -- status actions from
 // allowed_transitions, the ship dialog, the refund record and the embedded
 // audit trail.
@@ -249,10 +257,6 @@ function OrderDetail({
                 <dt className="text-gray-500 dark:text-gray-400">Payment</dt>
                 <dd>{order.payment_method === "midtrans" ? "Midtrans" : "Bank transfer"}</dd>
               </div>
-              <div className="flex justify-between gap-4">
-                <dt className="text-gray-500 dark:text-gray-400">Attempts</dt>
-                <dd>{order.payments.length === 0 ? "—" : order.payments.length}</dd>
-              </div>
               {order.shipping_courier && (
                 <div className="flex justify-between gap-4">
                   <dt className="text-gray-500 dark:text-gray-400">Chosen courier</dt>
@@ -271,6 +275,33 @@ function OrderDetail({
                 </div>
               )}
             </dl>
+            {order.payments.length > 0 && (
+              <div className="mt-4">
+                <h3 className="mb-2 text-theme-xs font-medium text-gray-500 dark:text-gray-400">
+                  Payment attempts
+                </h3>
+                {/* Newest first, as the API lists them (BR-123). */}
+                <ul className="flex flex-col gap-2">
+                  {order.payments.map((p) => (
+                    <li
+                      key={p.provider_order_id}
+                      className="rounded-lg border border-gray-200 px-3 py-2 text-theme-sm dark:border-gray-800"
+                    >
+                      <div className="flex justify-between gap-3">
+                        <span className="font-mono text-theme-xs">{p.provider_order_id}</span>
+                        <span className="tabular-nums">{formatMoney(p.amount)}</span>
+                      </div>
+                      <div className="text-theme-xs text-gray-500 dark:text-gray-400">
+                        {paymentStatus[p.status]}
+                        {p.transaction_status ? ` · Midtrans: ${p.transaction_status}` : ""}
+                        {" · "}
+                        {when(p.paid_at ?? p.created_at)}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             {canWrite && (
               <div className="mt-5">
                 <TransitionBar order={order} onChanged={onChanged} onReload={onReload} />

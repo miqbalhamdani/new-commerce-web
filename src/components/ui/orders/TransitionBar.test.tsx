@@ -123,4 +123,42 @@ describe("TransitionBar (P1-109)", () => {
       expect(JSON.parse(String(call![1]!.body))).toEqual({ note: "BCA transfer" })
     })
   })
+
+  it("asks before marking a Midtrans order paid by hand, and not a bank transfer (P1-229, BR-074)", async () => {
+    const fetchSpy = mockApi(["orders:write"], (url, init) => {
+      if (url.endsWith("/mark-paid") && init?.method === "POST")
+        return json(order({ status: "paid", allowed_transitions: ["processing", "cancelled"] }))
+      return undefined
+    })
+    const onChanged = vi.fn()
+    const pending = { status: "pending" as const, paid_at: null, allowed_transitions: ["paid", "cancelled"] as Order["allowed_transitions"] }
+    const { unmount } = renderSignedIn(
+      <TransitionBar
+        order={order({ ...pending, payment_method: "midtrans" })}
+        onChanged={onChanged}
+        onReload={vi.fn()}
+      />,
+    )
+
+    await userEvent.click(await screen.findByRole("button", { name: "Mark as paid" }))
+    expect(screen.getByRole("dialog")).toHaveTextContent("overrides Midtrans")
+    expect(fetchSpy.mock.calls.some(([u]) => String(u).endsWith("/mark-paid"))).toBe(false)
+    await userEvent.click(screen.getByRole("button", { name: "Mark as paid anyway" }))
+    await waitFor(() => expect(onChanged).toHaveBeenCalled())
+    unmount()
+
+    // Bank transfer: the operator's own check is the payment, one click.
+    renderSignedIn(
+      <TransitionBar
+        order={order({ ...pending, payment_method: "bank_transfer" })}
+        onChanged={onChanged}
+        onReload={vi.fn()}
+      />,
+    )
+    await userEvent.click(await screen.findByRole("button", { name: "Mark as paid" }))
+    expect(screen.queryByRole("dialog")).toBeNull()
+    await waitFor(() =>
+      expect(fetchSpy.mock.calls.filter(([u]) => String(u).endsWith("/mark-paid")).length).toBe(2),
+    )
+  })
 })

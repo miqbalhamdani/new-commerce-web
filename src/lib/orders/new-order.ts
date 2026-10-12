@@ -4,6 +4,7 @@
 // only, from the picked variant.
 
 import type { ApiError } from "@/lib/api/client"
+import type { ShippingOption } from "@/lib/api/types"
 import { fieldError } from "@/lib/api/use-api"
 import { parseMoney } from "@/lib/format"
 
@@ -27,6 +28,8 @@ export interface NewOrderDraft {
   postal_code: string
   lines: DraftLine[]
   shipping: string
+  /** A courier service from a quote; when set it is charged, not shipping. */
+  shipping_option: ShippingOption | null
   note: string
 }
 
@@ -41,6 +44,7 @@ export const emptyDraft: NewOrderDraft = {
   postal_code: "",
   lines: [],
   shipping: "",
+  shipping_option: null,
   note: "",
 }
 
@@ -65,7 +69,18 @@ export function createBody(d: NewOrderDraft): Record<string, unknown> {
       qty: l.qty,
       ...(parseMoney(l.discount) ? { discount: parseMoney(l.discount) } : {}),
     })),
-    ...(parseMoney(d.shipping) ? { shipping: parseMoney(d.shipping) } : {}),
+    // One or the other, never both (§5.4). An option is quoted again on the
+    // server and charged at that price (BR-121).
+    ...(d.shipping_option
+      ? {
+          shipping_option: {
+            courier_code: d.shipping_option.courier_code,
+            courier_service_code: d.shipping_option.courier_service_code,
+          },
+        }
+      : parseMoney(d.shipping)
+        ? { shipping: parseMoney(d.shipping) }
+        : {}),
     ...(d.note.trim() ? { note: d.note.trim() } : {}),
   }
 }
@@ -74,7 +89,9 @@ export function createBody(d: NewOrderDraft): Record<string, unknown> {
 export function totals(d: NewOrderDraft) {
   const subtotal = d.lines.reduce((sum, l) => sum + l.unit_price * l.qty, 0)
   const discount = d.lines.reduce((sum, l) => sum + (parseMoney(l.discount) ?? 0), 0)
-  const shipping = parseMoney(d.shipping) ?? 0
+  const shipping = d.shipping_option
+    ? d.shipping_option.price
+    : (parseMoney(d.shipping) ?? 0)
   return { subtotal, discount, shipping, total: subtotal + shipping - discount }
 }
 
@@ -93,4 +110,16 @@ export function canSubmit(d: NewOrderDraft): boolean {
       d.lines.length > 0 &&
       d.lines.every((l) => l.qty >= 1),
   )
+}
+
+/** What POST /v1/shipping/rates quotes: the lines as the order would have them. */
+export function quoteBody(d: NewOrderDraft) {
+  return {
+    destination_postal_code: d.postal_code.trim(),
+    lines: d.lines.map((l) => ({ variant_id: l.variant_id, qty: l.qty })),
+  }
+}
+
+export function canQuote(d: NewOrderDraft): boolean {
+  return /^[0-9]{5}$/.test(d.postal_code.trim()) && d.lines.length > 0
 }

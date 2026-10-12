@@ -124,4 +124,55 @@ describe("manual order entry (P1-110)", () => {
       await screen.findByRole("button", { name: "Create order" }),
     ).toBeDisabled()
   })
+
+  it("quotes couriers, sends the pick instead of an amount, and drops it when the address changes (P1-218)", async () => {
+    const fetchSpy = mockApi(["orders:read", "orders:write", "products:read"], (url, init) => {
+      if (url.endsWith("/v1/shipping/rates") && init?.method === "POST")
+        return json({
+          weight_grams: 200,
+          options: [
+            {
+              courier_code: "jne",
+              courier_service_code: "reg",
+              courier_name: "JNE",
+              service_name: "Reguler",
+              price: 1100000,
+              duration: "2 - 3 days",
+            },
+          ],
+        })
+      if (url.endsWith("/v1/orders") && init?.method === "POST") return json({ id: "o2" }, 201)
+      return catalogHandler(url)
+    })
+    renderSignedIn(<NewOrderPage />)
+    await fillRequired()
+
+    await userEvent.click(screen.getByRole("button", { name: "Quote shipping" }))
+    const jne = await screen.findByRole("radio", { name: /JNE Reguler/ })
+    await userEvent.click(jne)
+    expect(jne).toHaveAttribute("aria-checked", "true")
+    expect(screen.queryByLabelText(/Or type a shipping amount/)).toBeNull()
+    expect(screen.getAllByText(/11,000/).length).toBeGreaterThan(0) // the totals preview
+
+    const quote = fetchSpy.mock.calls.find(([u]) => String(u).endsWith("/v1/shipping/rates"))!
+    expect(JSON.parse(String(quote[1]!.body))).toEqual({
+      destination_postal_code: "60231",
+      lines: [{ variant_id: variant.id, qty: 1 }],
+    })
+
+    // A new postal code: the quote was for the old one.
+    await userEvent.type(screen.getByLabelText("Postal code"), "{Backspace}2")
+    expect(screen.queryByRole("radio", { name: /JNE Reguler/ })).toBeNull()
+
+    await userEvent.click(screen.getByRole("button", { name: "Quote shipping" }))
+    await userEvent.click(await screen.findByRole("radio", { name: /JNE Reguler/ }))
+    await userEvent.click(screen.getByRole("button", { name: "Create order" }))
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/orders/o2"))
+    const create = fetchSpy.mock.calls.find(
+      ([u, i]) => String(u).endsWith("/v1/orders") && i?.method === "POST",
+    )!
+    const body = JSON.parse(String(create[1]!.body))
+    expect(body.shipping_option).toEqual({ courier_code: "jne", courier_service_code: "reg" })
+    expect(body).not.toHaveProperty("shipping")
+  })
 })

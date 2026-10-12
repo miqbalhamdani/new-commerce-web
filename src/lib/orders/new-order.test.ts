@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest"
 
-import { canSubmit, createBody, emptyDraft, totals } from "@/lib/orders/new-order"
+import {
+  canQuote,
+  canSubmit,
+  createBody,
+  emptyDraft,
+  quoteBody,
+  totals,
+} from "@/lib/orders/new-order"
 
 const line = {
   variant_id: "v1",
@@ -64,5 +71,36 @@ describe("new-order helpers (P1-110)", () => {
         lines: [line],
       }),
     ).toBe(true)
+  })
+
+  it("sends a picked courier instead of an amount, and totals with its price (P1-218)", () => {
+    const d = {
+      ...emptyDraft,
+      postal_code: "60231",
+      lines: [line],
+      shipping: "15,000",
+      shipping_option: {
+        courier_code: "jne",
+        courier_service_code: "reg",
+        courier_name: "JNE",
+        service_name: "Reguler",
+        price: 1100000,
+        duration: "2 - 3 days",
+      },
+    }
+    const body = createBody(d)
+    expect(body.shipping_option).toEqual({
+      courier_code: "jne",
+      courier_service_code: "reg",
+    })
+    expect(body).not.toHaveProperty("shipping")
+    expect(totals(d).shipping).toBe(1100000)
+    expect(quoteBody(d)).toEqual({
+      destination_postal_code: "60231",
+      lines: [{ variant_id: "v1", qty: 2 }],
+    })
+    expect(canQuote(d)).toBe(true)
+    expect(canQuote({ ...d, postal_code: "601" })).toBe(false)
+    expect(canQuote({ ...d, lines: [] })).toBe(false)
   })
 })

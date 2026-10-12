@@ -701,6 +701,37 @@ export interface paths {
         patch: operations["updateSettings"];
         trace?: never;
     };
+    "/storefront-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * How the shop's website sells
+         * @description Contact email, Google sign-in, shipping origin and couriers, and payment methods. The
+         *     Midtrans server key is never returned: `midtrans_server_key_set` says whether there is
+         *     one (BR-129). Requires `settings:read` (owner, admin, viewer).
+         */
+        get: operations["getStorefrontSettings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change how the shop's website sells
+         * @description Only the owner (`settings:write`). Send only what changes (BR-009); `null` clears a
+         *     nullable field, the server key included. `midtrans_server_key` is write-only and stored
+         *     envelope-encrypted (BR-129). Enabling Midtrans without its environment, client key and
+         *     server key is `422`, and so is turning off both payment methods (BR-122).
+         *     `origin_postal_code` is 5 digits and `shipping_couriers` are Biteship courier codes
+         *     (BR-120). No `If-Match` (BR-010).
+         */
+        patch: operations["updateStorefrontSettings"];
+        trace?: never;
+    };
     "/api-keys": {
         parameters: {
             query?: never;
@@ -776,6 +807,62 @@ export interface paths {
         get: operations["listAuditLog"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/shipping/rates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Quote shipping for a manual order
+         * @description The same quote as the storefront's (§11.6) for lines the order would have: the shop's origin
+         *     and couriers, the variants' weights, cached 10 minutes (BR-120, BR-121). A manual order
+         *     sends one of these back as `shipping_option`. Requires `orders:write`.
+         */
+        post: operations["shippingRates"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/webhooks/midtrans/{webhook_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                webhook_id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Midtrans reports a payment
+         * @description Called by Midtrans, never by a person: no token, no API key, no CORS (§11.10). The
+         *     `webhook_id` names the shop; the notification is trusted only once its `signature_key`
+         *     verifies with that shop's server key, and what it says is confirmed with Midtrans' Get
+         *     Status API before anything changes (BR-003, BR-124).
+         *
+         *     - Unknown `webhook_id`: `404`. Bad signature: `401`, nothing changes.
+         *     - Get Status not answering: `503`, so Midtrans retries.
+         *     - Otherwise `200`, whether or not anything changed: a replay, an unknown order id, or a
+         *       status that changes nothing are all answered `200` (BR-125).
+         *     - `settlement`, or `capture` with `fraud_status` `accept`, pays the attempt and moves a
+         *       pending order to `paid` (BR-074). An amount other than the attempt's is
+         *       `amount_mismatch`, flagged for an operator, and never pays. `expire`, `cancel` and
+         *       `deny` fail the attempt; the order stays `pending`.
+         */
+        post: operations["midtransNotification"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1579,6 +1666,50 @@ export interface components {
             timezone?: string;
             order_prefix?: string;
         };
+        /**
+         * @description A Biteship courier code (BR-120).
+         * @enum {string}
+         */
+        CourierCode: "jne" | "jnt" | "sicepat" | "anteraja" | "pos" | "tiki" | "ninja" | "lion" | "idexpress" | "sap" | "rpx" | "wahana";
+        StorefrontSettings: {
+            /**
+             * Format: email
+             * @description Reply-To on every email the shop sends (BR-128).
+             */
+            contact_email: string | null;
+            /** @description The shop's own Google OAuth client; `null` turns Google sign-in off (BR-127). */
+            google_client_id: string | null;
+            /** @example 40115 */
+            origin_postal_code: string | null;
+            shipping_couriers: components["schemas"]["CourierCode"][];
+            bank_transfer_enabled: boolean;
+            bank_transfer_instructions: string | null;
+            midtrans_enabled: boolean;
+            midtrans_environment: ("sandbox" | "production") | null;
+            midtrans_client_key: string | null;
+            midtrans_server_key_set: boolean;
+            /**
+             * Format: uri
+             * @description Where Midtrans tells the API about payments; sent with every Snap transaction (BR-124).
+             */
+            midtrans_notification_url: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        StorefrontSettingsUpdate: {
+            /** Format: email */
+            contact_email?: string | null;
+            google_client_id?: string | null;
+            origin_postal_code?: string | null;
+            shipping_couriers?: components["schemas"]["CourierCode"][];
+            bank_transfer_enabled?: boolean;
+            bank_transfer_instructions?: string | null;
+            midtrans_enabled?: boolean;
+            midtrans_environment?: ("sandbox" | "production") | null;
+            midtrans_client_key?: string | null;
+            /** @description Write-only; `null` removes it (and so needs Midtrans off). */
+            midtrans_server_key?: string | null;
+        };
         ApiKey: {
             /** Format: uuid */
             id: string;
@@ -1675,8 +1806,8 @@ export interface components {
             discount: components["schemas"]["Money"];
         };
         /**
-         * @description One Midtrans Snap attempt, newest first (BR-123). Always `[]` until `P1-220` builds
-         *     Midtrans at checkout; bank transfers never have a row.
+         * @description One Midtrans Snap attempt, newest first (BR-123): `ERG-000123`, then `ERG-000123-2`, ….
+         *     Bank transfers never have a row.
          */
         OrderPayment: {
             /** @example ERG-000123 */
@@ -1772,6 +1903,51 @@ export interface components {
             /** @description Recorded in the audit row only (BR-075). */
             note?: string;
         };
+        /**
+         * @description Midtrans' HTTP notification. Only the fields the API reads are listed; Midtrans sends more,
+         *     and they are kept, not refused — this body is Midtrans', not a client's.
+         */
+        MidtransNotification: {
+            /** @example ERG-000123 */
+            order_id: string;
+            /** @example 200 */
+            status_code: string;
+            /** @example 409000.00 */
+            gross_amount: string;
+            signature_key: string;
+            /** @example settlement */
+            transaction_status?: string;
+            fraud_status?: string;
+        } & {
+            [key: string]: unknown;
+        };
+        ShippingRatesRequest: {
+            destination_postal_code: string;
+            lines: {
+                /** Format: uuid */
+                variant_id: string;
+                qty: number;
+            }[];
+        };
+        ShippingOption: {
+            /** @example jne */
+            courier_code: string;
+            /** @example reg */
+            courier_service_code: string;
+            courier_name: string;
+            service_name: string;
+            price: components["schemas"]["Money"];
+            duration: string;
+        };
+        ShippingQuote: {
+            weight_grams: number;
+            options: components["schemas"]["ShippingOption"][];
+        };
+        /** @description A courier service picked from a quote; the server quotes again and charges that (BR-121). */
+        ShippingChoice: {
+            courier_code: string;
+            courier_service_code: string;
+        };
         OrderCreateRequest: {
             /** @enum {string} */
             source: "manual";
@@ -1788,8 +1964,9 @@ export interface components {
                 /** @description Per-line discount in minor units (BR-078). */
                 discount?: components["schemas"]["Money"];
             }[];
-            /** @description A typed shipping amount; `shipping_option` arrives with `P1-218` (BR-121). */
+            /** @description A typed shipping amount. Send this or `shipping_option`, not both. */
             shipping?: components["schemas"]["Money"];
+            shipping_option?: components["schemas"]["ShippingChoice"];
             note?: string;
         };
         OrderUpdateRequest: {
@@ -1954,6 +2131,15 @@ export interface components {
          *     or `illegal_transition` when an order status move is not in the allow-list.
          */
         Conflict: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /** @description `shipping_rates_unavailable` or `payment_unavailable`: Biteship or Midtrans did not answer. */
+        BadGateway: {
             headers: {
                 [name: string]: unknown;
             };
@@ -3131,6 +3317,55 @@ export interface operations {
             422: components["responses"]["UnprocessableEntity"];
         };
     };
+    getStorefrontSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The settings. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorefrontSettings"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    updateStorefrontSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StorefrontSettingsUpdate"];
+            };
+        };
+        responses: {
+            /** @description The settings. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorefrontSettings"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
     listApiKeys: {
         parameters: {
             query?: never;
@@ -3267,6 +3502,69 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    shippingRates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShippingRatesRequest"];
+            };
+        };
+        responses: {
+            /** @description The options, cheapest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShippingQuote"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+            502: components["responses"]["BadGateway"];
+        };
+    };
+    midtransNotification: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                webhook_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MidtransNotification"];
+            };
+        };
+        responses: {
+            /** @description Received. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            /** @description Midtrans' Get Status API did not answer; Midtrans retries. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
         };
     };
     listOrders: {
