@@ -113,13 +113,15 @@ code -- a worthwhile follow-up, not yet done.
 
 ## Hosts and cookies
 
-v2 names separate hosts: the admin at `admin.{domain}`, the API at `https://api.{domain}/v1`
-(`04-api-spec.md` §1). The two are same-site, so the refresh token's `SameSite=Lax` cookie still
-travels, but the browser call is cross-origin: the API must answer CORS for the admin origin with
-credentials. That setup, and the API base URL the client then needs, land with P1-001.
+The admin and its API share an origin (`04-api-spec.md` §1, P1-001): in production Caddy passes
+`admin.{domain}/v1/*` to the API before a request reaches Next.js, so `apiFetch` calls relative
+paths, admin routes need no CORS, and the refresh cookie is host-only. `api.{domain}` is the
+storefront's. Locally `next.config.ts` rewrites `/v1/*` to `API_ORIGIN` for the same effect.
+Never hardcode `http://localhost:8080`, or any API host, in code.
 
-Locally `next.config.ts` rewrites `/v1/*` to `API_ORIGIN`, so `apiFetch` calls relative paths and
-dev needs no CORS. Never hardcode `http://localhost:8080` in code.
+The image is Next.js's standalone server (`Dockerfile`, `output: "standalone"`); CI builds it on
+every PR and pushes it to ghcr.io from main. The stack that runs it is
+`new-commerce-api/deploy`.
 
 **Every fetch sets `credentials: "include"`.** Without it the browser does not attach the cookie,
 refresh fails, and the failure looks exactly like an expired session.

@@ -1,0 +1,72 @@
+# P1-004: a PR is red when lint, typecheck, the tests, the build or the
+# contract drift check fails (05-backlog.md, Phase 6).
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  # npm run check: generate, generated-diff (the contract half of drift),
+  # lint, typecheck and the tests; then a production build.
+  check:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: npm run build
+
+  # The other half of drift: the pinned contracts commit must be on contracts
+  # main, so a PR is green only once its contracts PR has merged.
+  drift:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pinned contracts are on contracts main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          pinned=$(git ls-tree HEAD contracts | awk '{print $3}')
+          status=$(gh api "repos/miqbalhamdani/new-commerce-contracts/compare/main...${pinned}" --jq .status)
+          echo "contracts ${pinned}: ${status} relative to main"
+          case "$status" in identical|behind) ;; *) echo "::error::pin a contracts commit that is on main"; exit 1;; esac
+
+  # P1-001: the image the box runs. Built on every PR so a broken Dockerfile
+  # is red; pushed to ghcr.io only from main, as sha-<commit> and main.
+  image:
+    needs: [check]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: ${{ github.event_name == 'push' }}
+          build-args: VERSION=${{ github.sha }}
+          tags: |
+            ghcr.io/${{ github.repository }}:sha-${{ github.sha }}
+            ghcr.io/${{ github.repository }}:main
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

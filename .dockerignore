@@ -1,0 +1,7 @@
+.git
+.next
+node_modules
+contracts
+.env*
+*.md
+!README.md
