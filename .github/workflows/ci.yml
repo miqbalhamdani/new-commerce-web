@@ -1,0 +1,44 @@
+# P1-004: a PR is red when lint, typecheck, the tests, the build or the
+# contract drift check fails (05-backlog.md, Phase 6).
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  # npm run check: generate, generated-diff (the contract half of drift),
+  # lint, typecheck and the tests; then a production build.
+  check:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: npm run build
+
+  # The other half of drift: the pinned contracts commit must be on contracts
+  # main, so a PR is green only once its contracts PR has merged.
+  drift:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pinned contracts are on contracts main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          pinned=$(git ls-tree HEAD contracts | awk '{print $3}')
+          status=$(gh api "repos/miqbalhamdani/new-commerce-contracts/compare/main...${pinned}" --jq .status)
+          echo "contracts ${pinned}: ${status} relative to main"
+          case "$status" in identical|behind) ;; *) echo "::error::pin a contracts commit that is on main"; exit 1;; esac
