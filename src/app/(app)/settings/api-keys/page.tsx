@@ -189,6 +189,24 @@ function maskedKey(k: ApiKey) {
 }
 
 /** Create a key, or edit one when apiKey is given. */
+/**
+ * What the merchant typed, as the origin the key is bound to: "tokoabc.com",
+ * "www.tokoabc.com/" and "HTTPS://TokoABC.com/shop" become their https://
+ * origin; an explicit http:// stays. Anything that doesn't parse goes as typed,
+ * so the server's 422 explains it.
+ */
+function toOrigin(typed: string) {
+  const s = typed.trim()
+  try {
+    const { origin } = new URL(
+      /^[a-z][a-z\d+.-]*:\/\//i.test(s) ? s : `https://${s}`,
+    )
+    return origin === "null" ? s : origin
+  } catch {
+    return s
+  }
+}
+
 function KeyDialog({
   open,
   apiKey,
@@ -222,20 +240,22 @@ function KeyDialog({
   async function submit(e: React.FormEvent) {
     e.preventDefault()
     setBusy(true)
+    const sent = { ...form, allowed_origin: toOrigin(form.allowed_origin) }
+    setForm(sent)
     try {
       if (apiKey) {
         // Send only what changed (BR-009).
         const body: Record<string, string> = {}
-        if (form.name !== apiKey.name) body.name = form.name
-        if (form.allowed_origin !== apiKey.allowed_origin)
-          body.allowed_origin = form.allowed_origin
+        if (sent.name !== apiKey.name) body.name = sent.name
+        if (sent.allowed_origin !== apiKey.allowed_origin)
+          body.allowed_origin = sent.allowed_origin
         await api(`/v1/api-keys/${apiKey.id}`, { method: "PATCH", body })
         onSaved()
       } else {
         onSaved(
           await api<ApiKeyCreated>("/v1/api-keys", {
             method: "POST",
-            body: form,
+            body: sent,
           }),
         )
       }
@@ -271,16 +291,22 @@ function KeyDialog({
         <Field
           id="key-origin"
           label="Website address"
-          hint="Exactly as it appears in the browser, such as https://tokoabc.com. No path or trailing slash; a second address needs its own key."
+          hint="Such as tokoabc.com or www.tokoabc.com; https:// is added for you. A second address needs its own key."
           error={fieldError(error, "allowed_origin")}
         >
           <Input
             id="key-origin"
             required
-            placeholder="https://tokoabc.com"
+            placeholder="tokoabc.com"
             value={form.allowed_origin}
             onChange={(e) =>
               setForm({ ...form, allowed_origin: e.target.value })
+            }
+            onBlur={() =>
+              setForm({
+                ...form,
+                allowed_origin: toOrigin(form.allowed_origin),
+              })
             }
           />
         </Field>

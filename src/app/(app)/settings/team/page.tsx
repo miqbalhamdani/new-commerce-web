@@ -116,7 +116,7 @@ export default function TeamPage() {
                 Name
               </TableCell>
               <TableCell isHeader className={th}>
-                Role
+                <span className="block text-center">Role</span>
               </TableCell>
               <TableCell isHeader className={th}>
                 Status
@@ -146,22 +146,24 @@ export default function TeamPage() {
                     </div>
                   </TableCell>
                   <TableCell className={td}>
-                    {editable ? (
-                      <Select
-                        size="sm"
-                        aria-label={`Role for ${u.name}`}
-                        value={u.role}
-                        onChange={(v) =>
-                          void act(`/v1/users/${u.id}`, "PATCH", { role: v })
-                        }
-                        options={grantable.map((r) => ({
-                          value: r.name,
-                          label: r.name,
-                        }))}
-                      />
-                    ) : (
-                      u.role
-                    )}
+                    <div className="text-center">
+                      {editable ? (
+                        <Select
+                          size="sm"
+                          aria-label={`Role for ${u.name}`}
+                          value={u.role}
+                          onChange={(v) =>
+                            void act(`/v1/users/${u.id}`, "PATCH", { role: v })
+                          }
+                          options={grantable.map((r) => ({
+                            value: r.name,
+                            label: r.name,
+                          }))}
+                        />
+                      ) : (
+                        u.role
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell className={td}>
                     <Badge size="sm" color={statusBadge[u.status]}>
