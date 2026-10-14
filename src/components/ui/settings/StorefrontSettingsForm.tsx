@@ -133,6 +133,14 @@ export function StorefrontSettingsForm({
   const section =
     "flex flex-col gap-4 border-t border-gray-100 pt-5 dark:border-gray-800"
   const heading = "text-sm font-semibold text-gray-800 dark:text-white/90"
+  const methodCard = (on: boolean) =>
+    `flex flex-col gap-3 rounded-lg border p-4 ${
+      on
+        ? "border-brand-300 bg-brand-25 dark:border-brand-800 dark:bg-brand-500/[0.08]"
+        : "border-gray-200 dark:border-gray-800"
+    }`
+  const methodBody =
+    "flex flex-col gap-4 border-t border-gray-200 pt-4 dark:border-gray-800"
 
   return (
     <form onSubmit={save} className="flex flex-col gap-5">
@@ -204,135 +212,159 @@ export function StorefrontSettingsForm({
         </div>
 
         <div className={section}>
-          <h3 className={heading}>Bank transfer</h3>
-          <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-            <Checkbox
-              checked={form.bank_transfer_enabled}
-              onChange={(e) =>
-                setForm({ ...form, bank_transfer_enabled: e.target.checked })
-              }
-            />
-            Take bank transfers, confirmed by your team
-          </label>
-          {fieldError(error, "bank_transfer_enabled") && (
-            <p className="text-xs text-error-500">
-              {fieldError(error, "bank_transfer_enabled")}
-            </p>
-          )}
-          <Field
-            id="bank-instructions"
-            label="Transfer instructions"
-            error={fieldError(error, "bank_transfer_instructions")}
-            hint="Shown to the shopper after checkout."
-          >
-            <Textarea
-              id="bank-instructions"
-              rows={3}
-              value={form.bank_transfer_instructions}
-              onChange={(e) =>
-                setForm({ ...form, bank_transfer_instructions: e.target.value })
-              }
-            />
-          </Field>
-        </div>
+          <h3 className={heading}>Payments</h3>
 
-        <div className={section}>
-          <h3 className={heading}>Midtrans</h3>
-          <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-            <Checkbox
-              checked={form.midtrans_enabled}
-              onChange={(e) =>
-                setForm({ ...form, midtrans_enabled: e.target.checked })
-              }
-            />
-            Take payments through Midtrans
-          </label>
-          {fieldError(error, "midtrans_enabled") && (
-            <p className="text-xs text-error-500">
-              {fieldError(error, "midtrans_enabled")}
-            </p>
-          )}
-          <Field
-            id="midtrans-environment"
-            label="Environment"
-            error={fieldError(error, "midtrans_environment")}
-          >
-            <Select
-              id="midtrans-environment"
-              value={form.midtrans_environment}
-              disabled={!canSave}
-              onChange={(v) =>
-                setForm({
-                  ...form,
-                  midtrans_environment: v as Form["midtrans_environment"],
-                })
-              }
-              options={[
-                { value: "", label: "Not set" },
-                { value: "sandbox", label: "Sandbox (testing)" },
-                { value: "production", label: "Production" },
-              ]}
-            />
-          </Field>
-          <Field
-            id="midtrans-client-key"
-            label="Client key"
-            error={fieldError(error, "midtrans_client_key")}
-          >
-            <Input
-              id="midtrans-client-key"
-              value={form.midtrans_client_key}
-              onChange={(e) =>
-                setForm({ ...form, midtrans_client_key: e.target.value })
-              }
-            />
-          </Field>
-          <Field
-            id="midtrans-server-key"
-            label="Server key"
-            error={fieldError(error, "midtrans_server_key")}
-            hint="Stored encrypted and never shown again, here or anywhere."
-          >
-            {replacing ? (
-              <Input
-                id="midtrans-server-key"
-                type="password"
-                autoComplete="off"
-                placeholder={
-                  settings.midtrans_server_key_set
-                    ? "Paste the new server key"
-                    : "Paste your server key"
+          {/* Each method is a card the owner switches on first; its fields
+              only show while it is on. Unchecking hides them without
+              clearing, so a save sends only the enabled flag (BR-009). */}
+          <div className={methodCard(form.bank_transfer_enabled)}>
+            <span className="text-sm font-medium text-gray-800 dark:text-white/90">
+              Bank transfer
+            </span>
+            <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+              <Checkbox
+                checked={form.bank_transfer_enabled}
+                onChange={(e) =>
+                  setForm({ ...form, bank_transfer_enabled: e.target.checked })
                 }
-                value={serverKey}
-                onChange={(e) => setServerKey(e.target.value)}
               />
-            ) : (
-              <div className="flex items-center justify-between gap-3 rounded-lg border border-gray-300 px-4 py-2.5 text-sm dark:border-gray-700">
-                <span className="text-gray-800 dark:text-white/90">Set</span>
-                {canSave && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    type="button"
-                    onClick={() => setReplacing(true)}
-                  >
-                    Replace
-                  </Button>
-                )}
+              Take bank transfers, confirmed by your team
+            </label>
+            {fieldError(error, "bank_transfer_enabled") && (
+              <p className="text-xs text-error-500">
+                {fieldError(error, "bank_transfer_enabled")}
+              </p>
+            )}
+            {form.bank_transfer_enabled && (
+              <div className={methodBody}>
+                <Field
+                  id="bank-instructions"
+                  label="Transfer instructions"
+                  error={fieldError(error, "bank_transfer_instructions")}
+                  hint="Shown to the shopper after checkout."
+                >
+                  <Textarea
+                    id="bank-instructions"
+                    rows={3}
+                    value={form.bank_transfer_instructions}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        bank_transfer_instructions: e.target.value,
+                      })
+                    }
+                  />
+                </Field>
               </div>
             )}
-          </Field>
-          <Field
-            id="notification-url"
-            label="Notification URL"
-            hint="Midtrans is told this with every payment. Paste it into the Midtrans dashboard only if Midtrans asks for it."
-          >
-            <CopyField
-              id="notification-url"
-              label="Notification URL"
-              value={settings.midtrans_notification_url}
-            />
-          </Field>
+          </div>
+
+          <div className={methodCard(form.midtrans_enabled)}>
+            <span className="text-sm font-medium text-gray-800 dark:text-white/90">
+              Midtrans
+            </span>
+            <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+              <Checkbox
+                checked={form.midtrans_enabled}
+                onChange={(e) =>
+                  setForm({ ...form, midtrans_enabled: e.target.checked })
+                }
+              />
+              Take payments through Midtrans
+            </label>
+            {fieldError(error, "midtrans_enabled") && (
+              <p className="text-xs text-error-500">
+                {fieldError(error, "midtrans_enabled")}
+              </p>
+            )}
+            {form.midtrans_enabled && (
+              <div className={methodBody}>
+                <Field
+                  id="midtrans-environment"
+                  label="Environment"
+                  error={fieldError(error, "midtrans_environment")}
+                >
+                  <Select
+                    id="midtrans-environment"
+                    value={form.midtrans_environment}
+                    disabled={!canSave}
+                    onChange={(v) =>
+                      setForm({
+                        ...form,
+                        midtrans_environment: v as Form["midtrans_environment"],
+                      })
+                    }
+                    options={[
+                      { value: "", label: "Not set" },
+                      { value: "sandbox", label: "Sandbox (testing)" },
+                      { value: "production", label: "Production" },
+                    ]}
+                  />
+                </Field>
+                <Field
+                  id="midtrans-client-key"
+                  label="Client key"
+                  error={fieldError(error, "midtrans_client_key")}
+                >
+                  <Input
+                    id="midtrans-client-key"
+                    value={form.midtrans_client_key}
+                    onChange={(e) =>
+                      setForm({ ...form, midtrans_client_key: e.target.value })
+                    }
+                  />
+                </Field>
+                <Field
+                  id="midtrans-server-key"
+                  label="Server key"
+                  error={fieldError(error, "midtrans_server_key")}
+                  hint="Stored encrypted and never shown again, here or anywhere."
+                >
+                  {replacing ? (
+                    <Input
+                      id="midtrans-server-key"
+                      type="password"
+                      autoComplete="off"
+                      placeholder={
+                        settings.midtrans_server_key_set
+                          ? "Paste the new server key"
+                          : "Paste your server key"
+                      }
+                      value={serverKey}
+                      onChange={(e) => setServerKey(e.target.value)}
+                    />
+                  ) : (
+                    <div className="flex items-center justify-between gap-3 rounded-lg border border-gray-300 px-4 py-2.5 text-sm dark:border-gray-700">
+                      <span className="text-gray-800 dark:text-white/90">
+                        Set
+                      </span>
+                      {canSave && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          type="button"
+                          onClick={() => setReplacing(true)}
+                        >
+                          Replace
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </Field>
+                <Field
+                  id="notification-url"
+                  label="Notification URL"
+                  hint="Midtrans is told this with every payment. Paste it into the Midtrans dashboard only if Midtrans asks for it."
+                >
+                  <CopyField
+                    id="notification-url"
+                    label="Notification URL"
+                    value={settings.midtrans_notification_url}
+                  />
+                </Field>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className={section}>

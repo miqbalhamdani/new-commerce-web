@@ -34,7 +34,9 @@ describe("the storefront settings screen (P1-217)", () => {
       (url, init) => {
         if (url.endsWith("/v1/storefront-settings") && init?.method === "PATCH")
           return json({ ...settings, contact_email: "halo@tokoabc.com" })
-        if (url.endsWith("/v1/storefront-settings")) return json(settings)
+        // Enabled, so the Midtrans section is open and its fields visible.
+        if (url.endsWith("/v1/storefront-settings"))
+          return json({ ...settings, midtrans_enabled: true })
         return undefined
       },
     )
@@ -68,7 +70,8 @@ describe("the storefront settings screen (P1-217)", () => {
 
   it("replaces the server key on request, and clears a field to null", async () => {
     const fetchSpy = mockApi(["settings:read", "settings:write"], (url) => {
-      if (url.endsWith("/v1/storefront-settings")) return json(settings)
+      if (url.endsWith("/v1/storefront-settings"))
+        return json({ ...settings, midtrans_enabled: true })
       return undefined
     })
     renderSignedIn(<StorefrontSettingsPage />)
@@ -117,9 +120,11 @@ describe("the storefront settings screen (P1-217)", () => {
     })
     renderSignedIn(<StorefrontSettingsPage />)
 
-    await userEvent.click(
-      await screen.findByLabelText("Take payments through Midtrans"),
-    )
+    // A method's fields stay hidden until it is switched on.
+    const toggle = await screen.findByLabelText("Take payments through Midtrans")
+    expect(screen.queryByLabelText("Client key")).toBeNull()
+    await userEvent.click(toggle)
+    expect(screen.getByLabelText("Client key")).toBeInTheDocument()
     await userEvent.click(screen.getByRole("button", { name: "Save" }))
     expect(
       await screen.findByText(
