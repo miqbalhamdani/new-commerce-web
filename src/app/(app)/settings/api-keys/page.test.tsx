@@ -43,10 +43,14 @@ describe("the API keys screen (P1-201)", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Create key" }))
     await userEvent.type(screen.getByLabelText("Name"), "Shop")
-    await userEvent.type(
-      screen.getByLabelText("Website address"),
-      "https://tokoabc.com",
-    )
+    // A bare address is fine: it becomes the https:// origin (no path,
+    // no trailing slash, lower case) as soon as the field loses focus.
+    const origin = screen.getByLabelText("Website address")
+    await userEvent.type(origin, "www.TokoABC.com/shop/")
+    await userEvent.tab()
+    expect(origin).toHaveValue("https://www.tokoabc.com")
+    await userEvent.clear(origin)
+    await userEvent.type(origin, "tokoabc.com/")
     await userEvent.click(
       within(screen.getByRole("dialog")).getByRole("button", {
         name: "Create key",
