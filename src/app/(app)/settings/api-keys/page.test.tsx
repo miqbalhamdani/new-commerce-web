@@ -15,6 +15,7 @@ beforeEach(() => vi.unstubAllGlobals())
 const key = {
   id: "k1",
   name: "Main website",
+  key_last4: "42ab",
   allowed_origin: "https://tokoabc.com",
   created_by: { id: "u1", name: "Budi" },
   last_used_at: null,
@@ -37,6 +38,7 @@ describe("the API keys screen (P1-201)", () => {
 
     expect(await screen.findByText("Main website")).toBeInTheDocument()
     expect(screen.getByText("https://tokoabc.com")).toBeInTheDocument()
+    expect(screen.getByText("sf_live_************42ab")).toBeInTheDocument()
     expect(
       screen.getByRole("link", { name: "Storefront API documentation" }),
     ).toHaveAttribute("href", "/v1/storefront/openapi.json")
