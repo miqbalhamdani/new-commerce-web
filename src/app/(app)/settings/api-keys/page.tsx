@@ -89,6 +89,9 @@ export default function ApiKeysPage() {
                 Name
               </TableCell>
               <TableCell isHeader className={th}>
+                Key
+              </TableCell>
+              <TableCell isHeader className={th}>
                 Website
               </TableCell>
               <TableCell isHeader className={th}>
@@ -116,6 +119,11 @@ export default function ApiKeysPage() {
                       by {k.created_by.name}
                     </div>
                   )}
+                </TableCell>
+                <TableCell
+                  className={`${td} whitespace-nowrap font-mono text-xs text-gray-500 dark:text-gray-400`}
+                >
+                  {maskedKey(k)}
                 </TableCell>
                 <TableCell className={`${td} font-mono text-xs`}>
                   {k.allowed_origin}
@@ -170,6 +178,14 @@ export default function ApiKeysPage() {
       />
     </Page>
   )
+}
+
+/**
+ * The key as the list shows it, sf_live_************42ab: only its last four
+ * are kept (BR-028), and a key made before they were has none.
+ */
+function maskedKey(k: ApiKey) {
+  return `sf_live_${"*".repeat(12)}${k.key_last4 ?? "****"}`
 }
 
 /** Create a key, or edit one when apiKey is given. */

@@ -1743,6 +1743,12 @@ export interface components {
             id: string;
             /** @example Main website */
             name: string;
+            /**
+             * @description The key's last four characters, so a list can show `sf_live_••••42ab` (BR-028). `null`
+             *     for a key created before v2.12.0.
+             * @example 42ab
+             */
+            key_last4: string | null;
             /** @example https://tokoabc.com */
             allowed_origin: string;
             created_by: components["schemas"]["Ref"] | null;
