@@ -17,6 +17,7 @@ import {
   td,
   th,
 } from "@/components/ui/common/Listing"
+import { DatePicker } from "@/components/ui/common/DatePicker"
 import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
 import { Empty, Loading, Page } from "@/components/ui/common/Page"
 import type { AuditPage } from "@/lib/api/types"
@@ -80,21 +81,11 @@ export default function AuditLogPage() {
         </label>
         <label className="flex flex-col gap-1">
           From
-          <Input
-            type="date"
-            className="dark:[color-scheme:dark]"
-            value={filters.from}
-            onChange={(e) => set("from", e.target.value)}
-          />
+          <DatePicker value={filters.from} onChange={(v) => set("from", v)} />
         </label>
         <label className="flex flex-col gap-1">
           Before
-          <Input
-            type="date"
-            className="dark:[color-scheme:dark]"
-            value={filters.to}
-            onChange={(e) => set("to", e.target.value)}
-          />
+          <DatePicker value={filters.to} onChange={(v) => set("to", v)} />
         </label>
       </div>
       <ErrorNotice error={error} title="Could not load the audit log" />
