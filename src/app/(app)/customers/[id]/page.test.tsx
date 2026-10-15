@@ -45,6 +45,39 @@ function render() {
   )
 }
 
+describe("the customer's orders (P1-111)", () => {
+  it("pages ten at a time and searches by order number", async () => {
+    const orders = Array.from({ length: 12 }, (_, i) => ({
+      id: `o${i}`,
+      order_number: `DMO-${String(i + 1).padStart(6, "0")}`,
+      source: "storefront",
+      customer: { id: "c1", name: "Rina" },
+      item_count: 1,
+      total: 100000,
+      status: "paid",
+      placed_at: "2026-10-06T16:15:00+07:00",
+    }))
+    mockApi(["customers:read"], (url) =>
+      url.endsWith("/v1/customers/c1")
+        ? json({ ...rina, order_count: 12, orders })
+        : undefined,
+    )
+    render()
+
+    expect(await screen.findByText("DMO-000010")).toBeInTheDocument()
+    expect(screen.queryByText("DMO-000011")).toBeNull()
+
+    await userEvent.click(screen.getByRole("button", { name: "Next" }))
+    expect(screen.getByText("DMO-000012")).toBeInTheDocument()
+    expect(screen.queryByText("DMO-000001")).toBeNull()
+
+    await userEvent.type(screen.getByLabelText("Search orders"), "000003")
+    expect(screen.getByText("DMO-000003")).toBeInTheDocument()
+    expect(screen.queryByText("DMO-000012")).toBeNull()
+    expect(screen.queryByRole("navigation", { name: "Orders pages" })).toBeNull()
+  })
+})
+
 describe("deleting a customer's personal data (P1-215)", () => {
   it("is the owner's: confirm, wait for the job, then show the erased customer", async () => {
     let done = false
