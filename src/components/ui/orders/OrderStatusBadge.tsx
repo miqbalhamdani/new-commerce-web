@@ -12,18 +12,31 @@ const statusColor = {
   cancelled: "error",
 } as const
 
-export function OrderStatusBadge({ status }: { status: OrderStatus }) {
+export function OrderStatusBadge({
+  status,
+  size = "sm",
+}: {
+  status: OrderStatus
+  /** "md" for the detail header; tables stay "sm". */
+  size?: "sm" | "md"
+}) {
   return (
-    <Badge size="sm" color={statusColor[status]}>
-      {status}
+    <Badge size={size} color={statusColor[status]}>
+      {status[0].toUpperCase() + status.slice(1)}
     </Badge>
   )
 }
 
-export function OrderSourceBadge({ source }: { source: OrderListRow["source"] }) {
+export function OrderSourceBadge({
+  source,
+  size = "sm",
+}: {
+  source: OrderListRow["source"]
+  size?: "sm" | "md"
+}) {
   return (
-    <Badge size="sm" color={source === "manual" ? "info" : "light"}>
-      {source}
+    <Badge size={size} color={source === "manual" ? "info" : "light"}>
+      {source[0].toUpperCase() + source.slice(1)}
     </Badge>
   )
 }

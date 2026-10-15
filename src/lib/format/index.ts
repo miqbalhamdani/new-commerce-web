@@ -46,6 +46,18 @@ export function formatDateTime(iso: string | null | undefined, timeZone = "Asia/
   }).format(new Date(iso))
 }
 
+/** The time alone in the shop's zone: "16:15". */
+export function formatTime(iso: string | null | undefined, timeZone = "Asia/Jakarta"): string {
+  if (!iso) return "—"
+  return new Intl.DateTimeFormat("en-GB", { timeStyle: "short", timeZone }).format(new Date(iso))
+}
+
+/** The date alone in the shop's zone: "6 Oct 2026". */
+export function formatDate(iso: string | null | undefined, timeZone = "Asia/Jakarta"): string {
+  if (!iso) return "—"
+  return new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeZone }).format(new Date(iso))
+}
+
 /** "3 hours ago" in the largest fitting unit; "just now" under a minute. */
 export function formatRelative(iso: string | null | undefined, now = Date.now()): string {
   if (!iso) return "—"
