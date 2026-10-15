@@ -68,12 +68,14 @@ export function rememberedFilters(): string {
   }
 }
 
-/** The §5.1 saved views: plain filter sets over status and refund_owed. */
+/** The §5.1 saved views: plain filter sets over status and refund_owed.
+    "All" is the empty set, so it is also what a clean URL shows. */
 export const views = [
+  { key: "all", label: "All", status: [], refund_owed: false },
   { key: "confirm", label: "To confirm payment", status: ["pending"], refund_owed: false },
   { key: "ship", label: "To ship", status: ["paid", "processing"], refund_owed: false },
   { key: "shipped", label: "Shipped", status: ["shipped"], refund_owed: false },
-  { key: "refund", label: "Cancelled, refund owed", status: [], refund_owed: true },
+  { key: "refund", label: "Refund owed", status: [], refund_owed: true },
 ] as const satisfies readonly {
   key: string
   label: string

@@ -1,10 +1,11 @@
 "use client"
 
-import { BadgeCheck } from "lucide-react"
+import { ArrowDown, ArrowUp, BadgeCheck, Ban } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 
 import {
+  Table,
   TableBody,
   TableCell,
   TableHeader,
@@ -27,23 +28,37 @@ import { formatDateTime, formatMoney, formatRelative } from "@/lib/format"
 
 /**
  * The order list's table (P1-108), reused by the customer detail (P1-111)
- * without onMarkPaid. A row opens the order; "Mark as paid" appears only on
- * pending rows when the handler is passed -- pending → paid is always legal
- * (BR-070) and a repeat is a harmless no-op (BR-071).
+ * without the action handlers. A row opens the order. "Mark as paid" appears
+ * only on pending rows when the handler is passed -- pending → paid is always
+ * legal (BR-070) and a repeat is a harmless no-op (BR-071). "Cancel order"
+ * appears on pending, paid and processing rows, the only statuses BR-070
+ * cancels from; a stale row 409s and the dialog says so. `bare` drops the
+ * bordered shell for a table that sits directly in its own card. With
+ * `onSort`, the Placed header sorts: the only order the API offers (§5.1).
  */
 export function OrderTable({
   rows,
   timezone,
   onMarkPaid,
+  onCancel,
+  bare,
+  sort,
+  onSort,
 }: {
   rows: OrderListRow[]
   timezone?: string
   onMarkPaid?: (o: OrderListRow) => void
+  onCancel?: (o: OrderListRow) => void
+  bare?: boolean
+  sort?: "-placed_at" | "placed_at"
+  onSort?: () => void
 }) {
   const router = useRouter()
   const stop = (e: React.MouseEvent) => e.stopPropagation()
+  const hasActions = Boolean(onMarkPaid || onCancel)
+  const Shell = bare ? BareShell : ListTable
   return (
-    <ListTable>
+    <Shell>
       <TableHeader className={headerRow}>
         <TableRow>
           <TableCell isHeader className={th}>
@@ -64,10 +79,40 @@ export function OrderTable({
           <TableCell isHeader className={th}>
             Status
           </TableCell>
-          <TableCell isHeader className={th}>
-            Placed
-          </TableCell>
-          {onMarkPaid && (
+          {/* A plain th: the vendored TableCell drops aria-sort. */}
+          <th
+            className={th}
+            aria-sort={
+              onSort
+                ? sort === "placed_at"
+                  ? "ascending"
+                  : "descending"
+                : undefined
+            }
+          >
+            {onSort ? (
+              <button
+                type="button"
+                onClick={onSort}
+                className="-mx-1 inline-flex items-center gap-1 rounded px-1 font-medium hover:text-gray-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 dark:hover:text-white/90"
+              >
+                Placed
+                {sort === "placed_at" ? (
+                  <ArrowUp aria-hidden className="size-3.5" />
+                ) : (
+                  <ArrowDown aria-hidden className="size-3.5" />
+                )}
+                <span className="sr-only">
+                  {sort === "placed_at"
+                    ? ", oldest first. Sort newest first"
+                    : ", newest first. Sort oldest first"}
+                </span>
+              </button>
+            ) : (
+              "Placed"
+            )}
+          </th>
+          {hasActions && (
             <TableCell isHeader className={`${th} w-px`}>
               <span className="sr-only">Actions</span>
             </TableCell>
@@ -85,7 +130,7 @@ export function OrderTable({
               <Link
                 href={`/orders/${o.id}`}
                 onClick={stop}
-                className="font-medium text-gray-800 hover:text-brand-500 dark:text-white/90 dark:hover:text-brand-400"
+                className="whitespace-nowrap font-medium text-gray-800 hover:text-brand-500 dark:text-white/90 dark:hover:text-brand-400"
               >
                 {o.order_number}
               </Link>
@@ -114,25 +159,59 @@ export function OrderTable({
                 {formatRelative(o.placed_at)}
               </span>
             </TableCell>
-            {onMarkPaid && (
+            {hasActions && (
               <TableCell className={`${td} !py-2 text-right`}>
-                {o.status === "pending" && (
-                  <RowMenu
-                    label={`Actions for ${o.order_number}`}
-                    actions={[
-                      {
-                        label: "Mark as paid",
-                        icon: <BadgeCheck />,
-                        onSelect: () => onMarkPaid(o),
-                      },
-                    ]}
-                  />
-                )}
+                <RowActions order={o} onMarkPaid={onMarkPaid} onCancel={onCancel} />
               </TableCell>
             )}
           </TableRow>
         ))}
       </TableBody>
-    </ListTable>
+    </Shell>
   )
+}
+
+function BareShell({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="max-w-full overflow-x-auto">
+      <Table>{children}</Table>
+    </div>
+  )
+}
+
+/** BR-070: cancelled is reachable only from these. */
+const cancellable: readonly string[] = ["pending", "paid", "processing"]
+
+function RowActions({
+  order: o,
+  onMarkPaid,
+  onCancel,
+}: {
+  order: OrderListRow
+  onMarkPaid?: (o: OrderListRow) => void
+  onCancel?: (o: OrderListRow) => void
+}) {
+  const actions = [
+    ...(onMarkPaid && o.status === "pending"
+      ? [
+          {
+            label: "Mark as paid",
+            icon: <BadgeCheck />,
+            onSelect: () => onMarkPaid(o),
+          },
+        ]
+      : []),
+    ...(onCancel && cancellable.includes(o.status)
+      ? [
+          {
+            label: "Cancel order",
+            icon: <Ban />,
+            destructive: true,
+            onSelect: () => onCancel(o),
+          },
+        ]
+      : []),
+  ]
+  if (actions.length === 0) return null
+  return <RowMenu label={`Actions for ${o.order_number}`} actions={actions} />
 }
