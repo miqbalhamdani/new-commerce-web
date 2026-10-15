@@ -1,6 +1,6 @@
 "use client"
 
-import { Card, Empty, Loading, Page } from "@/components/ui/common/Page"
+import { Empty, Loading, Page } from "@/components/ui/common/Page"
 import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
 import { StorefrontSettingsForm } from "@/components/ui/settings/StorefrontSettingsForm"
 import type { StorefrontSettings } from "@/lib/api/types"
@@ -28,7 +28,7 @@ export default function StorefrontSettingsPage() {
       title="Storefront"
       description={
         canWrite
-          ? "How your website takes payment, ships and signs customers in."
+          ? "Payments, shipping and sign-in for your website."
           : "Only the shop's owner can change these."
       }
     >
@@ -39,14 +39,14 @@ export default function StorefrontSettingsPage() {
       {loading && !data ? (
         <Loading />
       ) : data ? (
-        <Card className="max-w-2xl p-6">
+        <div className="max-w-2xl">
           <StorefrontSettingsForm
             key={JSON.stringify(data)}
             settings={data}
             canSave={canWrite}
             onSaved={setData}
           />
-        </Card>
+        </div>
       ) : null}
     </Page>
   )
