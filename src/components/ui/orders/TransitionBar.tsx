@@ -1,5 +1,6 @@
 "use client"
 
+import { Ban } from "lucide-react"
 import { useState } from "react"
 
 import Button from "@/components/ui/button/Button"
@@ -23,7 +24,7 @@ const actions: Record<
   processing: { label: "Start processing", route: "process" },
   shipped: { label: "Ship order…", route: "ship", dialog: "ship" },
   completed: { label: "Complete order", route: "complete" },
-  cancelled: { label: "Cancel order…", route: "cancel", dialog: "cancel" },
+  cancelled: { label: "Cancel order", route: "cancel", dialog: "cancel" },
   pending: { label: "pending", route: "" }, // never offered by the allow-list
 }
 
@@ -64,7 +65,8 @@ export function TransitionBar({
     order.status === "cancelled" && order.paid_at && !order.refunded_at
 
   return (
-    <div className="flex flex-col gap-3">
+    // A row in the detail header; errors wrap to their own full-width line.
+    <div className="flex flex-wrap items-center gap-3">
       {order.allowed_transitions.map((to) => {
         const a = actions[to]
         return (
@@ -72,7 +74,17 @@ export function TransitionBar({
             key={to}
             size="sm"
             variant={to === "cancelled" ? "outline" : "primary"}
-            className="w-full"
+            // Cancel is destructive: red, like Delete and Archive elsewhere.
+            className={
+              to === "cancelled"
+                ? "!text-error-600 !ring-error-300 hover:!bg-error-50 dark:!text-error-400 dark:!ring-error-500/40 dark:hover:!bg-error-500/10"
+                : undefined
+            }
+            startIcon={
+              to === "cancelled" ? (
+                <Ban aria-hidden className="size-4" />
+              ) : undefined
+            }
             isLoading={busy === a.route}
             onClick={() =>
               // Midtrans marks its own orders paid; doing it by hand is an
@@ -92,7 +104,6 @@ export function TransitionBar({
         <Button
           size="sm"
           variant="outline"
-          className="w-full"
           onClick={() => setDialog("refund")}
         >
           Record refund…
@@ -102,7 +113,7 @@ export function TransitionBar({
       {error?.code === "illegal_transition" ? (
         <div
           role="alert"
-          className="rounded-xl border border-warning-500 bg-warning-50 p-3 text-theme-sm text-warning-700 dark:border-warning-500/30 dark:bg-warning-500/15 dark:text-orange-400"
+          className="w-full rounded-xl border border-warning-500 bg-warning-50 p-3 text-theme-sm text-warning-700 dark:border-warning-500/30 dark:bg-warning-500/15 dark:text-orange-400"
         >
           This order moved on since you loaded it.{" "}
           <button type="button" className="font-medium underline" onClick={onReload}>
@@ -110,9 +121,11 @@ export function TransitionBar({
           </button>{" "}
           to see where it is now.
         </div>
-      ) : (
-        dialog === null && <ErrorNotice error={error} title="Could not update the order" />
-      )}
+      ) : dialog === null && error ? (
+        <div className="w-full">
+          <ErrorNotice error={error} title="Could not update the order" />
+        </div>
+      ) : null}
 
       <ShipDialog
         open={dialog === "ship"}
@@ -244,8 +257,9 @@ function ShipDialog({
   )
 }
 
-/** Cancel's reason and refund's note live in the audit trail only (BR-073, BR-075). */
-function NoteDialog({
+/** Cancel's reason and refund's note live in the audit trail only (BR-073, BR-075).
+    Exported: the order list's Cancel action uses the same dialog (BR-070). */
+export function NoteDialog({
   open,
   kind,
   error,

@@ -1,6 +1,5 @@
 "use client"
 
-import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { X } from "lucide-react"
@@ -9,14 +8,27 @@ import Button from "@/components/ui/button/Button"
 import Input from "@/components/form/input/InputField"
 import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
 import { Field, Textarea } from "@/components/ui/common/Field"
-import { Empty, Page, Section } from "@/components/ui/common/Page"
+import {
+  bodyRows,
+  headerRow,
+  ListTable,
+  td,
+  th,
+} from "@/components/ui/common/Listing"
+import { Card, Empty, Page, Section } from "@/components/ui/common/Page"
+import {
+  TableBody,
+  TableCell,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 import { LinePicker } from "@/components/ui/orders/LinePicker"
 import { ShippingQuotePicker } from "@/components/ui/orders/ShippingQuotePicker"
 import { ApiError } from "@/lib/api/client"
 import type { Order } from "@/lib/api/types"
 import { asApiError, fieldError, useApi } from "@/lib/api/use-api"
 import { useCan } from "@/lib/auth/session"
-import { formatMoney, groupDigits } from "@/lib/format"
+import { formatMoney, groupDigits, parseMoney } from "@/lib/format"
 import {
   canQuote,
   canSubmit,
@@ -88,26 +100,13 @@ export default function NewOrderPage() {
   return (
     <Page
       wide
-      back={
-        <Link
-          href="/orders"
-          className="text-theme-sm text-gray-500 hover:text-brand-500 dark:text-gray-400"
-        >
-          ← Orders
-        </Link>
-      }
       title="New order"
       description="A WhatsApp order, priced from the catalog."
-      actions={
-        <Button form="new-order" type="submit" isLoading={busy} disabled={!canSubmit(draft)}>
-          Create order
-        </Button>
-      }
     >
       <form id="new-order" onSubmit={submit}>
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1.55fr)_minmax(320px,0.78fr)]">
           <div className="flex flex-col gap-6">
-            <Section title="Customer" description="Snapshotted onto the order (BR-076).">
+            <Section title="Customer">
               <div className="grid gap-4 sm:grid-cols-3">
                 <Field id="cust-name" label="Name" error={field("customer.name")}>
                   <Input
@@ -128,6 +127,7 @@ export default function NewOrderPage() {
                 <Field id="cust-phone" label="Phone" hint="Optional." error={field("customer.phone")}>
                   <Input
                     id="cust-phone"
+                    type="tel"
                     value={draft.phone}
                     onChange={(e) => set({ phone: e.target.value })}
                   />
@@ -136,8 +136,8 @@ export default function NewOrderPage() {
             </Section>
 
             <Section title="Shipping address">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="sm:col-span-2">
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div className="sm:col-span-3">
                   <Field id="new-line1" label="Address" error={field("shipping_address")}>
                     <Input
                       id="new-line1"
@@ -146,7 +146,7 @@ export default function NewOrderPage() {
                     />
                   </Field>
                 </div>
-                <div className="sm:col-span-2">
+                <div className="sm:col-span-3">
                   <Field id="new-line2" label="Address line 2" hint="Optional.">
                     <Input
                       id="new-line2"
@@ -172,6 +172,7 @@ export default function NewOrderPage() {
                 <Field id="new-postal" label="Postal code">
                   <Input
                     id="new-postal"
+                    inputMode="numeric"
                     value={draft.postal_code}
                     onChange={(e) => set({ postal_code: e.target.value })}
                   />
@@ -179,72 +180,117 @@ export default function NewOrderPage() {
               </div>
             </Section>
 
-            <Section
-              title="Lines"
-              description="The server prices every line from the catalog (BR-078)."
-            >
-              {draft.lines.length > 0 && (
-                <ul className="mb-4 flex flex-col gap-3">
-                  {draft.lines.map((l, i) => (
-                    <li key={`${l.variant_id}-${i}`} className="flex flex-wrap items-start gap-3">
-                      <div className="min-w-40 flex-1">
-                        <p className="text-theme-sm font-medium text-gray-800 dark:text-white/90">
-                          {l.title}
-                        </p>
-                        <p className="text-theme-xs text-gray-500 dark:text-gray-400">
-                          {l.sku ? `${l.sku} · ` : ""}
-                          {formatMoney(l.unit_price)}
-                        </p>
-                        {(lineError(error, i, "variant_id") ??
-                          lineError(error, i, "qty") ??
-                          lineError(error, i, "discount")) && (
-                          <p role="alert" className="text-theme-xs text-error-500">
-                            {lineError(error, i, "variant_id") ??
-                              lineError(error, i, "qty") ??
-                              lineError(error, i, "discount")}
-                          </p>
-                        )}
-                      </div>
-                      <Field id={`line-${i}-qty`} label="Qty">
-                        <Input
-                          id={`line-${i}-qty`}
-                          type="number"
-                          min="1"
-                          className="w-20"
-                          value={String(l.qty)}
-                          onChange={(e) =>
-                            setLine(i, { qty: Math.max(1, Number(e.target.value) || 1) })
-                          }
-                        />
-                      </Field>
-                      <Field id={`line-${i}-discount`} label="Discount (Rp)">
-                        <Input
-                          id={`line-${i}-discount`}
-                          inputMode="numeric"
-                          className="w-32"
-                          value={l.discount}
-                          onChange={(e) => setLine(i, { discount: groupDigits(e.target.value) })}
-                        />
-                      </Field>
-                      <button
-                        type="button"
-                        aria-label={`Remove ${l.title}`}
-                        className="mt-8 text-gray-400 hover:text-error-500"
-                        onClick={() =>
-                          set({ lines: draft.lines.filter((_, j) => j !== i) })
-                        }
-                      >
-                        <X aria-hidden className="size-4" />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
+            <Section title="Items" description="Prices come from the catalog.">
               <LinePicker
                 onPick={(v) =>
                   set({ lines: [...draft.lines, { ...v, qty: 1, discount: "" }] })
                 }
               />
+              <div className="mt-4">
+                {draft.lines.length === 0 ? (
+                  <p className="rounded-xl border border-dashed border-gray-200 px-4 py-8 text-center text-theme-sm text-gray-500 dark:border-gray-800 dark:text-gray-400">
+                    No items yet. Search the catalog to add one.
+                  </p>
+                ) : (
+                  <ListTable>
+                    <TableHeader className={headerRow}>
+                      <TableRow>
+                        <TableCell isHeader className={th}>
+                          Item
+                        </TableCell>
+                        <TableCell isHeader className={`${th} text-right`}>
+                          Unit price
+                        </TableCell>
+                        <TableCell isHeader className={th}>
+                          Qty
+                        </TableCell>
+                        <TableCell isHeader className={th}>
+                          Discount (Rp)
+                        </TableCell>
+                        <TableCell isHeader className={`${th} text-right`}>
+                          Total
+                        </TableCell>
+                        <TableCell isHeader className={`${th} w-px`}>
+                          <span className="sr-only">Remove</span>
+                        </TableCell>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody className={bodyRows}>
+                      {draft.lines.map((l, i) => {
+                        const lineErr =
+                          lineError(error, i, "variant_id") ??
+                          lineError(error, i, "qty") ??
+                          lineError(error, i, "discount")
+                        return (
+                          <TableRow key={`${l.variant_id}-${i}`}>
+                            <TableCell className={td}>
+                              <p className="font-medium text-gray-800 dark:text-white/90">
+                                {l.title}
+                              </p>
+                              {l.sku && (
+                                <p className="text-theme-xs text-gray-500 dark:text-gray-400">
+                                  {l.sku}
+                                </p>
+                              )}
+                              {lineErr && (
+                                <p role="alert" className="mt-1 text-theme-xs text-error-500">
+                                  {lineErr}
+                                </p>
+                              )}
+                            </TableCell>
+                            <TableCell className={`${td} text-right tabular-nums`}>
+                              {formatMoney(l.unit_price)}
+                            </TableCell>
+                            <TableCell className={`${td} !py-2`}>
+                              <Input
+                                id={`line-${i}-qty`}
+                                aria-label={`Qty for ${l.title}`}
+                                type="number"
+                                min="1"
+                                className="w-20"
+                                value={String(l.qty)}
+                                onChange={(e) =>
+                                  setLine(i, { qty: Math.max(1, Number(e.target.value) || 1) })
+                                }
+                              />
+                            </TableCell>
+                            <TableCell className={`${td} !py-2`}>
+                              <Input
+                                id={`line-${i}-discount`}
+                                aria-label={`Discount for ${l.title}`}
+                                inputMode="numeric"
+                                placeholder="0"
+                                className="w-32"
+                                value={l.discount}
+                                onChange={(e) =>
+                                  setLine(i, { discount: groupDigits(e.target.value) })
+                                }
+                              />
+                            </TableCell>
+                            <TableCell className={`${td} text-right font-medium tabular-nums`}>
+                              {formatMoney(
+                                l.unit_price * l.qty - (parseMoney(l.discount) ?? 0),
+                              )}
+                            </TableCell>
+                            <TableCell className={`${td} !py-2`}>
+                              <button
+                                type="button"
+                                aria-label={`Remove ${l.title}`}
+                                className="flex size-10 items-center justify-center rounded-lg text-gray-400 hover:bg-error-50 hover:text-error-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-error-500/30 dark:hover:bg-error-500/10"
+                                onClick={() =>
+                                  set({ lines: draft.lines.filter((_, j) => j !== i) })
+                                }
+                              >
+                                <X aria-hidden className="size-4" />
+                              </button>
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })}
+                    </TableBody>
+                  </ListTable>
+                )}
+              </div>
               {fieldError(error, "lines") && (
                 <p role="alert" className="mt-2 text-theme-xs text-error-500">
                   {fieldError(error, "lines")}
@@ -253,8 +299,10 @@ export default function NewOrderPage() {
             </Section>
           </div>
 
-          <aside className="flex flex-col gap-6">
-            <Section title="Shipping and note">
+          {/* Shipping and the summary stay in view while the lines grow; the
+              create button sits under the total it commits to. */}
+          <aside className="flex flex-col gap-6 xl:sticky xl:top-24 xl:self-start">
+            <Section title="Shipping">
               <div className="flex flex-col gap-4">
                 <ShippingQuotePicker
                   key={JSON.stringify(quoteBody(draft))}
@@ -272,7 +320,7 @@ export default function NewOrderPage() {
                   <Field
                     id="new-shipping"
                     label="Or type a shipping amount (Rp)"
-                    hint="For a courier the shop arranges itself."
+                    hint="For a courier you arrange yourself."
                   >
                     <Input
                       id="new-shipping"
@@ -293,30 +341,53 @@ export default function NewOrderPage() {
               </div>
             </Section>
 
-            <Section title="Totals" description="A preview; the server recomputes it.">
-              <dl className="grid gap-1 text-theme-sm">
-                {(
-                  [
-                    ["Subtotal", t.subtotal],
-                    ["Shipping", t.shipping],
-                    ["Discount", -t.discount],
-                  ] as const
-                ).map(([label, amount]) => (
-                  <div key={label} className="flex justify-between gap-8">
-                    <dt className="text-gray-500 dark:text-gray-400">{label}</dt>
-                    <dd className="tabular-nums">{formatMoney(amount)}</dd>
+            <Card className="p-5 sm:p-6">
+              <div className="rounded-xl bg-gray-50 p-4 text-theme-sm sm:p-5 dark:bg-white/[0.03]">
+                <p className="mb-3 font-medium text-gray-800 dark:text-white/90">
+                  Order summary
+                </p>
+                <dl className="grid gap-2.5">
+                  {(
+                    [
+                      ["Subtotal", t.subtotal],
+                      ["Shipping", t.shipping],
+                      ["Discount", -t.discount || 0],
+                    ] as const
+                  ).map(([label, amount]) => (
+                    <div key={label} className="flex justify-between gap-8">
+                      <dt className="text-gray-500 dark:text-gray-400">{label}</dt>
+                      <dd className="tabular-nums text-gray-800 dark:text-white/90">
+                        {formatMoney(amount)}
+                      </dd>
+                    </div>
+                  ))}
+                  <div className="mt-1 flex items-baseline justify-between gap-8 border-t border-gray-200 pt-3 dark:border-gray-700">
+                    <dt className="font-semibold text-gray-800 dark:text-white/90">
+                      Total
+                    </dt>
+                    <dd className="text-lg font-semibold tabular-nums text-gray-800 dark:text-white/90">
+                      {formatMoney(t.total)}
+                    </dd>
                   </div>
-                ))}
-                <div className="flex justify-between gap-8 border-t border-gray-200 pt-1 font-medium dark:border-gray-800">
-                  <dt>Total</dt>
-                  <dd className="tabular-nums">{formatMoney(t.total)}</dd>
+                </dl>
+              </div>
+              <Button
+                type="submit"
+                className="mt-5 w-full"
+                isLoading={busy}
+                disabled={!canSubmit(draft)}
+              >
+                Create order
+              </Button>
+              <p className="mt-2 text-center text-theme-xs text-gray-500 dark:text-gray-400">
+                Prices are checked again when you create the order.
+              </p>
+              {error && !error.problem.errors?.length && (
+                <div className="mt-4">
+                  <ErrorNotice error={error} title="Could not create the order" />
                 </div>
-              </dl>
-            </Section>
-
-            {error && !error.problem.errors?.length && (
-              <ErrorNotice error={error} title="Could not create the order" />
-            )}
+              )}
+            </Card>
           </aside>
         </div>
       </form>

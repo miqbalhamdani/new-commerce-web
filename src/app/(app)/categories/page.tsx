@@ -11,6 +11,7 @@ import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
 import { RowMenu } from "@/components/ui/common/RowMenu"
 import { Select } from "@/components/ui/common/Select"
 import { Card, Empty, Loading, Page } from "@/components/ui/common/Page"
+import { SegmentedTabs } from "@/components/ui/common/SegmentedTabs"
 import { PencilIcon, PlusIcon, TrashBinIcon } from "@/icons"
 import { ApiError } from "@/lib/api/client"
 import type { Category, CategoryDetail, CategoryKind } from "@/lib/api/types"
@@ -70,29 +71,12 @@ export default function CategoriesPage() {
       description="Independent trees: one product can sit in a category, a series and a collection at once."
     >
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div
-          role="group"
-          aria-label="Tree"
-          className="inline-flex max-w-full gap-0.5 overflow-x-auto rounded-lg bg-gray-100 p-0.5 dark:bg-gray-900"
-        >
-          {kinds.map((k) => (
-            <button
-              key={k.value}
-              type="button"
-              aria-pressed={kind === k.value}
-              onClick={() => setKind(k.value)}
-              className={cx(
-                "whitespace-nowrap rounded-md px-3 py-2 text-theme-sm font-medium transition-colors",
-                "focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/30",
-                kind === k.value
-                  ? "bg-white text-gray-900 shadow-theme-xs dark:bg-gray-800 dark:text-white"
-                  : "text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white",
-              )}
-            >
-              {k.label}
-            </button>
-          ))}
-        </div>
+        <SegmentedTabs
+          label="Tree"
+          options={kinds}
+          value={kind}
+          onChange={setKind}
+        />
         {canWrite && (
           <Button size="sm" onClick={() => setEditing({ parentId: null })}>
             Add category

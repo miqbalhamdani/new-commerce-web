@@ -39,6 +39,6 @@ describe("order filters", () => {
     ).toBe("ship")
     expect(activeView({ ...emptyFilters, refund_owed: true })).toBe("refund")
     expect(activeView({ ...emptyFilters, status: ["paid"] })).toBeNull()
-    expect(activeView(emptyFilters)).toBeNull()
+    expect(activeView(emptyFilters)).toBe("all")
   })
 })

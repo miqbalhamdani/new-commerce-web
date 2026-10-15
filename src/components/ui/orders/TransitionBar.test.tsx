@@ -31,7 +31,7 @@ describe("TransitionBar (P1-109)", () => {
       await screen.findByRole("button", { name: "Ship order…" }),
     ).toBeInTheDocument()
     expect(
-      screen.getByRole("button", { name: "Cancel order…" }),
+      screen.getByRole("button", { name: "Cancel order" }),
     ).toBeInTheDocument()
     expect(
       screen.queryByRole("button", { name: "Mark as paid" }),

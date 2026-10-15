@@ -121,7 +121,7 @@ describe("the storefront settings screen (P1-217)", () => {
     renderSignedIn(<StorefrontSettingsPage />)
 
     // A method's fields stay hidden until it is switched on.
-    const toggle = await screen.findByLabelText("Take payments through Midtrans")
+    const toggle = await screen.findByLabelText("Midtrans")
     expect(screen.queryByLabelText("Client key")).toBeNull()
     await userEvent.click(toggle)
     expect(screen.getByLabelText("Client key")).toBeInTheDocument()
@@ -131,6 +131,41 @@ describe("the storefront settings screen (P1-217)", () => {
         /Midtrans needs its environment, client key and server key/,
       ),
     ).toBeInTheDocument()
+  })
+
+  it("prefills transfer instructions and refuses to send their xxx parts", async () => {
+    const fetchSpy = mockApi(["settings:read", "settings:write"], (url, init) => {
+      if (url.endsWith("/v1/storefront-settings") && init?.method === "PATCH")
+        return json(settings)
+      if (url.endsWith("/v1/storefront-settings"))
+        return json({ ...settings, bank_transfer_instructions: null })
+      return undefined
+    })
+    const patches = () =>
+      fetchSpy.mock.calls.filter(([, i]) => i?.method === "PATCH")
+    renderSignedIn(<StorefrontSettingsPage />)
+
+    const instructions = await screen.findByLabelText("Transfer instructions")
+    expect((instructions as HTMLTextAreaElement).value).toContain(
+      "Account number: xxx",
+    )
+
+    // Edited but still holding xxx: stopped before it reaches the API.
+    await userEvent.type(instructions, " Thanks!")
+    await userEvent.click(screen.getByRole("button", { name: "Save" }))
+    expect(
+      await screen.findByText("Replace the xxx parts with your bank details."),
+    ).toBeInTheDocument()
+    expect(patches()).toHaveLength(0)
+
+    // Real details go through, and only they are sent.
+    await userEvent.clear(instructions)
+    await userEvent.type(instructions, "Transfer to BCA 123")
+    await userEvent.click(screen.getByRole("button", { name: "Save" }))
+    await waitFor(() => expect(patches()).toHaveLength(1))
+    expect(JSON.parse(String(patches()[0]![1]!.body))).toEqual({
+      bank_transfer_instructions: "Transfer to BCA 123",
+    })
   })
 
   it("shows a viewer the settings with no way to save (BR-025)", async () => {

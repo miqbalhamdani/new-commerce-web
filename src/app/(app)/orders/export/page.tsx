@@ -1,6 +1,5 @@
 "use client"
 
-import Link from "next/link"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { Suspense, useState } from "react"
 
@@ -88,14 +87,6 @@ function OrderExport() {
 
   return (
     <Page
-      back={
-        <Link
-          href="/orders"
-          className="text-theme-sm text-gray-500 hover:text-brand-500 dark:text-gray-400"
-        >
-          ← Orders
-        </Link>
-      }
       title="Export orders"
       description="One CSV row per order line, for the bookkeeping."
     >
