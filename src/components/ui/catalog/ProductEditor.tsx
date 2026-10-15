@@ -1,7 +1,5 @@
 "use client"
 
-import { ChevronLeft } from "lucide-react"
-import Link from "next/link"
 import { useState } from "react"
 
 import Button from "@/components/ui/button/Button"
@@ -69,20 +67,14 @@ export function ProductEditor({
   return (
     <Page
       wide
-      back={
-        <Link
-          href="/products"
-          aria-label="Back to products"
-          className="inline-flex items-center gap-1 rounded text-theme-sm text-gray-500 hover:text-brand-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/30 dark:text-gray-400 dark:hover:text-brand-400"
-          onClick={(e) => {
-            if (form.dirty && !confirm("Leave without saving your changes?"))
-              e.preventDefault()
-          }}
-        >
-          <ChevronLeft aria-hidden className="size-4" />
-          Products
-        </Link>
-      }
+      back={{
+        href: "/products",
+        label: "products",
+        onClick: (e) => {
+          if (form.dirty && !confirm("Leave without saving your changes?"))
+            e.preventDefault()
+        },
+      }}
       title={product ? product.title : "New product"}
       description={
         product
