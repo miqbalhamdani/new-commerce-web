@@ -12,6 +12,7 @@ import { MultiSelect } from "@/components/ui/common/Select"
 import { SearchInput } from "@/components/ui/common/SearchInput"
 import { SegmentedTabs } from "@/components/ui/common/SegmentedTabs"
 import { Card, Empty, Loading, Page } from "@/components/ui/common/Page"
+import { ExportDialog } from "@/components/ui/orders/ExportDialog"
 import { OrderTable } from "@/components/ui/orders/OrderTable"
 import { NoteDialog } from "@/components/ui/orders/TransitionBar"
 import { ApiError } from "@/lib/api/client"
@@ -48,12 +49,14 @@ function OrderList() {
   const filters = filtersFromQuery(params)
   const canRead = useCan("orders:read")
   const canWrite = useCan("orders:write")
+  const canExport = useCan("exports:read")
   const { tenant } = useSession()
   // The API pages forward only; the cursors already visited make "Previous".
   const [cursors, setCursors] = useState<(string | null)[]>([null])
   const cursor = cursors[cursors.length - 1]
   const [markingPaid, setMarkingPaid] = useState<OrderListRow | null>(null)
   const [cancelling, setCancelling] = useState<OrderListRow | null>(null)
+  const [exporting, setExporting] = useState(false)
 
   // Coming back to a bare /orders restores the last filters used.
   useEffect(() => {
@@ -88,7 +91,6 @@ function OrderList() {
   }
 
   const view = activeView(filters)
-  const filterQuery = filtersToQuery(filters).toString()
   // A tab alone is undone by All; Clear is for a search or a custom status.
   const filtered = filters.q !== "" || view === null
   const clear = () =>
@@ -133,13 +135,15 @@ function OrderList() {
           </Button>
         )}
         <div className="flex gap-3 sm:ml-auto">
-          <ButtonLink
-            href={`/orders/export${filterQuery ? `?${filterQuery}` : ""}`}
-            variant="outline"
-          >
-            <Download aria-hidden className="size-4" />
-            Export CSV
-          </ButtonLink>
+          {canExport && (
+            <Button
+              variant="outline"
+              startIcon={<Download aria-hidden className="size-4" />}
+              onClick={() => setExporting(true)}
+            >
+              Export CSV
+            </Button>
+          )}
           {canWrite && (
             <ButtonLink href="/orders/new">
               <Plus aria-hidden className="size-4" />
@@ -230,6 +234,9 @@ function OrderList() {
         onClose={() => setMarkingPaid(null)}
         onDone={reload}
       />
+      {exporting && (
+        <ExportDialog seed={filters} onClose={() => setExporting(false)} />
+      )}
       <CancelDialog
         order={cancelling}
         onClose={() => setCancelling(null)}

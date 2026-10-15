@@ -2,38 +2,37 @@ import { screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-import ExportPage from "@/app/(app)/orders/export/page"
+import { ExportDialog } from "@/components/ui/orders/ExportDialog"
+import { filtersFromQuery } from "@/lib/orders/filters"
 import { json, mockApi, renderSignedIn } from "@/test/api"
-
-const replace = vi.fn()
-let search = new URLSearchParams()
-vi.mock("next/navigation", () => ({
-  usePathname: () => "/orders/export",
-  useRouter: () => ({ push: vi.fn(), replace }),
-  useSearchParams: () => search,
-}))
 
 beforeEach(() => {
   vi.unstubAllGlobals()
-  replace.mockClear()
-  search = new URLSearchParams()
 })
 
+const seed = (q = "") => filtersFromQuery(new URLSearchParams(q))
+
 describe("the order export (P1-112)", () => {
-  it("starts a job with WIB offsets and puts the job id in the URL", async () => {
-    search = new URLSearchParams("status=completed")
+  it("starts a job with WIB offsets, seeded from the list's filters", async () => {
     const fetchSpy = mockApi(["exports:read", "orders:read"], (url, init) => {
       if (url.endsWith("/v1/orders/export") && init?.method === "POST")
         return json({ job_id: "j1" }, 202)
       return undefined
     })
-    renderSignedIn(<ExportPage />)
+    renderSignedIn(
+      <ExportDialog seed={seed("status=completed")} onClose={vi.fn()} />,
+    )
 
-    await userEvent.type(await screen.findByLabelText("Placed from"), "2026-09-01")
+    await userEvent.type(
+      await screen.findByLabelText("Placed from"),
+      "2026-09-01",
+    )
     await userEvent.type(screen.getByLabelText("Placed to"), "2026-10-01")
     await userEvent.click(screen.getByRole("button", { name: "Start export" }))
 
-    await waitFor(() => expect(replace).toHaveBeenCalledWith("/orders/export?job=j1"))
+    expect(
+      await screen.findByRole("button", { name: "Start a new export" }),
+    ).toBeInTheDocument()
     const call = fetchSpy.mock.calls.find(([u]) =>
       String(u).endsWith("/v1/orders/export"),
     )!
@@ -45,9 +44,10 @@ describe("the order export (P1-112)", () => {
   })
 
   it("polls to done and regenerates the link on demand", async () => {
-    search = new URLSearchParams("job=j1")
     let reads = 0
-    mockApi(["exports:read", "orders:read"], (url) => {
+    mockApi(["exports:read", "orders:read"], (url, init) => {
+      if (url.endsWith("/v1/orders/export") && init?.method === "POST")
+        return json({ job_id: "j1" }, 202)
       if (url.endsWith("/v1/jobs/j1")) {
         reads++
         return json({
@@ -62,25 +62,37 @@ describe("the order export (P1-112)", () => {
           result:
             reads === 1
               ? null
-              : { download_url: `https://files.example/x?sig=${reads}`, rows: 120, expires_in: 900 },
+              : {
+                  download_url: `https://files.example/x?sig=${reads}`,
+                  rows: 120,
+                  expires_in: 900,
+                },
           error: null,
         })
       }
       return undefined
     })
-    renderSignedIn(<ExportPage />)
+    renderSignedIn(<ExportDialog seed={seed()} onClose={vi.fn()} />)
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Start export" }),
+    )
 
     // sig=2 proves the hook polled past the running read before settling.
     expect(
-      await screen.findByRole("link", { name: "Download CSV" }),
+      await screen.findByRole(
+        "link",
+        { name: "Download CSV" },
+        { timeout: 3000 },
+      ),
     ).toHaveAttribute("href", "https://files.example/x?sig=2")
 
-    await userEvent.click(screen.getByRole("button", { name: "Get a new link" }))
+    await userEvent.click(
+      screen.getByRole("button", { name: "Get a new link" }),
+    )
     await waitFor(() =>
-      expect(screen.getByRole("link", { name: "Download CSV" })).toHaveAttribute(
-        "href",
-        "https://files.example/x?sig=3",
-      ),
+      expect(
+        screen.getByRole("link", { name: "Download CSV" }),
+      ).toHaveAttribute("href", "https://files.example/x?sig=3"),
     )
   })
 })
