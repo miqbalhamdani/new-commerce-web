@@ -1,5 +1,6 @@
 "use client"
 
+import { Download, ExternalLink } from "lucide-react"
 import { useState } from "react"
 
 import Button from "@/components/ui/button/Button"
@@ -35,7 +36,11 @@ import { formatDateTime } from "@/lib/format"
 
 // Served by the API (P1-213); relative, like every call, so the dev rewrite
 // and the production host both resolve it.
-const docsHref = "/v1/storefront/openapi.json"
+const docsHref = "/v1/storefront/docs"
+const specHref = "/v1/storefront/openapi.json"
+// Plain anchors in the outline Button's skin: API routes, not app pages.
+const docsLink =
+  "inline-flex items-center justify-center gap-2 rounded-lg bg-white px-4 py-3 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 transition hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:bg-gray-800 dark:text-gray-400 dark:ring-gray-700 dark:hover:bg-white/[0.03] dark:hover:text-gray-300"
 
 export default function ApiKeysPage() {
   const canRead = useCan("api_keys:read")
@@ -62,14 +67,25 @@ export default function ApiKeysPage() {
       description="Keys let your website read the catalog and take orders through the storefront API. Each key works from one website address."
     >
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <a
-          href={docsHref}
-          target="_blank"
-          rel="noreferrer"
-          className="text-theme-sm text-brand-500 hover:text-brand-600 dark:text-brand-400"
-        >
-          Storefront API documentation
-        </a>
+        <div className="flex flex-wrap gap-3">
+          <a
+            href={docsHref}
+            target="_blank"
+            rel="noreferrer"
+            className={docsLink}
+          >
+            <ExternalLink aria-hidden className="size-4" />
+            Open API docs
+          </a>
+          <a
+            href={specHref}
+            download="storefront-openapi.json"
+            className={docsLink}
+          >
+            <Download aria-hidden className="size-4" />
+            Download OpenAPI spec
+          </a>
+        </div>
         {canWrite && (
           <Button size="sm" onClick={() => setCreating(true)}>
             Create key

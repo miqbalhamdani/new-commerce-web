@@ -39,9 +39,13 @@ describe("the API keys screen (P1-201)", () => {
     expect(await screen.findByText("Main website")).toBeInTheDocument()
     expect(screen.getByText("https://tokoabc.com")).toBeInTheDocument()
     expect(screen.getByText("sf_live_************42ab")).toBeInTheDocument()
-    expect(
-      screen.getByRole("link", { name: "Storefront API documentation" }),
-    ).toHaveAttribute("href", "/v1/storefront/openapi.json")
+    expect(screen.getByRole("link", { name: "Open API docs" })).toHaveAttribute(
+      "href",
+      "/v1/storefront/docs",
+    )
+    const spec = screen.getByRole("link", { name: "Download OpenAPI spec" })
+    expect(spec).toHaveAttribute("href", "/v1/storefront/openapi.json")
+    expect(spec).toHaveAttribute("download")
 
     await userEvent.click(screen.getByRole("button", { name: "Create key" }))
     await userEvent.type(screen.getByLabelText("Name"), "Shop")
