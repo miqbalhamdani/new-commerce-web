@@ -41,16 +41,16 @@ describe("the order list (P1-108)", () => {
     expect(screen.getByText("Rina")).toBeInTheDocument()
     expect(screen.getByText(/398,000/)).toBeInTheDocument()
     for (const label of [
-      "All",
-      "To confirm payment",
-      "To ship",
+      "All orders",
+      "Awaiting payment",
+      "Ready to ship",
       "Shipped",
-      "Refund owed",
+      "Needs refund",
     ]) {
       expect(screen.getByRole("button", { name: label })).toBeInTheDocument()
     }
     // A clean URL is the All view.
-    expect(screen.getByRole("button", { name: "All" })).toHaveAttribute(
+    expect(screen.getByRole("button", { name: "All orders" })).toHaveAttribute(
       "aria-pressed",
       "true",
     )
