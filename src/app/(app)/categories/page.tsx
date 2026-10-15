@@ -10,7 +10,7 @@ import { Dialog } from "@/components/ui/common/Dialog"
 import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
 import { RowMenu } from "@/components/ui/common/RowMenu"
 import { Select } from "@/components/ui/common/Select"
-import { Card, Empty, Loading, Page } from "@/components/ui/common/Page"
+import { Card, Loading, Page } from "@/components/ui/common/Page"
 import { SegmentedTabs } from "@/components/ui/common/SegmentedTabs"
 import { PencilIcon, PlusIcon, TrashBinIcon } from "@/icons"
 import { ApiError } from "@/lib/api/client"
@@ -70,57 +70,70 @@ export default function CategoriesPage() {
       title="Categories"
       description="Independent trees: one product can sit in a category, a series and a collection at once."
     >
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <SegmentedTabs
-          label="Tree"
-          options={kinds}
-          value={kind}
-          onChange={setKind}
-        />
-        {canWrite && (
+      {canWrite && (
+        <div className="mb-4 flex justify-end">
           <Button size="sm" onClick={() => setEditing({ parentId: null })}>
             Add category
           </Button>
-        )}
-      </div>
-      <ErrorNotice error={error} title="Could not load categories" />
-      {loading && !data ? (
-        <Loading />
-      ) : categories.length === 0 ? (
-        <Empty title="This tree is empty">
-          {canWrite && "Use Add category to start it."}
-        </Empty>
-      ) : (
-        <Card className="p-2">
-          {canWrite && dragging && (
-            <div
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={() => dropOn(null)}
-              className="mb-2 rounded-lg border border-dashed border-brand-500 p-2 text-center text-theme-xs text-brand-500 dark:text-brand-400"
-            >
-              Drop here to make it top-level
-            </div>
-          )}
-          <ul role="tree" aria-label="Categories">
-            {buildTree(categories).map((n) => (
-              <Node
-                key={n.category.id}
-                node={n}
-                depth={0}
-                canWrite={canWrite}
-                dragging={dragging}
-                categories={categories}
-                onDragStart={setDragging}
-                onDragEnd={() => setDragging(null)}
-                onDrop={dropOn}
-                onAdd={(parent) => setEditing({ parentId: parent.id })}
-                onEdit={(category) => setEditing({ category })}
-                onDelete={setDeleting}
-              />
-            ))}
-          </ul>
-        </Card>
+        </div>
       )}
+      <ErrorNotice error={error} title="Could not load categories" />
+      {/* The trees head the card, like the order list's saved views. */}
+      <Card className="overflow-hidden">
+        <div className="border-b border-gray-200 px-5 sm:px-6 dark:border-white/[0.05]">
+          <SegmentedTabs
+            variant="underline"
+            label="Tree"
+            options={kinds}
+            value={kind}
+            onChange={setKind}
+          />
+        </div>
+        {loading && !data ? (
+          <Loading />
+        ) : categories.length === 0 ? (
+          <div className="px-6 py-12 text-center">
+            <p className="text-theme-sm font-medium text-gray-800 dark:text-white/90">
+              This tree is empty
+            </p>
+            {canWrite && (
+              <p className="mt-1 text-theme-sm text-gray-500 dark:text-gray-400">
+                Use Add category to start it.
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="p-2">
+            {canWrite && dragging && (
+              <div
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={() => dropOn(null)}
+                className="mb-2 rounded-lg border border-dashed border-brand-500 p-2 text-center text-theme-xs text-brand-500 dark:text-brand-400"
+              >
+                Drop here to make it top-level
+              </div>
+            )}
+            <ul role="tree" aria-label="Categories">
+              {buildTree(categories).map((n) => (
+                <Node
+                  key={n.category.id}
+                  node={n}
+                  depth={0}
+                  canWrite={canWrite}
+                  dragging={dragging}
+                  categories={categories}
+                  onDragStart={setDragging}
+                  onDragEnd={() => setDragging(null)}
+                  onDrop={dropOn}
+                  onAdd={(parent) => setEditing({ parentId: parent.id })}
+                  onEdit={(category) => setEditing({ category })}
+                  onDelete={setDeleting}
+                />
+              ))}
+            </ul>
+          </div>
+        )}
+      </Card>
 
       <MoveDialog move={move} onClose={() => setMove(null)} onDone={reload} />
       {editing && (
