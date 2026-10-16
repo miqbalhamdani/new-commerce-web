@@ -1,8 +1,19 @@
-# frontend — Next.js admin
+# CLAUDE.md
 
-Phase 0 · Foundation (Phase 1 · Catalog next). Next.js 15 App Router · TypeScript · Tailwind 3.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-**The contract lives in `contracts/`** (git submodule, pinned to a tag):
+# new-commerce-web — the Next.js admin
+
+The admin front end for New Commerce (catalog and order management for Indonesian merchants).
+Next.js 15.1 App Router · React 19 · TypeScript · Tailwind 3. Built screens span Phases 0–3
+(catalog, orders, customers, team, settings, API keys, storefront settings); see Scope below.
+The API is the sibling repo `new-commerce-api`; this app has no data of its own, so run the API
+first (`make db-create && make migrate && make dev` there, on :8080).
+
+**The contract lives in `contracts/`** (git submodule of `new-commerce-contracts`; a fresh clone
+needs `git submodule update --init`). It is pinned to a commit that must already be on contracts
+`main` -- CI's `drift` job fails otherwise, so an FE PR goes green only after its contracts PR
+merges. Treat it as read-only here.
 
 | File | What it holds |
 |---|---|
@@ -16,69 +27,93 @@ Before building a screen, read its module in `01-product-requirements.md` §6 an
 The item's Acceptance and the Definition of Done are what "done" means, not suggestions.
 
 **Types are generated, calls go through `apiFetch`.** `npm run generate` turns
-`contracts/openapi.yaml` into `src/lib/api/schema.d.ts` (never edit it); `src/lib/api/client.ts`
-(`apiFetch`) is the one way to call the API, typed from those schemas. `openapi.yaml` gains a path
-only when its backend item is done, so an FE item whose path is missing is blocked on that item:
-say so, do not hand-type the shape.
+`contracts/openapi.yaml` into `src/lib/api/schema.d.ts` (never edit it). `openapi.yaml` gains a
+path only when its backend item is done, so an FE item whose path is missing is blocked on that
+item: say so, do not hand-type the shape. To pick up a contract change: merge it in the contracts
+repo, move the submodule (`git -C contracts fetch && git -C contracts checkout <sha>`), run
+`npm run generate`, commit the submodule bump and the regenerated `schema.d.ts` together.
 
 ---
 
 ## Commands
 
 ```bash
-npm run dev        # localhost:3000; /v1/* rewritten to API_ORIGIN (default :8080)
-npm run generate   # openapi-typescript → src/lib/api/schema.d.ts. No-op on a clean tree
-npm run lint
-npm run typecheck
-npm run test       # vitest + testing-library
-npm run check      # generate + generated-diff + lint + typecheck + test. Run before every PR
+npm run dev          # localhost:3000; /v1/* rewritten to API_ORIGIN (default http://localhost:8080)
+npm run build        # production build (output: "standalone"); CI runs it after check
+npm run generate     # openapi-typescript contracts/openapi.yaml -> src/lib/api/schema.d.ts
+npm run lint         # next lint (next/core-web-vitals; ignores schema.d.ts, contracts/)
+npm run typecheck    # tsc --noEmit
+npm run test         # vitest run (jsdom + testing-library), all tests
+npx vitest run src/lib/catalog/matrix.test.ts     # one file
+npx vitest run -t "<test name>"                   # tests whose name matches
+npm run check        # generate + generated-diff + lint + typecheck + test. Run before every PR
 ```
 
-There is no Playwright yet; `e2e` arrives with the first journey test.
+`generate` needs the submodule checked out; `generated-diff` is `git diff --exit-code` on
+`schema.d.ts`, so a stale or hand-edited schema fails `check`. There is no format script:
+Prettier (no semicolons, double quotes, trailing commas, `prettier-plugin-tailwindcss` sorting
+classes, including inside `cx(...)`) runs via `npx prettier --write <files>`; `.prettierignore`
+excludes the vendored dirs. No Playwright yet; `e2e` arrives with the first journey test.
+
+CI (`.github/workflows/ci.yml`, P1-004): `check` (npm ci, `npm run check`, `npm run build`, Node
+22), `drift` (pinned contracts commit is on contracts main), `image` (builds the `Dockerfile` on
+every PR, pushes `ghcr.io/...:sha-<commit>` and `:main` from main).
 
 ---
 
-## Layout
+## Architecture
 
-```
-src/
-  app/
-    (auth)/             unauthenticated. centred card, no shell (login, accept-invite)
-    (app)/              authenticated. sidebar, header, guard
-  layout/               AppSidebar, AppHeader, Backdrop -- derived from TailAdmin, ours to edit
-  context/              SidebarContext (vendored), ThemeContext (next-themes shim, PATCH 5)
-  icons/                VENDORED TailAdmin SVGs, imported via @svgr/webpack
-  components/
-    ui/{alert,avatar,badge,button,dropdown,modal,table}/   VENDORED TailAdmin
-    form/               VENDORED TailAdmin (Label, input/*)
-    common/             VENDORED TailAdmin (ComponentCard, PageBreadCrumb, ThemeToggleButton)
-    header/             UserDropdown -- derived from TailAdmin, ours to edit
-    ui/common/          OURS: Page, Card, Dialog (on the vendored Modal), Field, Listing,
-                        ErrorNotice, ButtonLink, Select (Headless UI Listbox), RowMenu
-                        (Headless UI Menu), SearchInput, Dropzone, ProgressBar, Stepper
-    ui/{catalog,navigation,settings}/   OURS: the screens' components
-  lib/
-    api/                schema.d.ts (GENERATED) + client.ts (apiFetch, ApiError)
-    auth/               session, token refresh, useCan
-    utils.ts            cx (clsx + tailwind-merge), nothing else
-contracts/              submodule, pinned to a tag -- READ ONLY
-```
+**Route groups carry the auth boundary.** The root `app/layout.tsx` holds only `<html>`,
+next-themes' `ThemeProvider` and `SessionProvider` (above both groups, so the one
+refresh-on-mount serves login and shell alike). `(auth)/` (login, accept-invite) renders a bare
+centred card. `(app)/layout.tsx` is a client guard: while the session is `loading` it shows
+"Loading…" (never a signed-out flash), on `anonymous` it `router.replace("/login")`s, and only on
+`authenticated` renders the TailAdmin shell (`SidebarProvider`, `AppSidebar`, `AppHeader`). The
+guard is a convenience; the API is the security boundary. `/` redirects to `/products`.
 
-**Route groups carry the auth boundary.** `(auth)` renders bare; `(app)` renders the shell and
-redirects an anonymous visitor to `/login`. The root layout holds only `<html>`, the theme
-provider and the session provider, so the login screen does not get a sidebar.
+**API layer (`src/lib/api/`).**
+- `schema.d.ts` -- GENERATED. `types.ts` re-exports its `components["schemas"]` under short
+  names (`Product`, `Order`, `Job`, ...); add an alias there rather than writing a shape by hand.
+- `client.ts` -- `apiFetch<T>(path, session, options)`: relative path, Bearer token,
+  `credentials: "include"`, JSON-encodes `body`, retries **once** on 401 after `session.refresh()`,
+  throws `ApiError` (`status`, `code` = last segment of the problem `type`, `traceId`, `problem`)
+  and synthesises a problem for non-JSON proxy errors. It takes the session as an argument so it
+  has no React in it.
+- `use-api.ts` -- what screens actually use: `useApi()` (apiFetch bound to the session),
+  `useResource<T>(path | null)` (`{data, setData, error, loading, reload}`), `useJob(id)` (polls
+  `/v1/jobs/{id}` every second while queued/running), `asApiError`, `fieldError(error, field)`.
+
+**Domain logic lives in `src/lib/`, not in components.** `lib/catalog/` (variant matrix, bulk
+actions, price adjust, filters, import/CSV, product form, publish checks, slugs, category tree,
+uploads), `lib/orders/` (filters, new order, order form), `lib/format/` (money and time),
+`lib/audit.ts`. These are plain TypeScript -- request-body building (BR-008/009/089 rules below),
+diffing, parsing, validation -- each with a colocated `*.test.ts`. Components in
+`components/ui/{catalog,orders,settings,navigation}/` and the `app/(app)/**/page.tsx` screens
+render and wire them up. New business logic goes in `lib/` with a unit test.
+
+**The component layer is template-derived (TailAdmin).** Three kinds of code under `src/`:
+- VENDORED, configure-don't-edit: `components/ui/{alert,avatar,badge,button,dropdown,modal,table}`,
+  `components/form/`, `components/common/`, `context/`, `hooks/useModal.ts`, `icons/` (SVGs
+  imported as components via `@svgr/webpack`; vitest stubs them).
+- DERIVED, ours to edit: `layout/` (AppSidebar, AppHeader, Backdrop), `components/header/`.
+- OURS: `components/ui/common/` (Page/Card/Section/Empty/Loading, Dialog on the vendored Modal, Field with
+  Checkbox/Textarea, Listing, ErrorNotice, ButtonLink, Select, RowMenu, SearchInput, Dropzone,
+  ProgressBar, Stepper, DatePicker, SegmentedTabs, CopyField) and the feature dirs above.
 
 ---
 
 ## Styling
 
 The UI is **TailAdmin** (free-nextjs-admin-dashboard @ `3f6902572e9d`, the Tailwind-v3
-snapshot of the v2 design, MIT -- `LICENSE.md`). The vendored dirs are listed in the layout
-above: configure, do not edit. **Every deliberate deviation lives in
+snapshot of the v2 design, MIT -- `LICENSE.md`). The vendored dirs are listed under
+Architecture: configure, do not edit. **Every deliberate deviation lives in
 `src/components/PATCHES.md`** and is marked `PATCH(new-commerce)` in its file; on a re-pull,
-re-apply them. `src/layout/` and `src/components/header/` are derived from TailAdmin's app
-chrome and are ours to edit freely. `.prettierignore` keeps prettier away from the vendored
-files so re-pull diffs stay honest.
+re-apply them. If a vendored file truly must change, keep the edit minimal, mark it, and add a
+numbered row to PATCHES.md saying what and why; otherwise wrap it in `ui/common/`. PATCHES.md also
+lists what was deliberately *not* vendored (upstream `form/Select`, `MultiSelect`, `Switch`,
+charts, notifications...) -- do not pull those in; `ui/common/Select.tsx` is the select.
+`.prettierignore` keeps prettier away from the vendored files (and `components/header/`) so
+re-pull diffs stay honest.
 
 Design tokens come from the TailAdmin theme in `tailwind.config.ts` (brand/gray/success/
 error/warning scales, `text-theme-*`, `shadow-theme-*`); `globals.css` carries its `menu-*`
@@ -87,8 +122,9 @@ and scrollbar classes. Use the tokens, not raw Tailwind palette colors: errors a
 `ui/common/Listing.tsx` (`ListTable`, `th`, `td`). Form controls come from `ui/common/`:
 `Select` (a controlled @headlessui/react Listbox — the panel is portalled, so it works inside
 table shells and the Modal; there is no native `<select>` left), `Field`'s `Checkbox`/
-`Textarea`, `RowMenu` (a row's actions behind three dots), `SearchInput`, `Dropzone`, `ProgressBar`, `Stepper`. `src/lib/utils.ts` holds
-`cx`; do not add a second copy.
+`Textarea`, `RowMenu` (a row's actions behind three dots), `SearchInput`, `DatePicker`,
+`Dropzone`, `ProgressBar`, `Stepper`. `src/lib/utils.ts` holds `cx` (clsx + tailwind-merge);
+do not add a second copy.
 
 Tailwind **3**, configured in `tailwind.config.ts`. Dark mode is `next-themes` with
 `attribute="class"`; the header's `ThemeToggleButton` flips light/dark and the user menu
@@ -119,9 +155,8 @@ paths, admin routes need no CORS, and the refresh cookie is host-only. `api.{dom
 storefront's. Locally `next.config.ts` rewrites `/v1/*` to `API_ORIGIN` for the same effect.
 Never hardcode `http://localhost:8080`, or any API host, in code.
 
-The image is Next.js's standalone server (`Dockerfile`, `output: "standalone"`); CI builds it on
-every PR and pushes it to ghcr.io from main. The stack that runs it is
-`new-commerce-api/deploy`.
+The image is Next.js's standalone server (`Dockerfile`, `output: "standalone"`, `node server.js`
+on :3000). The stack that runs it is `new-commerce-api/deploy`.
 
 **Every fetch sets `credentials: "include"`.** Without it the browser does not attach the cookie,
 refresh fails, and the failure looks exactly like an expired session.
@@ -137,21 +172,49 @@ a value none of them display.
 
 On mount the provider calls refresh once. That is what makes a reload keep you signed in -- the
 access token is gone, the cookie is not. Refresh rotates, and a reused refresh token revokes the
-whole chain, so never call refresh from two places at once.
+whole chain, so `refresh()` keeps at most one request in flight and every caller (the mount
+effect, StrictMode's double effect, `apiFetch`'s 401 retry) awaits the same promise. Never POST
+`/v1/auth/refresh` yourself or add a second refresh path.
+
+`useSession()` exposes `status` (`loading` | `authenticated` | `anonymous`), `user` (role,
+`permissions`), `tenant` (incl. `timezone`), `signIn`, `acceptInvite`, `signOut` (best-effort
+logout, always clears locally), `getAccessToken()` (a getter, never a value) and `refresh()`.
+Auth failures throw `AuthError` carrying the API's deliberately vague `detail`. `useCan(perm)`
+lives in the same file.
 
 ---
 
 ## Server vs client components
 
-**Server Components are the default.** Reach for `"use client"` only when the component needs
-state, an effect, or an event handler.
+Prefer Server Components for anything that does not touch the session; reach for `"use client"`
+only when a component needs state, an effect, an event handler -- or the API. In practice every
+screen is a client component today: the access token lives only in client memory (BR-022), so a
+server component cannot call the API as the user, and pages load through `useResource`/`useApi`
+in the browser.
 
-- Dense list views — products, orders — must be fast on first load: the product list API is p95
-  < 600 ms at 10k products (P1-030). No client fetch waterfalls. The access token lives only in
-  client memory (BR-022), so a server component cannot call the API as the user today; how list
-  pages render server-side is decided with the first list screen (P1-033).
-- Client components: the variant matrix grid, drag-to-reorder trees, upload widgets, forms with
+- Dense list views -- products, orders -- must still be fast on first load: the product list API
+  is p95 < 600 ms at 10k products (P1-030). No client fetch waterfalls: one request per screen
+  where the API allows it, not one per row.
+- Inherently client: the variant matrix grid, drag-to-reorder trees, upload widgets, forms with
   live validation.
+
+---
+
+## Testing
+
+Vitest (`globals: true`, jsdom, `@` alias to `src/`), setup in `vitest.setup.ts` (jest-dom
+matchers; stubs for `matchMedia`, `ResizeObserver`, `IntersectionObserver`, `scrollIntoView`
+that the vendored sidebar and Headless UI need). Tests are colocated: `lib/**/x.test.ts` for
+domain logic, `components/**/X.test.tsx` and `app/**/page.test.tsx` for screens.
+
+Screen tests never hit a network or mock `apiFetch`: they stub global `fetch` with the helpers in
+`src/test/api.tsx` -- `mockApi(permissions, handler, role?)` answers `/v1/auth/refresh` with a
+signed-in session carrying those permissions and routes every other URL to `handler` (unmatched
+-> 404 problem); it returns the spy so a test can assert the method/body/`If-Match` sent.
+`renderSignedIn(ui)` wraps in a real `SessionProvider`; `json(body, status)` builds a response.
+Call `vi.unstubAllGlobals()` in `beforeEach` and `vi.mock("next/navigation", ...)` for pages that
+use the router. Test permission gating by passing a narrower permission list and asserting the
+action is absent. Name `describe` blocks after the backlog item (`"the order list (P1-108)"`).
 
 ---
 
@@ -179,9 +242,11 @@ state, an effect, or an event handler.
 ### Money
 
 Money is a plain integer of **minor units**, always IDR, with no currency field (BR-006, BR-029):
-`"regular_price": 19900000` is Rp 199.000. Divide by 100 to display.
+`"regular_price": 19900000` is Rp 199,000. Divide by 100 to display.
 
-Format through `src/lib/format` (created with the first screen that shows money: `id-ID`, IDR).
+Format and parse through `src/lib/format` (`formatMoney`, `parseMoney`, `moneyInput`,
+`groupDigits`, `formatDateTime`): English grouping (`Rp 199,000`, matching BR-016's English UI),
+IDR only.
 Never do arithmetic on a formatted string, never use `parseFloat` on user input — parse to an
 integer of minor units at the input boundary and keep it integral all the way to the API.
 
@@ -300,13 +365,3 @@ empty.
 catalog CSV export to marketplaces (BR-061). Do not tell users stock is "coming"; if it comes up:
 stock isn't tracked, archive a variant you no longer have (`01-product-requirements.md` §2.2).
 `05-backlog.md` "Out of scope for v2" has the full list and the answers to give.
-
-<!-- BEGIN:nextjs-agent-rules -->
-
-# This is NOT the Next.js you know
-
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
-
-This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
-
-<!-- END:nextjs-agent-rules -->
