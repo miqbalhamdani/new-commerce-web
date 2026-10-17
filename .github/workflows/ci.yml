@@ -18,8 +18,6 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: true
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -28,20 +26,23 @@ jobs:
       - run: npm run check
       - run: npm run build
 
-  # The other half of drift: the pinned contracts commit must be on contracts
-  # main, so a PR is green only once its contracts PR has merged.
+  # The other half of drift: contracts/ must equal new-commerce-api's contracts/
+  # at some commit on its main (identical or behind), so a PR is green only once
+  # the api PR carrying its contract change has merged. Compared by tree hash.
   drift:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - name: Pinned contracts are on contracts main
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: contracts/ is a snapshot of new-commerce-api main
         run: |
-          pinned=$(git ls-tree HEAD contracts | awk '{print $3}')
-          status=$(gh api "repos/miqbalhamdani/new-commerce-contracts/compare/main...${pinned}" --jq .status)
-          echo "contracts ${pinned}: ${status} relative to main"
-          case "$status" in identical|behind) ;; *) echo "::error::pin a contracts commit that is on main"; exit 1;; esac
+          want=$(git rev-parse HEAD:contracts)
+          git clone -q --filter=blob:none --no-checkout https://github.com/miqbalhamdani/new-commerce-api /tmp/api
+          for c in $(git -C /tmp/api log --format=%H -- contracts); do
+            if [ "$(git -C /tmp/api rev-parse "$c:contracts" 2>/dev/null)" = "$want" ]; then
+              echo "contracts/ = new-commerce-api@$c"; exit 0
+            fi
+          done
+          echo "::error::contracts/ is not a snapshot of new-commerce-api main. Run: npm run contracts"; exit 1
 
   # P1-001: the image the box runs. Built on every PR so a broken Dockerfile
   # is red; pushed to ghcr.io only from main, as sha-<commit> and main.

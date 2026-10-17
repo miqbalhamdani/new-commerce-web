@@ -4,16 +4,14 @@ The admin front end for New Commerce — catalog management for Indonesian
 merchants. Next.js 15 App Router, TypeScript, Tailwind 3.
 
 The API lives in [`new-commerce-api`](https://github.com/miqbalhamdani/new-commerce-api).
-The contract both repos are built against is
-[`new-commerce-contracts`](https://github.com/miqbalhamdani/new-commerce-contracts),
-vendored here as a submodule at `contracts/`.
+The contract both repos are built against lives in the API repo's `contracts/`
+and is mirrored here at `contracts/` (`npm run contracts` refreshes it).
 
 ## Getting started
 
 You need the API running first — the app has no data of its own.
 
 ```bash
-git submodule update --init      # a fresh clone needs this once
 npm install
 npm run dev                      # http://localhost:3000
 ```
@@ -31,6 +29,7 @@ make dev                         # http://localhost:8080
 |---|---|
 | `npm run dev` | Development server |
 | `npm run build` | Production build |
+| `npm run contracts` | Mirror `contracts/` from the API repo's main |
 | `npm run generate` | Regenerate API types from `contracts/openapi.yaml` |
 | `npm run test` | Vitest |
 | `npm run check` | The bar for a pull request: generate, staleness check, lint, typecheck, test |
@@ -48,8 +47,8 @@ Call the API with relative paths. Never `http://localhost:8080`.
 
 `src/lib/api/schema.d.ts` is generated from the contract and must not be
 edited — `npm run check` fails if it is stale. To add an endpoint, change
-`openapi.yaml` in the contracts repo first, tag it, bump the submodule here,
-then regenerate.
+`contracts/openapi.yaml` in the API repo first and merge it, then run
+`npm run contracts` and `npm run generate` here.
 
 ## Third-party components
 

@@ -10,10 +10,10 @@ Next.js 15.1 App Router · React 19 · TypeScript · Tailwind 3. Built screens s
 The API is the sibling repo `new-commerce-api`; this app has no data of its own, so run the API
 first (`make db-create && make migrate && make dev` there, on :8080).
 
-**The contract lives in `contracts/`** (git submodule of `new-commerce-contracts`; a fresh clone
-needs `git submodule update --init`). It is pinned to a commit that must already be on contracts
-`main` -- CI's `drift` job fails otherwise, so an FE PR goes green only after its contracts PR
-merges. Treat it as read-only here.
+**The contract lives in `contracts/`**, a byte-for-byte mirror of `new-commerce-api`'s
+`contracts/` (the source of truth; `contracts/CLAUDE.md` says how the documents relate). Never
+edit it here: CI's `drift` job fails unless it equals api's at some commit on api `main`, so an FE
+PR goes green only after the api PR carrying its contract change merges.
 
 | File | What it holds |
 |---|---|
@@ -29,9 +29,9 @@ The item's Acceptance and the Definition of Done are what "done" means, not sugg
 **Types are generated, calls go through `apiFetch`.** `npm run generate` turns
 `contracts/openapi.yaml` into `src/lib/api/schema.d.ts` (never edit it). `openapi.yaml` gains a
 path only when its backend item is done, so an FE item whose path is missing is blocked on that
-item: say so, do not hand-type the shape. To pick up a contract change: merge it in the contracts
-repo, move the submodule (`git -C contracts fetch && git -C contracts checkout <sha>`), run
-`npm run generate`, commit the submodule bump and the regenerated `schema.d.ts` together.
+item: say so, do not hand-type the shape. To pick up a contract change: merge it in
+`new-commerce-api`, run `npm run contracts` then `npm run generate`, and commit `contracts/` and the
+regenerated `schema.d.ts` together.
 
 ---
 
@@ -40,6 +40,7 @@ repo, move the submodule (`git -C contracts fetch && git -C contracts checkout <
 ```bash
 npm run dev          # localhost:3000; /v1/* rewritten to API_ORIGIN (default http://localhost:8080)
 npm run build        # production build (output: "standalone"); CI runs it after check
+npm run contracts    # replace contracts/ with new-commerce-api main's (curl from GitHub)
 npm run generate     # openapi-typescript contracts/openapi.yaml -> src/lib/api/schema.d.ts
 npm run lint         # next lint (next/core-web-vitals; ignores schema.d.ts, contracts/)
 npm run typecheck    # tsc --noEmit
@@ -49,15 +50,15 @@ npx vitest run -t "<test name>"                   # tests whose name matches
 npm run check        # generate + generated-diff + lint + typecheck + test. Run before every PR
 ```
 
-`generate` needs the submodule checked out; `generated-diff` is `git diff --exit-code` on
-`schema.d.ts`, so a stale or hand-edited schema fails `check`. There is no format script:
+`generated-diff` is `git diff --exit-code` on `schema.d.ts`, so a stale or hand-edited schema fails
+`check`. There is no format script:
 Prettier (no semicolons, double quotes, trailing commas, `prettier-plugin-tailwindcss` sorting
 classes, including inside `cx(...)`) runs via `npx prettier --write <files>`; `.prettierignore`
 excludes the vendored dirs. No Playwright yet; `e2e` arrives with the first journey test.
 
 CI (`.github/workflows/ci.yml`, P1-004): `check` (npm ci, `npm run check`, `npm run build`, Node
-22), `drift` (pinned contracts commit is on contracts main), `image` (builds the `Dockerfile` on
-every PR, pushes `ghcr.io/...:sha-<commit>` and `:main` from main).
+22), `drift` (`contracts/` equals new-commerce-api's at a commit on its main), `image`
+(builds the `Dockerfile` on every PR, pushes `ghcr.io/...:sha-<commit>` and `:main` from main).
 
 ---
 
