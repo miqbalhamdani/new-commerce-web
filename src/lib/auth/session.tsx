@@ -36,8 +36,18 @@ interface SessionState {
   signIn(email: string, password: string): Promise<void>;
   /** Sets a password from an invitation link and signs in (BR-026). */
   acceptInvite(token: string, password: string): Promise<void>;
-  /** Opens a shop (P1-084); signs nobody in -- the emailed link does that. */
+  /** Opens a shop (P1-084); signs nobody in -- the emailed code or link does that. */
   register(shopName: string, name: string, email: string): Promise<void>;
+  /** Exchanges a signup's emailed 6-digit code for its invitation token (P1-086, BR-026). */
+  verifyCode(email: string, code: string): Promise<string>;
+  /** Sends a signup's code again; the API answers the same for any email (BR-021). */
+  resendCode(email: string): Promise<void>;
+  /** The admin's Google client ID, or null when Google is off (BR-020). */
+  googleClientId(): Promise<string | null>;
+  /** Signs in with a Google ID token (BR-020). */
+  googleSignIn(idToken: string): Promise<void>;
+  /** Opens a shop with a Google ID token and signs its owner in (BR-020). */
+  googleRegister(idToken: string, shopName: string): Promise<void>;
   signOut(): Promise<void>;
   /** Reads the current access token. A function, not a value -- see below. */
   getAccessToken(): string | null;
@@ -185,6 +195,41 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const verifyCode = useCallback(async (email: string, code: string) => {
+    const response = await authPost("/v1/auth/verify-code", { email, code }, "Could not check the code.");
+    return ((await response.json()) as { token: string }).token;
+  }, []);
+
+  const resendCode = useCallback(async (email: string) => {
+    await authPost("/v1/auth/resend-code", { email }, "Could not send the code.");
+  }, []);
+
+  const googleClientId = useCallback(async () => {
+    const response = await fetch("/v1/auth/providers", { credentials: "include" });
+    if (!response.ok) return null;
+    return ((await response.json()) as { google_client_id: string | null }).google_client_id;
+  }, []);
+
+  const googleSignIn = useCallback(
+    async (idToken: string) => {
+      const response = await authPost("/v1/auth/google", { id_token: idToken }, "Could not sign in with Google.");
+      adopt((await response.json()) as Session);
+    },
+    [adopt],
+  );
+
+  const googleRegister = useCallback(
+    async (idToken: string, shopName: string) => {
+      const response = await authPost(
+        "/v1/auth/register/google",
+        { id_token: idToken, shop_name: shopName },
+        "Could not create the shop.",
+      );
+      adopt((await response.json()) as Session);
+    },
+    [adopt],
+  );
+
   const signOut = useCallback(async () => {
     const token = accessToken.current;
     // Best effort. If this fails the local session still ends -- leaving the
@@ -218,14 +263,51 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       signIn,
       acceptInvite,
       register,
+      verifyCode,
+      resendCode,
+      googleClientId,
+      googleSignIn,
+      googleRegister,
       signOut,
       refresh,
       getAccessToken: () => accessToken.current,
     }),
-    [user, tenant, status, signIn, acceptInvite, register, signOut, refresh],
+    [
+      user,
+      tenant,
+      status,
+      signIn,
+      acceptInvite,
+      register,
+      verifyCode,
+      resendCode,
+      googleClientId,
+      googleSignIn,
+      googleRegister,
+      signOut,
+      refresh,
+    ],
   );
 
   return <SessionContext value={value}>{children}</SessionContext>;
+}
+
+/**
+ * A POST to a public auth route. A refusal becomes an AuthError carrying the
+ * field's detail, else the problem's, else fallback -- the API's own words.
+ */
+async function authPost(path: string, body: unknown, fallback: string): Promise<Response> {
+  const response = await fetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const problem = await response.json().catch(() => null);
+    throw new AuthError(problem?.errors?.[0]?.detail ?? problem?.detail ?? fallback);
+  }
+  return response;
 }
 
 /** Whether the signed-in user's role grants a permission. */

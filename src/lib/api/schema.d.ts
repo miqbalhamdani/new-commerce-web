@@ -110,6 +110,119 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/verify-code": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Exchange a signup's emailed 6-digit code for its invitation token
+         * @description The code is in the signup email, valid for 30 minutes (BR-026). The answer is the same
+         *     invitation token the email's link carries; `accept-invite` with it sets the password and
+         *     signs the owner in. A code never signs anyone in by itself. A wrong, expired or spent code,
+         *     or an email with no unconfirmed signup, is `422` on `code`. Counted against the login limit
+         *     for the email (BR-014).
+         */
+        post: operations["verifyCode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/resend-code": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a signup's code and link again
+         * @description Always `202`, whatever the email (BR-021). Sends only to an owner still `invited` with no
+         *     password, as registering again does (BR-026). Counted against the login limit (BR-014).
+         */
+        post: operations["resendCode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/providers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The sign-in providers the admin offers
+         * @description The platform's Google client ID for the admin's sign-in button, or null when Google is off
+         *     (BR-020). Public by design: a client ID is not a secret.
+         */
+        get: operations["authProviders"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/google": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign in with a Google ID token
+         * @description The ID token from Google's button, issued for the client ID `providers` names (BR-020). The
+         *     active user the verified email names is signed in; an invited one has their invitation
+         *     accepted first. A token Google does not vouch for, a disabled user or no user is `401`; the
+         *     last says "No account uses this Google email." With Google off it is `422` on `id_token`.
+         *     Limited per IP (BR-014).
+         */
+        post: operations["googleSignIn"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/register/google": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Open a shop with a Google ID token
+         * @description As `register`, but Google has already confirmed the email: the owner is `active` with no
+         *     password, named from the Google profile, and signed in straight away (BR-020). An email
+         *     that already has an account is `422` on `email`; a token Google does not vouch for is
+         *     `401`; with Google off it is `422` on `id_token`. Limited per IP (BR-014).
+         */
+        post: operations["registerWithGoogle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/accept-invite": {
         parameters: {
             query?: never;
@@ -1679,6 +1792,32 @@ export interface components {
              */
             email: string;
         };
+        VerifyCodeRequest: {
+            /** Format: email */
+            email: string;
+            /** @example 482913 */
+            code: string;
+        };
+        InviteToken: {
+            /** @example inv_9c2e… */
+            token: string;
+        };
+        ResendCodeRequest: {
+            /** Format: email */
+            email: string;
+        };
+        AuthProviders: {
+            /** @example 1234-abc.apps.googleusercontent.com */
+            google_client_id: string | null;
+        };
+        GoogleSignInRequest: {
+            id_token: string;
+        };
+        GoogleRegisterRequest: {
+            id_token: string;
+            /** @example Erigo */
+            shop_name: string;
+        };
         AcceptInvite: {
             /** @example inv_9c2e… */
             token: string;
@@ -2381,6 +2520,134 @@ export interface operations {
                 };
                 content?: never;
             };
+            422: components["responses"]["UnprocessableEntity"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    verifyCode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VerifyCodeRequest"];
+            };
+        };
+        responses: {
+            /** @description The code is right; here is the invitation token. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InviteToken"];
+                };
+            };
+            422: components["responses"]["UnprocessableEntity"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    resendCode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResendCodeRequest"];
+            };
+        };
+        responses: {
+            /** @description Accepted. If the email has an unconfirmed signup, a new email is on its way. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            422: components["responses"]["UnprocessableEntity"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    authProviders: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The providers. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthProviders"];
+                };
+            };
+        };
+    };
+    googleSignIn: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GoogleSignInRequest"];
+            };
+        };
+        responses: {
+            /** @description Signed in. */
+            200: {
+                headers: {
+                    /** @description The refresh token, httpOnly, Secure, SameSite=Lax. */
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Session"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            422: components["responses"]["UnprocessableEntity"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    registerWithGoogle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GoogleRegisterRequest"];
+            };
+        };
+        responses: {
+            /** @description The shop is open and its owner signed in. */
+            201: {
+                headers: {
+                    /** @description The refresh token, httpOnly, Secure, SameSite=Lax. */
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Session"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
             422: components["responses"]["UnprocessableEntity"];
             429: components["responses"]["TooManyRequests"];
         };

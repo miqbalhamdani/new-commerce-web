@@ -8,6 +8,7 @@ import Button from "@/components/ui/button/Button"
 import { AuthError, useSession } from "@/lib/auth/session"
 
 import { PasswordInput } from "../PasswordInput"
+import { AuthHeading } from "../parts"
 
 /**
  * P1-079: the invitation link lands here with its token in the URL fragment,
@@ -15,7 +16,8 @@ import { PasswordInput } from "../PasswordInput"
  * signed in; their name was set when they were invited (BR-026).
  *
  * P1-085: a signup's confirmation link is the same invitation, marked
- * `signup=1`: it reads as "confirm your email" and opens onboarding.
+ * `signup=1`, and so is the token the 6-digit code buys (P1-087): it asks for
+ * the owner's password and opens onboarding.
  */
 export default function AcceptInvitePage() {
   const { acceptInvite } = useSession()
@@ -49,14 +51,11 @@ export default function AcceptInvitePage() {
 
   return (
     <div>
-      <h1 className="text-xl font-semibold text-gray-800 dark:text-white/90">
-        {signup ? "Confirm your email" : "Join your team"}
-      </h1>
-      <p className="mt-1 text-theme-sm text-gray-500 dark:text-gray-400">
+      <AuthHeading title={signup ? "Set your password" : "Join your team"}>
         {signup
-          ? "Choose a password to open your shop."
+          ? "Your email is confirmed. Choose a password to open your shop."
           : "Choose a password to finish setting up your account."}
-      </p>
+      </AuthHeading>
 
       {token === "" ||
       (token === null &&
@@ -64,13 +63,13 @@ export default function AcceptInvitePage() {
         !window.location.hash) ? (
         <p
           role="alert"
-          className="mt-6 rounded-xl border border-error-500 bg-error-50 p-3 text-theme-sm text-error-800 dark:border-error-500/30 dark:bg-error-500/15 dark:text-error-400"
+          className="rounded-xl border border-error-500 bg-error-50 p-3 text-theme-sm text-error-800 dark:border-error-500/30 dark:bg-error-500/15 dark:text-error-400"
         >
           This link is incomplete. Open the invitation email again, or ask for a
           new invitation.
         </p>
       ) : (
-        <form action={submit} className="mt-6 flex flex-col gap-5">
+        <form action={submit} className="flex flex-col gap-5">
           {error && (
             <div
               role="alert"

@@ -1,25 +1,28 @@
 "use client"
 
-import Link from "next/link"
-import { useActionState } from "react"
+import { useRouter } from "next/navigation"
+import { useActionState, useState } from "react"
 
 import Label from "@/components/form/Label"
 import Input from "@/components/form/input/InputField"
 import Button from "@/components/ui/button/Button"
 import { AuthError, useSession } from "@/lib/auth/session"
 
-type State = { error: string | null; sentTo: string | null }
+import { GoogleButton } from "../GoogleButton"
+import { AuthAlert, AuthHeading, Required, SwitchLine } from "../parts"
 
 /**
- * P1-085: anyone opens a shop here (P1-084). The API answers the same
- * whether or not the email already has an account (BR-021), so this screen
- * always says "check your inbox"; the emailed link sets the password and
- * opens onboarding.
+ * P1-085, P1-087: anyone opens a shop here. By email: shop name, name and
+ * email, then the 6-digit code screen, then a password (BR-026). By Google:
+ * Google already confirmed the email, so only the shop name is asked
+ * (BR-020).
  */
 export default function RegisterPage() {
-  const { register } = useSession()
+  const { register, googleRegister } = useSession()
+  const router = useRouter()
+  const [googleToken, setGoogleToken] = useState<string | null>(null)
 
-  const [state, submit, pending] = useActionState<State, FormData>(
+  const [error, submit, pending] = useActionState<string | null, FormData>(
     async (_previous, form) => {
       const email = String(form.get("email") ?? "").trim()
       try {
@@ -28,67 +31,43 @@ export default function RegisterPage() {
           String(form.get("name") ?? "").trim(),
           email,
         )
-        return { error: null, sentTo: email }
+        // In the fragment, like the invitation token: it never reaches a
+        // server log.
+        router.push(`/verify#email=${encodeURIComponent(email)}`)
+        return null
       } catch (err) {
-        return {
-          error:
-            err instanceof AuthError
-              ? err.message
-              : "Could not create the shop.",
-          sentTo: null,
-        }
+        return err instanceof AuthError
+          ? err.message
+          : "Could not create the shop."
       }
     },
-    { error: null, sentTo: null },
+    null,
   )
 
-  if (state.sentTo)
+  if (googleToken)
     return (
-      <div role="status">
-        <h1 className="text-xl font-semibold text-gray-800 dark:text-white/90">
-          Check your inbox
-        </h1>
-        <p className="mt-2 text-theme-sm text-gray-500 dark:text-gray-400">
-          If <strong className="font-medium">{state.sentTo}</strong> can be
-          used, we have sent it a link. Open it to confirm your email and choose
-          a password. The link works for 7 days.
-        </p>
-        <p className="mt-4 text-theme-xs text-gray-500 dark:text-gray-400">
-          No email after a few minutes? Check spam, or register again with the
-          same address to get a new link.
-        </p>
-        <p className="mt-6 text-center text-theme-sm">
-          <Link
-            href="/login"
-            className="font-medium text-brand-500 hover:text-brand-600 dark:text-brand-400"
-          >
-            Back to sign in
-          </Link>
-        </p>
-      </div>
+      <GoogleShopName
+        onBack={() => setGoogleToken(null)}
+        onSubmit={async (shopName) => {
+          await googleRegister(googleToken, shopName)
+          router.replace("/onboarding")
+        }}
+      />
     )
 
   return (
     <div>
-      <h1 className="text-xl font-semibold text-gray-800 dark:text-white/90">
-        Create your shop
-      </h1>
-      <p className="mt-1 text-theme-sm text-gray-500 dark:text-gray-400">
-        We will email you a link to confirm your address and choose a password.
-      </p>
+      <AuthHeading title="Sign Up">Open your shop in a minute.</AuthHeading>
 
-      <form action={submit} className="mt-6 flex flex-col gap-5">
-        {state.error && (
-          <div
-            role="alert"
-            className="rounded-xl border border-error-500 bg-error-50 p-3 text-theme-sm text-error-800 dark:border-error-500/30 dark:bg-error-500/15 dark:text-error-400"
-          >
-            {state.error}
-          </div>
-        )}
+      <GoogleButton text="signup_with" onCredential={setGoogleToken} />
+
+      <form action={submit} className="flex flex-col gap-5">
+        {error && <AuthAlert>{error}</AuthAlert>}
 
         <div>
-          <Label htmlFor="shop_name">Shop name</Label>
+          <Label htmlFor="shop_name">
+            <Required>Shop name</Required>
+          </Label>
           <Input
             id="shop_name"
             name="shop_name"
@@ -101,18 +80,23 @@ export default function RegisterPage() {
         </div>
 
         <div>
-          <Label htmlFor="name">Your name</Label>
+          <Label htmlFor="name">
+            <Required>Your name</Required>
+          </Label>
           <Input
             id="name"
             name="name"
             autoComplete="name"
+            placeholder="Budi Santoso"
             required
             maxLength={100}
           />
         </div>
 
         <div>
-          <Label htmlFor="email">Email</Label>
+          <Label htmlFor="email">
+            <Required>Email</Required>
+          </Label>
           <Input
             id="email"
             name="email"
@@ -122,22 +106,85 @@ export default function RegisterPage() {
             required
             maxLength={254}
           />
+          <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+            We will send a 6-digit code to confirm it.
+          </p>
         </div>
 
-        <Button type="submit" className="mt-1 w-full" isLoading={pending}>
-          Create shop
+        <Button type="submit" className="w-full" isLoading={pending}>
+          Sign Up
         </Button>
       </form>
 
-      <p className="mt-6 text-center text-theme-sm text-gray-500 dark:text-gray-400">
-        Already have an account?{" "}
-        <Link
-          href="/login"
+      <SwitchLine
+        question="Already have an account?"
+        href="/login"
+        action="Sign In"
+      />
+    </div>
+  )
+}
+
+/** After Google: the one thing Google cannot tell us. */
+function GoogleShopName({
+  onBack,
+  onSubmit,
+}: {
+  onBack: () => void
+  onSubmit: (shopName: string) => Promise<void>
+}) {
+  const [error, submit, pending] = useActionState<string | null, FormData>(
+    async (_previous, form) => {
+      try {
+        await onSubmit(String(form.get("shop_name") ?? "").trim())
+        return null
+      } catch (err) {
+        return err instanceof AuthError
+          ? err.message
+          : "Could not create the shop."
+      }
+    },
+    null,
+  )
+  return (
+    <div>
+      <AuthHeading title="One more step">
+        Google confirmed your email. What is your shop called?
+      </AuthHeading>
+      <form action={submit} className="flex flex-col gap-5">
+        {error && <AuthAlert>{error}</AuthAlert>}
+        <div>
+          <Label htmlFor="google_shop_name">
+            <Required>Shop name</Required>
+          </Label>
+          <Input
+            id="google_shop_name"
+            name="shop_name"
+            autoComplete="organization"
+            placeholder="Erigo"
+            required
+            maxLength={100}
+            autoFocus
+          />
+        </div>
+        <Button type="submit" className="w-full" isLoading={pending}>
+          Create shop
+        </Button>
+      </form>
+      <p className="mt-5 text-center text-sm sm:text-start">
+        <button
+          type="button"
+          onClick={onBack}
           className="font-medium text-brand-500 hover:text-brand-600 dark:text-brand-400"
         >
-          Sign in
-        </Link>
+          Use email instead
+        </button>
       </p>
+      <SwitchLine
+        question="Already have an account?"
+        href="/login"
+        action="Sign In"
+      />
     </div>
   )
 }
