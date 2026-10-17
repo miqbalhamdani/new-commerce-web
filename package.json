@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "generate": "openapi-typescript contracts/openapi.yaml -o src/lib/api/schema.d.ts",
+    "contracts": "rm -rf contracts && curl -sSfL https://codeload.github.com/miqbalhamdani/new-commerce-api/tar.gz/main | tar -xz --strip-components=1 new-commerce-api-main/contracts",
     "generated-diff": "git diff --exit-code -- src/lib/api/schema.d.ts",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",

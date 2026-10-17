@@ -38,5 +38,3 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-
-# contracts is a git submodule, not ignored -- listed here so nobody adds it.
