@@ -4,6 +4,7 @@ import Label from "@/components/form/Label"
 import Input from "@/components/form/input/InputField"
 import Button from "@/components/ui/button/Button"
 import { AuthError, useSession } from "@/lib/auth/session"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useActionState, useState } from "react"
 
@@ -103,6 +104,13 @@ export default function LoginPage() {
             minLength={8}
             error={Boolean(error)}
           />
+          {/* P1-089: also how a Google-only user adds a password (BR-094). */}
+          <Link
+            href="/forgot-password"
+            className="mt-2 inline-block text-sm text-brand-500 hover:text-brand-600 dark:text-brand-400"
+          >
+            Forgot password?
+          </Link>
         </div>
 
         <Button type="submit" className="w-full" isLoading={pending}>

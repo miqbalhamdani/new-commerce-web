@@ -42,6 +42,10 @@ interface SessionState {
   verifyCode(email: string, code: string): Promise<string>;
   /** Sends a signup's code again; the API answers the same for any email (BR-021). */
   resendCode(email: string): Promise<void>;
+  /** Emails a password reset link; the API answers the same for any email (P1-088, BR-094). */
+  requestPasswordReset(email: string): Promise<void>;
+  /** Sets a new password from a reset link and signs in (BR-094). */
+  resetPassword(token: string, password: string): Promise<void>;
   /** The admin's Google client ID, or null when Google is off (BR-020). */
   googleClientId(): Promise<string | null>;
   /** Signs in with a Google ID token (BR-020). */
@@ -204,6 +208,22 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     await authPost("/v1/auth/resend-code", { email }, "Could not send the code.");
   }, []);
 
+  const requestPasswordReset = useCallback(async (email: string) => {
+    await authPost("/v1/auth/password-reset", { email }, "Could not send the link.");
+  }, []);
+
+  const resetPassword = useCallback(
+    async (token: string, password: string) => {
+      const response = await authPost(
+        "/v1/auth/password-reset/confirm",
+        { token, password },
+        "Could not set the password.",
+      );
+      adopt((await response.json()) as Session);
+    },
+    [adopt],
+  );
+
   const googleClientId = useCallback(async () => {
     const response = await fetch("/v1/auth/providers", { credentials: "include" });
     if (!response.ok) return null;
@@ -265,6 +285,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       register,
       verifyCode,
       resendCode,
+      requestPasswordReset,
+      resetPassword,
       googleClientId,
       googleSignIn,
       googleRegister,
@@ -281,6 +303,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       register,
       verifyCode,
       resendCode,
+      requestPasswordReset,
+      resetPassword,
       googleClientId,
       googleSignIn,
       googleRegister,
