@@ -54,7 +54,7 @@ export default function OnboardingPage() {
           />
         )}
         {step === 1 && <FirstBrand onDone={() => setStep(2)} />}
-        {step === 2 && <FirstCategories done={step > 2} />}
+        {step === 2 && <FirstCategories />}
       </Card>
     </Page>
   )
@@ -105,12 +105,12 @@ function FirstBrand({ onDone }: { onDone: () => void }) {
   )
 }
 
-function FirstCategories({ done }: { done: boolean }) {
+function FirstCategories() {
   const api = useApi()
   const [root, setRoot] = useState("Apparel")
   const [children, setChildren] = useState("Tees, Shirts, Outerwear")
   const [error, setError] = useState<ApiError | null>(null)
-  const [finished, setFinished] = useState(done)
+  const [finished, setFinished] = useState(false)
   async function save(e: React.FormEvent) {
     e.preventDefault()
     try {

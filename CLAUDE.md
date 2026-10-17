@@ -66,8 +66,9 @@ CI (`.github/workflows/ci.yml`, P1-004): `check` (npm ci, `npm run check`, `npm 
 
 **Route groups carry the auth boundary.** The root `app/layout.tsx` holds only `<html>`,
 next-themes' `ThemeProvider` and `SessionProvider` (above both groups, so the one
-refresh-on-mount serves login and shell alike). `(auth)/` (login, accept-invite) renders a bare
-centred card. `(app)/layout.tsx` is a client guard: while the session is `loading` it shows
+refresh-on-mount serves login and shell alike). `(auth)/` (login, register, accept-invite) renders
+a bare centred card; a signup's emailed link is an invitation marked `signup=1`, so accept-invite
+opens `/onboarding` after it. `(app)/layout.tsx` is a client guard: while the session is `loading` it shows
 "Loading…" (never a signed-out flash), on `anonymous` it `router.replace("/login")`s, and only on
 `authenticated` renders the TailAdmin shell (`SidebarProvider`, `AppSidebar`, `AppHeader`). The
 guard is a convenience; the API is the security boundary. `/` redirects to `/products`.
@@ -178,7 +179,8 @@ effect, StrictMode's double effect, `apiFetch`'s 401 retry) awaits the same prom
 `/v1/auth/refresh` yourself or add a second refresh path.
 
 `useSession()` exposes `status` (`loading` | `authenticated` | `anonymous`), `user` (role,
-`permissions`), `tenant` (incl. `timezone`), `signIn`, `acceptInvite`, `signOut` (best-effort
+`permissions`), `tenant` (incl. `timezone`), `signIn`, `acceptInvite`, `register` (opens a shop;
+signs nobody in), `signOut` (best-effort
 logout, always clears locally), `getAccessToken()` (a getter, never a value) and `refresh()`.
 Auth failures throw `AuthError` carrying the API's deliberately vague `detail`. `useCan(perm)`
 lives in the same file.

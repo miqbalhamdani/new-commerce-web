@@ -4,6 +4,7 @@ import Label from "@/components/form/Label"
 import Input from "@/components/form/input/InputField"
 import Button from "@/components/ui/button/Button"
 import { AuthError, useSession } from "@/lib/auth/session"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useActionState } from "react"
 
@@ -84,7 +85,16 @@ export default function LoginPage() {
         </Button>
       </form>
 
-      <p className="mt-6 text-center text-theme-xs text-gray-500 dark:text-gray-400">
+      <p className="mt-6 text-center text-theme-sm text-gray-500 dark:text-gray-400">
+        New to Belli.id?{" "}
+        <Link
+          href="/register"
+          className="font-medium text-brand-500 hover:text-brand-600 dark:text-brand-400"
+        >
+          Create a shop
+        </Link>
+      </p>
+      <p className="mt-2 text-center text-theme-xs text-gray-500 dark:text-gray-400">
         Trouble signing in? Ask your workspace owner to resend your invitation.
       </p>
     </div>

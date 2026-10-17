@@ -36,6 +36,8 @@ interface SessionState {
   signIn(email: string, password: string): Promise<void>;
   /** Sets a password from an invitation link and signs in (BR-026). */
   acceptInvite(token: string, password: string): Promise<void>;
+  /** Opens a shop (P1-084); signs nobody in -- the emailed link does that. */
+  register(shopName: string, name: string, email: string): Promise<void>;
   signOut(): Promise<void>;
   /** Reads the current access token. A function, not a value -- see below. */
   getAccessToken(): string | null;
@@ -170,6 +172,19 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     [adopt],
   );
 
+  const register = useCallback(async (shopName: string, name: string, email: string) => {
+    const response = await fetch("/v1/auth/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ shop_name: shopName, name, email }),
+    });
+    if (!response.ok) {
+      const problem = await response.json().catch(() => null);
+      throw new AuthError(problem?.errors?.[0]?.detail ?? problem?.detail ?? "Could not create the shop.");
+    }
+  }, []);
+
   const signOut = useCallback(async () => {
     const token = accessToken.current;
     // Best effort. If this fails the local session still ends -- leaving the
@@ -202,11 +217,12 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       status,
       signIn,
       acceptInvite,
+      register,
       signOut,
       refresh,
       getAccessToken: () => accessToken.current,
     }),
-    [user, tenant, status, signIn, acceptInvite, signOut, refresh],
+    [user, tenant, status, signIn, acceptInvite, register, signOut, refresh],
   );
 
   return <SessionContext value={value}>{children}</SessionContext>;

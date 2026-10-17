@@ -13,14 +13,20 @@ import { PasswordInput } from "../PasswordInput"
  * P1-079: the invitation link lands here with its token in the URL fragment,
  * which never reaches a server or its logs. The person sets a password and is
  * signed in; their name was set when they were invited (BR-026).
+ *
+ * P1-085: a signup's confirmation link is the same invitation, marked
+ * `signup=1`: it reads as "confirm your email" and opens onboarding.
  */
 export default function AcceptInvitePage() {
   const { acceptInvite } = useSession()
   const router = useRouter()
   const [token, setToken] = useState<string | null>(null)
+  const [signup, setSignup] = useState(false)
 
   useEffect(() => {
-    setToken(new URLSearchParams(window.location.hash.slice(1)).get("token"))
+    const fragment = new URLSearchParams(window.location.hash.slice(1))
+    setToken(fragment.get("token"))
+    setSignup(fragment.get("signup") === "1")
   }, [])
 
   const [error, submit, pending] = useActionState<string | null, FormData>(
@@ -30,7 +36,7 @@ export default function AcceptInvitePage() {
         return "The two passwords are not the same."
       try {
         await acceptInvite(token ?? "", password)
-        router.replace("/")
+        router.replace(signup ? "/onboarding" : "/")
         return null
       } catch (err) {
         return err instanceof AuthError
@@ -44,10 +50,12 @@ export default function AcceptInvitePage() {
   return (
     <div>
       <h1 className="text-xl font-semibold text-gray-800 dark:text-white/90">
-        Join your team
+        {signup ? "Confirm your email" : "Join your team"}
       </h1>
       <p className="mt-1 text-theme-sm text-gray-500 dark:text-gray-400">
-        Choose a password to finish setting up your account.
+        {signup
+          ? "Choose a password to open your shop."
+          : "Choose a password to finish setting up your account."}
       </p>
 
       {token === "" ||
@@ -93,7 +101,7 @@ export default function AcceptInvitePage() {
             />
           </div>
           <Button type="submit" className="mt-1 w-full" isLoading={pending}>
-            Set password and sign in
+            {signup ? "Open my shop" : "Set password and sign in"}
           </Button>
         </form>
       )}
