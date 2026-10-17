@@ -91,4 +91,20 @@ describe("accept invitation (P1-079)", () => {
     )
     expect(replace).not.toHaveBeenCalled()
   })
+
+  it("a signup's link confirms the email and opens onboarding (P1-085)", async () => {
+    window.location.hash = "#token=inv_abc.def&signup=1"
+    mockFetch(() => json(sessionFor(["settings:write"], "owner")))
+    renderSignedIn(<AcceptInvitePage />)
+    expect(
+      await screen.findByRole("heading", { name: "Confirm your email" }),
+    ).toBeInTheDocument()
+    await userEvent.type(screen.getByLabelText("Password"), "a-good-password")
+    await userEvent.type(
+      screen.getByLabelText("The same password again"),
+      "a-good-password",
+    )
+    await userEvent.click(screen.getByRole("button", { name: "Open my shop" }))
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/onboarding"))
+  })
 })
