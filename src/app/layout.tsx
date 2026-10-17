@@ -12,7 +12,7 @@ const outfit = Outfit({
 })
 
 export const metadata: Metadata = {
-  title: "New Commerce",
+  title: "Belli.id",
   description: "Catalog management for Indonesian merchants.",
 }
 

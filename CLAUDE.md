@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 # new-commerce-web — the Next.js admin
 
-The admin front end for New Commerce (catalog and order management for Indonesian merchants).
+The admin front end for Belli.id (catalog and order management for Indonesian merchants).
 Next.js 15.1 App Router · React 19 · TypeScript · Tailwind 3. Built screens span Phases 0–3
 (catalog, orders, customers, team, settings, API keys, storefront settings); see Scope below.
 The API is the sibling repo `new-commerce-api`; this app has no data of its own, so run the API

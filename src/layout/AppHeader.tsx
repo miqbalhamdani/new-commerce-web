@@ -70,7 +70,7 @@ const AppHeader: React.FC = () => {
           <Link href="/" className="flex items-center gap-2 lg:hidden">
             <Logo className="size-8 text-brand-500" aria-hidden="true" />
             <span className="font-semibold text-gray-800 dark:text-white/90">
-              New Commerce
+              Belli.id
             </span>
           </Link>
 

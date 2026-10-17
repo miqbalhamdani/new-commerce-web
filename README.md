@@ -1,6 +1,6 @@
 # new-commerce-web
 
-The admin front end for New Commerce — catalog management for Indonesian
+The admin front end for Belli.id — catalog management for Indonesian
 merchants. Next.js 15 App Router, TypeScript, Tailwind 3.
 
 The API lives in [`new-commerce-api`](https://github.com/miqbalhamdani/new-commerce-api).
