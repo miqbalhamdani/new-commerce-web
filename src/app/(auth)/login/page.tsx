@@ -4,20 +4,24 @@ import Label from "@/components/form/Label"
 import Input from "@/components/form/input/InputField"
 import Button from "@/components/ui/button/Button"
 import { AuthError, useSession } from "@/lib/auth/session"
-import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useActionState } from "react"
+import { useActionState, useState } from "react"
 
+import { GoogleButton } from "../GoogleButton"
 import { PasswordInput } from "../PasswordInput"
+import { AuthAlert, AuthHeading, Required, SwitchLine } from "../parts"
 
+/** P1-087: TailAdmin's sign-in, with Google when the API has a client ID. */
 export default function LoginPage() {
-  const { signIn } = useSession()
+  const { signIn, googleSignIn } = useSession()
   const router = useRouter()
+  const [googleError, setGoogleError] = useState<string | null>(null)
 
   // React 19 form action: the pending state comes from the framework rather
   // than a variable somebody has to remember to reset on the error path.
   const [error, submit, pending] = useActionState<string | null, FormData>(
     async (_previous, formData) => {
+      setGoogleError(null)
       try {
         await signIn(
           String(formData.get("email") ?? ""),
@@ -32,30 +36,48 @@ export default function LoginPage() {
     null,
   )
 
+  async function withGoogle(idToken: string) {
+    setGoogleError(null)
+    try {
+      await googleSignIn(idToken)
+      router.replace("/")
+    } catch (err) {
+      setGoogleError(
+        err instanceof AuthError
+          ? err.message
+          : "Could not sign in with Google.",
+      )
+    }
+  }
+
   return (
     <div>
-      <h1 className="text-xl font-semibold text-gray-800 dark:text-white/90">
-        Sign in
-      </h1>
-      <p className="mt-1 text-theme-sm text-gray-500 dark:text-gray-400">
-        Use the email address your workspace owner invited.
-      </p>
+      <AuthHeading title="Sign In">
+        Enter your email and password to sign in!
+      </AuthHeading>
 
-      <form action={submit} className="mt-6 flex flex-col gap-5">
+      <GoogleButton
+        text="signin_with"
+        onCredential={(t) => void withGoogle(t)}
+      />
+      {googleError && (
+        <div className="mb-5">
+          <AuthAlert>{googleError}</AuthAlert>
+        </div>
+      )}
+
+      <form action={submit} className="flex flex-col gap-5">
         {error && (
-          // An error a user must act on has to be announced when it appears,
-          // not only when they happen to tab past it.
-          <div
-            role="alert"
-            className="rounded-xl border border-error-500 bg-error-50 p-3 text-theme-sm text-error-800 dark:border-error-500/30 dark:bg-error-500/15 dark:text-error-400"
-          >
+          <AuthAlert>
             <span className="font-medium">Sign in failed. </span>
             {error}
-          </div>
+          </AuthAlert>
         )}
 
         <div>
-          <Label htmlFor="email">Email</Label>
+          <Label htmlFor="email">
+            <Required>Email</Required>
+          </Label>
           <Input
             id="email"
             name="email"
@@ -69,34 +91,30 @@ export default function LoginPage() {
         </div>
 
         <div>
-          <Label htmlFor="password">Password</Label>
+          <Label htmlFor="password">
+            <Required>Password</Required>
+          </Label>
           <PasswordInput
             id="password"
             name="password"
             autoComplete="current-password"
+            placeholder="Enter your password"
             required
             minLength={8}
             error={Boolean(error)}
           />
         </div>
 
-        <Button type="submit" className="mt-1 w-full" isLoading={pending}>
+        <Button type="submit" className="w-full" isLoading={pending}>
           Sign in
         </Button>
       </form>
 
-      <p className="mt-6 text-center text-theme-sm text-gray-500 dark:text-gray-400">
-        New to Belli.id?{" "}
-        <Link
-          href="/register"
-          className="font-medium text-brand-500 hover:text-brand-600 dark:text-brand-400"
-        >
-          Create a shop
-        </Link>
-      </p>
-      <p className="mt-2 text-center text-theme-xs text-gray-500 dark:text-gray-400">
-        Trouble signing in? Ask your workspace owner to resend your invitation.
-      </p>
+      <SwitchLine
+        question="Don't have an account?"
+        href="/register"
+        action="Sign Up"
+      />
     </div>
   )
 }

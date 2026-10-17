@@ -66,9 +66,11 @@ CI (`.github/workflows/ci.yml`, P1-004): `check` (npm ci, `npm run check`, `npm 
 
 **Route groups carry the auth boundary.** The root `app/layout.tsx` holds only `<html>`,
 next-themes' `ThemeProvider` and `SessionProvider` (above both groups, so the one
-refresh-on-mount serves login and shell alike). `(auth)/` (login, register, accept-invite) renders
-a bare centred card; a signup's emailed link is an invitation marked `signup=1`, so accept-invite
-opens `/onboarding` after it. `(app)/layout.tsx` is a client guard: while the session is `loading` it shows
+refresh-on-mount serves login and shell alike). `(auth)/` (login, register, verify, accept-invite) is
+TailAdmin's split layout: the form left, a brand panel right from `lg`. Sign-up goes to `/verify`
+(the emailed 6-digit code buys the invitation token), then accept-invite with `signup=1` sets the
+password and opens `/onboarding`. `GoogleButton` renders Google's own button (only it returns an
+ID token) when `GET /v1/auth/providers` names a client ID, and nothing otherwise. `(app)/layout.tsx` is a client guard: while the session is `loading` it shows
 "Loading…" (never a signed-out flash), on `anonymous` it `router.replace("/login")`s, and only on
 `authenticated` renders the TailAdmin shell (`SidebarProvider`, `AppSidebar`, `AppHeader`). The
 guard is a convenience; the API is the security boundary. `/` redirects to `/products`.
@@ -180,7 +182,8 @@ effect, StrictMode's double effect, `apiFetch`'s 401 retry) awaits the same prom
 
 `useSession()` exposes `status` (`loading` | `authenticated` | `anonymous`), `user` (role,
 `permissions`), `tenant` (incl. `timezone`), `signIn`, `acceptInvite`, `register` (opens a shop;
-signs nobody in), `signOut` (best-effort
+signs nobody in), `verifyCode`, `resendCode`, `googleClientId`, `googleSignIn`, `googleRegister`,
+`signOut` (best-effort
 logout, always clears locally), `getAccessToken()` (a getter, never a value) and `refresh()`.
 Auth failures throw `AuthError` carrying the API's deliberately vague `detail`. `useCan(perm)`
 lives in the same file.

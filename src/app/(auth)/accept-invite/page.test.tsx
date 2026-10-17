@@ -97,7 +97,7 @@ describe("accept invitation (P1-079)", () => {
     mockFetch(() => json(sessionFor(["settings:write"], "owner")))
     renderSignedIn(<AcceptInvitePage />)
     expect(
-      await screen.findByRole("heading", { name: "Confirm your email" }),
+      await screen.findByRole("heading", { name: "Set your password" }),
     ).toBeInTheDocument()
     await userEvent.type(screen.getByLabelText("Password"), "a-good-password")
     await userEvent.type(
