@@ -81,6 +81,35 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Open a shop; the owner confirms their email from a link
+         * @description Always `202`, whether or not the email is free, so the route never says which emails
+         *     have an account (BR-020, BR-021).
+         *
+         *     A new email gets a tenant and an `owner` who is `invited`, with no password, and an email
+         *     from "Belli.id" with a confirmation link (BR-128). The link is an invitation token (BR-026):
+         *     `accept-invite` with it sets the password, confirms the address and signs the owner in. If
+         *     the email belongs to an owner still `invited` with no password, the link is sent again;
+         *     any other existing email gets nothing.
+         *
+         *     Rate-limited like login (BR-014).
+         */
+        post: operations["register"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/accept-invite": {
         parameters: {
             query?: never;
@@ -1639,6 +1668,17 @@ export interface components {
             /** Format: uuid */
             job_id: string;
         };
+        RegisterRequest: {
+            /** @example Erigo */
+            shop_name: string;
+            /** @example Budi */
+            name: string;
+            /**
+             * Format: email
+             * @example budi@erigo.co.id
+             */
+            email: string;
+        };
         AcceptInvite: {
             /** @example inv_9c2e… */
             token: string;
@@ -2319,6 +2359,30 @@ export interface operations {
                 content?: never;
             };
             401: components["responses"]["Unauthorized"];
+        };
+    };
+    register: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegisterRequest"];
+            };
+        };
+        responses: {
+            /** @description Accepted. If the email can be used, a confirmation link is on its way. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            422: components["responses"]["UnprocessableEntity"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     acceptInvite: {
