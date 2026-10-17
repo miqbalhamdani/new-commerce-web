@@ -246,6 +246,51 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/password-reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Email a password reset link
+         * @description Always `202`, whatever the email (BR-021). Only an `active` user is sent a link, to the
+         *     admin's `/reset-password`, valid 30 minutes and single use (BR-094); an `invited` owner
+         *     confirms the signup instead. A Google-only user adds a password this way. Counted against
+         *     the login limit (BR-014).
+         */
+        post: operations["requestStaffPasswordReset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/password-reset/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set a new password from a reset link and sign in
+         * @description Sets the password, revokes every refresh token the user has and signs them in with a new
+         *     session (BR-094). An expired, used or forged token, or a customer's reset token, is `422`
+         *     on `token`. Limited per IP (BR-014).
+         */
+        post: operations["confirmStaffPasswordReset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/roles": {
         parameters: {
             query?: never;
@@ -1824,6 +1869,16 @@ export interface components {
             /** Format: password */
             password: string;
         };
+        StaffPasswordResetRequest: {
+            /** Format: email */
+            email: string;
+        };
+        StaffPasswordResetConfirm: {
+            /** @example prt_… */
+            token: string;
+            /** Format: password */
+            password: string;
+        };
         User: {
             /** Format: uuid */
             id: string;
@@ -2677,6 +2732,58 @@ export interface operations {
                 };
             };
             422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    requestStaffPasswordReset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StaffPasswordResetRequest"];
+            };
+        };
+        responses: {
+            /** @description Accepted. If the email belongs to an active user, a link is on its way. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            422: components["responses"]["UnprocessableEntity"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    confirmStaffPasswordReset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StaffPasswordResetConfirm"];
+            };
+        };
+        responses: {
+            /** @description Signed in. */
+            200: {
+                headers: {
+                    /** @description The refresh token, httpOnly, Secure, SameSite=Lax. */
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Session"];
+                };
+            };
+            422: components["responses"]["UnprocessableEntity"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     listRoles: {
