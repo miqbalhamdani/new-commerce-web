@@ -3,9 +3,11 @@ import defaultTheme from "tailwindcss/defaultTheme"
 import forms from "@tailwindcss/forms"
 
 // Design tokens vendored from TailAdmin free-nextjs-admin-dashboard
-// @ 3f6902572e9d (the Tailwind v3 snapshot of the v2 design). One deviation:
+// @ 3f6902572e9d (the Tailwind v3 snapshot of the v2 design). Two deviations:
 // `outfit` sits under extend so the default sans/mono stacks survive
 // (audit-log uses font-mono); upstream replaces theme.fontFamily.
+// And gray reads CSS variables (src/app/globals.css) so dark mode can swap
+// TailAdmin's blue-gray for shadcn's neutral; light mode keeps the original hexes.
 export default {
   darkMode: "selector",
   content: [
@@ -71,19 +73,19 @@ export default {
           950: "#062C41",
         },
         gray: {
-          dark: "#1A2231",
-          25: "#FCFCFD",
-          50: "#F9FAFB",
-          100: "#F2F4F7",
-          200: "#E4E7EC",
-          300: "#D0D5DD",
-          400: "#98A2B3",
-          500: "#667085",
-          600: "#475467",
-          700: "#344054",
-          800: "#1D2939",
-          900: "#101828",
-          950: "#0C111D",
+          dark: "rgb(var(--gray-dark) / <alpha-value>)",
+          25: "rgb(var(--gray-25) / <alpha-value>)",
+          50: "rgb(var(--gray-50) / <alpha-value>)",
+          100: "rgb(var(--gray-100) / <alpha-value>)",
+          200: "rgb(var(--gray-200) / <alpha-value>)",
+          300: "rgb(var(--gray-300) / <alpha-value>)",
+          400: "rgb(var(--gray-400) / <alpha-value>)",
+          500: "rgb(var(--gray-500) / <alpha-value>)",
+          600: "rgb(var(--gray-600) / <alpha-value>)",
+          700: "rgb(var(--gray-700) / <alpha-value>)",
+          800: "rgb(var(--gray-800) / <alpha-value>)",
+          900: "rgb(var(--gray-900) / <alpha-value>)",
+          950: "rgb(var(--gray-950) / <alpha-value>)",
         },
         orange: {
           25: "#FFFAF5",
