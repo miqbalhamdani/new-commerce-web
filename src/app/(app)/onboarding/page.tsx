@@ -1,28 +1,36 @@
 "use client"
 
+import { CheckCircle2 } from "lucide-react"
 import { useState } from "react"
 
-import Button from "@/components/ui/button/Button"
-import Input from "@/components/form/input/InputField"
-import Label from "@/components/form/Label"
 import { ButtonLink } from "@/components/ui/common/ButtonLink"
-import { SettingsForm } from "@/components/ui/settings/SettingsForm"
-import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
 import { Card, Empty, Loading, Page } from "@/components/ui/common/Page"
 import { Stepper } from "@/components/ui/common/Stepper"
-import { ApiError } from "@/lib/api/client"
-import type { Category, Settings } from "@/lib/api/types"
-import { asApiError, useApi, useResource } from "@/lib/api/use-api"
+import {
+  BrandsStep,
+  CategoriesStep,
+  ProductStep,
+} from "@/components/ui/onboarding/Steps"
+import { SettingsForm } from "@/components/ui/settings/SettingsForm"
+import type { BrandPage, Category, Product, Settings } from "@/lib/api/types"
+import { useResource } from "@/lib/api/use-api"
 import { useCan } from "@/lib/auth/session"
 
-// P1-068: the owner's first steps -- shop settings, a first brand, a first
-// category tree -- with sensible defaults already filled in (BR-029).
+// P1-068: the owner's first steps -- shop settings, brands, the category tree
+// and a first product -- with sensible defaults already filled in (BR-029).
+// Steps 2-4 write the shop's real brands, categories and products, the same
+// ones the Catalog pages in the sidebar show.
 
-const steps = ["Your shop", "First brand", "First categories"] as const
+const steps = ["Your shop", "Brands", "Categories", "First product"] as const
+const DONE = steps.length
 
 export default function OnboardingPage() {
   const canSettings = useCan("settings:write")
   const [step, setStep] = useState(0)
+  const [product, setProduct] = useState<{
+    product: Product
+    priced: boolean
+  } | null>(null)
   const { data: settings, setData } = useResource<Settings>(
     canSettings ? "/v1/settings" : null,
   )
@@ -38,7 +46,7 @@ export default function OnboardingPage() {
   return (
     <Page
       title="Get started"
-      description="Three short steps, then add your products."
+      description="Four short steps. Everything you add here also shows up under Catalog in the sidebar."
     >
       <Stepper steps={steps} current={step} />
       <Card className="p-6">
@@ -54,148 +62,88 @@ export default function OnboardingPage() {
           />
         )}
         {step === 1 && (
-          <FirstBrand onBack={() => setStep(0)} onDone={() => setStep(2)} />
+          <BrandsStep
+            shopName={settings.name}
+            onBack={() => setStep(0)}
+            onNext={() => setStep(2)}
+          />
         )}
-        {step === 2 && <FirstCategories onBack={() => setStep(1)} />}
+        {step === 2 && (
+          <CategoriesStep onBack={() => setStep(1)} onNext={() => setStep(3)} />
+        )}
+        {step === 3 && (
+          <ProductStep
+            onBack={() => setStep(2)}
+            onSkip={() => setStep(DONE)}
+            onCreated={(p, priced) => {
+              setProduct({ product: p, priced })
+              setStep(DONE)
+            }}
+          />
+        )}
+        {step === DONE && <Done created={product} onBack={() => setStep(3)} />}
       </Card>
     </Page>
   )
 }
 
-function FirstBrand({
+function Done({
+  created,
   onBack,
-  onDone,
 }: {
+  created: { product: Product; priced: boolean } | null
   onBack: () => void
-  onDone: () => void
 }) {
-  const api = useApi()
-  const { data: settings } = useResource<Settings>("/v1/settings")
-  const [name, setName] = useState<string | null>(null)
-  const [error, setError] = useState<ApiError | null>(null)
-  const value = name ?? settings?.name ?? "" // most shops sell their own brand first
-  async function save(e: React.FormEvent) {
-    e.preventDefault()
-    try {
-      await api("/v1/brands", { method: "POST", body: { name: value } })
-      onDone()
-    } catch (err) {
-      const ae = asApiError(err)
-      // A brand of that name already exists: nothing to add, move on.
-      if (
-        ae.problem.errors?.some((x) => x.field === "name") &&
-        /already/.test(ae.message)
-      )
-        onDone()
-      else setError(ae)
-    }
-  }
-  return (
-    <form onSubmit={save} className="flex flex-col gap-3">
-      <Label htmlFor="brand" className="mb-0">
-        The brand you sell
-      </Label>
-      <Input
-        id="brand"
-        value={value}
-        onChange={(e) => setName(e.target.value)}
-      />
-      <ErrorNotice error={error} />
-      <div className="flex justify-between">
-        <Button size="sm" type="button" variant="outline" onClick={onBack}>
-          Back
-        </Button>
-        <div className="flex gap-2">
-          <Button size="sm" type="button" variant="ghost" onClick={onDone}>
-            Skip — not every product has a brand
-          </Button>
-          <Button size="sm" type="submit" disabled={!value.trim()}>
-            Continue
-          </Button>
-        </div>
-      </div>
-    </form>
+  const { data: brands } = useResource<BrandPage>("/v1/brands?limit=200")
+  const { data: categories } = useResource<{ data: Category[] }>(
+    "/v1/categories?kind=category",
   )
-}
-
-function FirstCategories({ onBack }: { onBack: () => void }) {
-  const api = useApi()
-  const [root, setRoot] = useState("Apparel")
-  const [children, setChildren] = useState("Tees, Shirts, Outerwear")
-  const [error, setError] = useState<ApiError | null>(null)
-  const [finished, setFinished] = useState(false)
-  async function save(e: React.FormEvent) {
-    e.preventDefault()
-    try {
-      const top = await api<Category>("/v1/categories", {
-        method: "POST",
-        body: { name: root, kind: "category" },
-      })
-      for (const name of children
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean)) {
-        await api("/v1/categories", {
-          method: "POST",
-          body: { name, kind: "category", parent_id: top.id },
-        })
-      }
-      setFinished(true)
-    } catch (err) {
-      setError(asApiError(err))
-    }
-  }
-  if (finished) {
-    return (
-      <div className="flex flex-col gap-3 text-theme-sm text-gray-700 dark:text-gray-300">
-        <p className="font-medium text-gray-800 dark:text-white/90">
-          Your shop is set up.
-        </p>
-        <div className="flex gap-2">
-          <ButtonLink href="/products">Add your first product</ButtonLink>
-          <ButtonLink href="/products/import" variant="outline">
-            Import a spreadsheet
-          </ButtonLink>
-        </div>
-      </div>
-    )
-  }
+  const brandCount = brands?.data.length ?? 0
+  const categoryCount = categories?.data.length ?? 0
   return (
-    <form onSubmit={save} className="flex flex-col gap-3">
-      <Label htmlFor="root" className="mb-0">
-        Main category
-      </Label>
-      <Input id="root" value={root} onChange={(e) => setRoot(e.target.value)} />
-      <Label htmlFor="children" className="mb-0">
-        Under it (comma separated)
-      </Label>
-      <Input
-        id="children"
-        value={children}
-        onChange={(e) => setChildren(e.target.value)}
-      />
-      <p className="text-xs text-gray-500 dark:text-gray-400">
-        You can rearrange these any time by dragging them in Categories.
-      </p>
-      <ErrorNotice error={error} />
-      <div className="flex justify-between">
-        <Button size="sm" type="button" variant="outline" onClick={onBack}>
-          Back
-        </Button>
-        <div className="flex gap-2">
-          <Button
-            size="sm"
-            type="button"
-            variant="ghost"
-            onClick={() => setFinished(true)}
-          >
-            Skip
-          </Button>
-          <Button size="sm" type="submit" disabled={!root.trim()}>
-            Finish
-          </Button>
-        </div>
+    <div className="flex flex-col items-start gap-4">
+      <div className="flex items-center gap-3">
+        <CheckCircle2 className="size-7 text-success-500" aria-hidden />
+        <h2 className="text-lg font-semibold text-gray-800 dark:text-white/90">
+          Your shop is set up
+        </h2>
       </div>
-    </form>
+      <ul className="flex flex-col gap-1 text-theme-sm text-gray-600 dark:text-gray-400">
+        <li>
+          {brandCount} {brandCount === 1 ? "brand" : "brands"} and{" "}
+          {categoryCount} {categoryCount === 1 ? "category" : "categories"}, in
+          Catalog › Brands and Catalog › Categories.
+        </li>
+        <li>
+          {created
+            ? `"${created.product.title}" is saved as a draft${created.priced ? "" : " with no price yet"}. Add a photo, a SKU and a weight to publish it.`
+            : "No product yet."}
+        </li>
+      </ul>
+      <div className="flex flex-wrap gap-2">
+        {created ? (
+          <ButtonLink href={`/products/${created.product.id}`}>
+            Finish your product
+          </ButtonLink>
+        ) : (
+          <ButtonLink href="/products/new">Add your first product</ButtonLink>
+        )}
+        <ButtonLink href="/products/import" variant="outline">
+          Import a spreadsheet
+        </ButtonLink>
+        <ButtonLink href="/products" variant="outline">
+          Go to products
+        </ButtonLink>
+      </div>
+      {!created && (
+        <button
+          type="button"
+          onClick={onBack}
+          className="text-theme-sm font-medium text-brand-500 hover:text-brand-600 dark:text-brand-400"
+        >
+          Back to the product step
+        </button>
+      )}
+    </div>
   )
 }
