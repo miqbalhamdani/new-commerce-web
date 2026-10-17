@@ -128,8 +128,8 @@ table shells and the Modal; there is no native `<select>` left), `Field`'s `Chec
 do not add a second copy.
 
 Tailwind **3**, configured in `tailwind.config.ts`. Dark mode is `next-themes` with
-`attribute="class"`; the header's `ThemeToggleButton` flips light/dark and the user menu
-offers "Use system theme". The vendored `context/ThemeContext.tsx` is a shim over
+`attribute="class"` and `defaultTheme="light"` (a visitor with no saved choice gets light); the
+header's `ThemeToggleButton` flips light/dark and the user menu offers "Use system theme". The vendored `context/ThemeContext.tsx` is a shim over
 next-themes (PATCH 5) -- never mount a second theme provider.
 
 All UI copy is English (BR-016).

@@ -31,7 +31,7 @@ export default function RootLayout({
         className={`${outfit.variable} h-full bg-gray-50 font-outfit antialiased dark:bg-gray-900`}
       >
         <ThemeProvider
-          defaultTheme="system"
+          defaultTheme="light"
           disableTransitionOnChange
           attribute="class"
         >
