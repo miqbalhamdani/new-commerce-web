@@ -182,7 +182,8 @@ effect, StrictMode's double effect, `apiFetch`'s 401 retry) awaits the same prom
 
 `useSession()` exposes `status` (`loading` | `authenticated` | `anonymous`), `user` (role,
 `permissions`), `tenant` (incl. `timezone`), `signIn`, `acceptInvite`, `register` (opens a shop;
-signs nobody in), `verifyCode`, `resendCode`, `googleClientId`, `googleSignIn`, `googleRegister`,
+signs nobody in), `verifyCode`, `resendCode`, `requestPasswordReset`, `resetPassword` (signs
+in), `googleClientId`, `googleSignIn`, `googleRegister`,
 `signOut` (best-effort
 logout, always clears locally), `getAccessToken()` (a getter, never a value) and `refresh()`.
 Auth failures throw `AuthError` carrying the API's deliberately vague `detail`. `useCan(perm)`
