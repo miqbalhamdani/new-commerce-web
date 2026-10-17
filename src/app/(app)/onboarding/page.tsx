@@ -53,14 +53,22 @@ export default function OnboardingPage() {
             }}
           />
         )}
-        {step === 1 && <FirstBrand onDone={() => setStep(2)} />}
-        {step === 2 && <FirstCategories />}
+        {step === 1 && (
+          <FirstBrand onBack={() => setStep(0)} onDone={() => setStep(2)} />
+        )}
+        {step === 2 && <FirstCategories onBack={() => setStep(1)} />}
       </Card>
     </Page>
   )
 }
 
-function FirstBrand({ onDone }: { onDone: () => void }) {
+function FirstBrand({
+  onBack,
+  onDone,
+}: {
+  onBack: () => void
+  onDone: () => void
+}) {
   const api = useApi()
   const { data: settings } = useResource<Settings>("/v1/settings")
   const [name, setName] = useState<string | null>(null)
@@ -94,18 +102,23 @@ function FirstBrand({ onDone }: { onDone: () => void }) {
       />
       <ErrorNotice error={error} />
       <div className="flex justify-between">
-        <Button size="sm" type="button" variant="ghost" onClick={onDone}>
-          Skip — not every product has a brand
+        <Button size="sm" type="button" variant="outline" onClick={onBack}>
+          Back
         </Button>
-        <Button size="sm" type="submit" disabled={!value.trim()}>
-          Continue
-        </Button>
+        <div className="flex gap-2">
+          <Button size="sm" type="button" variant="ghost" onClick={onDone}>
+            Skip — not every product has a brand
+          </Button>
+          <Button size="sm" type="submit" disabled={!value.trim()}>
+            Continue
+          </Button>
+        </div>
       </div>
     </form>
   )
 }
 
-function FirstCategories() {
+function FirstCategories({ onBack }: { onBack: () => void }) {
   const api = useApi()
   const [root, setRoot] = useState("Apparel")
   const [children, setChildren] = useState("Tees, Shirts, Outerwear")
@@ -166,17 +179,22 @@ function FirstCategories() {
       </p>
       <ErrorNotice error={error} />
       <div className="flex justify-between">
-        <Button
-          size="sm"
-          type="button"
-          variant="ghost"
-          onClick={() => setFinished(true)}
-        >
-          Skip
+        <Button size="sm" type="button" variant="outline" onClick={onBack}>
+          Back
         </Button>
-        <Button size="sm" type="submit" disabled={!root.trim()}>
-          Finish
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            type="button"
+            variant="ghost"
+            onClick={() => setFinished(true)}
+          >
+            Skip
+          </Button>
+          <Button size="sm" type="submit" disabled={!root.trim()}>
+            Finish
+          </Button>
+        </div>
       </div>
     </form>
   )
