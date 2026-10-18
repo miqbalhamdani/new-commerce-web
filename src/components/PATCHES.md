@@ -22,7 +22,8 @@ app chrome and are ours to edit freely; upstream treats them as app code too.
 
 Not vendored on purpose: `SidebarWidget` (upsell card), `NotificationDropdown`
 (no notifications exist), `GridShape` (demo images), charts, calendar, maps,
-carousels and their dependencies. Also `form/Select.tsx`, `form/MultiSelect.tsx`
+carousels and their dependencies. The dashboard (P1-114) depends on `apexcharts` and
+`react-apexcharts` directly, wrapped in `ui/dashboard/`; TailAdmin's chart components stay out. Also `form/Select.tsx`, `form/MultiSelect.tsx`
 and `form/switch/Switch.tsx`: uncontrolled with no keyboard/ARIA support —
 `ui/common/Select.tsx` (Headless UI Listbox in the TailAdmin skin) is the
 select.

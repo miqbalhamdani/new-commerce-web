@@ -82,4 +82,18 @@ describe("navigation by role (BR-025)", () => {
     expect(screen.queryByRole("link", { name: "Team" })).toBeNull()
     expect(screen.queryByRole("link", { name: "API keys" })).toBeNull()
   })
+
+  it("the dashboard heads the list for anyone who reads orders, and is not active everywhere (P1-114)", async () => {
+    mockApi(perms.ops, () => undefined, "ops")
+    renderSignedIn(
+      <SidebarProvider>
+        <AppSidebar />
+      </SidebarProvider>,
+    )
+    const dashboard = await screen.findByRole("link", { name: "Dashboard" })
+    expect(dashboard).toHaveAttribute("href", "/")
+    // "/" is a prefix of /products, the path here; Products is the active one.
+    expect(dashboard).toHaveClass("menu-item-inactive")
+    expect(screen.getByRole("link", { name: "Products" })).toHaveClass("menu-item-active")
+  })
 })
