@@ -172,8 +172,9 @@ export function OrderTable({
 }
 
 function BareShell({ children }: { children: React.ReactNode }) {
+  // The header band needs a line above it too when no shell border draws one.
   return (
-    <div className="max-w-full overflow-x-auto">
+    <div className="max-w-full overflow-x-auto border-t border-gray-100 dark:border-white/[0.05]">
       <Table>{children}</Table>
     </div>
   )

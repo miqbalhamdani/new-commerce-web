@@ -10,8 +10,9 @@ export const th =
   "px-5 py-3 text-start text-theme-xs font-medium text-gray-500 dark:text-gray-400"
 export const td = "px-5 py-4 text-start text-theme-sm"
 
-/** Rows divide; the header gets its line via this class on TableHeader. */
-export const headerRow = "border-b border-gray-100 dark:border-white/[0.05]"
+/** Rows divide; the header is a gray band over its line (on TableHeader). */
+export const headerRow =
+  "border-b border-gray-100 bg-gray-50 dark:border-white/[0.05] dark:bg-white/[0.02]"
 export const bodyRows = "divide-y divide-gray-100 dark:divide-white/[0.05]"
 
 export function ListTable({ children }: { children: React.ReactNode }) {
