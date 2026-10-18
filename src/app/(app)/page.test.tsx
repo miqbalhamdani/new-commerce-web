@@ -117,7 +117,10 @@ describe("the dashboard (P1-114)", () => {
     const pending = tiles.getByRole("link", { name: /Awaiting payment/ })
     expect(pending).toHaveAttribute("href", "/orders?status=pending")
     expect(pending).toHaveTextContent("5")
-    expect(pending).toHaveTextContent("3 bank transfers to confirm")
+    expect(within(pending).getByText("3 to confirm")).toHaveAttribute(
+      "title",
+      "3 bank transfers to confirm",
+    )
     expect(tiles.getByRole("link", { name: /Ready to ship/ })).toHaveAttribute(
       "href",
       "/orders?status=paid&status=processing",

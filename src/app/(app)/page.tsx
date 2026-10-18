@@ -230,33 +230,37 @@ function NeedsAction({ n }: { n: Dashboard["needs_action"] }) {
         <StatTile
           label="Awaiting payment"
           value={pending.toLocaleString("en-US")}
-          sub={count(
-            n.transfers_to_confirm,
-            "bank transfer to confirm",
-            "bank transfers to confirm",
-          )}
-          icon={<Wallet className="size-5" />}
+          badge={
+            n.transfers_to_confirm > 0
+              ? {
+                  text: `${n.transfers_to_confirm.toLocaleString("en-US")} to confirm`,
+                  title: count(
+                    n.transfers_to_confirm,
+                    "bank transfer to confirm",
+                    "bank transfers to confirm",
+                  ),
+                }
+              : undefined
+          }
+          icon={<Wallet className="size-6" />}
           href="/orders?status=pending"
         />
         <StatTile
           label="Ready to ship"
           value={n.ready_to_ship.toLocaleString("en-US")}
-          sub="Paid, not shipped yet"
-          icon={<PackageCheck className="size-5" />}
+          icon={<PackageCheck className="size-6" />}
           href="/orders?status=paid&status=processing"
         />
         <StatTile
           label="Shipped"
           value={n.shipped.toLocaleString("en-US")}
-          sub="On the way to the customer"
-          icon={<Truck className="size-5" />}
+          icon={<Truck className="size-6" />}
           href="/orders?status=shipped"
         />
         <StatTile
           label="Needs refund"
           value={n.refund_owed.toLocaleString("en-US")}
-          sub="Cancelled after payment"
-          icon={<RotateCcw className="size-5" />}
+          icon={<RotateCcw className="size-6" />}
           href="/orders?refund_owed=true"
         />
       </div>
@@ -266,15 +270,16 @@ function NeedsAction({ n }: { n: Dashboard["needs_action"] }) {
 
 /**
  * The period's four figures against the period before, each with its days,
- * as TailAdmin's sales tiles: one framed band of four. A day with no orders has
- * no average order value, so that sparkline draws only the days that had one.
+ * as TailAdmin's sales tiles, set on the page like the needs-action row. A day
+ * with no orders has no average order value, so that sparkline draws only the
+ * days that had one.
  */
 function Figures({ d, periodLabel }: { d: Dashboard; periodLabel: string }) {
   const dates = d.daily.map((x) => dayLabel(x.date))
   const sold = d.daily.filter((x) => x.orders > 0)
   const plain = (v: number) => v.toLocaleString("en-US")
   return (
-    <div className="mt-4 grid grid-cols-1 gap-2 rounded-2xl border border-gray-200 bg-gray-100 p-2 sm:grid-cols-2 xl:grid-cols-4 dark:border-gray-800 dark:bg-white/[0.02]">
+    <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 md:gap-6 xl:grid-cols-4">
       <KpiTile
         label="Sales"
         tone="green"
