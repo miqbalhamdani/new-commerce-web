@@ -16,11 +16,12 @@ vi.mock("next/navigation", () => ({
 // figures it would draw are asserted through the table view instead.
 vi.mock("react-apexcharts", () => ({ default: () => null }))
 
-const day = (date: string, sales: number, orders: number) => ({
-  date,
-  sales,
-  orders,
-})
+const day = (
+  date: string,
+  sales: number,
+  orders: number,
+  items_sold: number,
+) => ({ date, sales, orders, items_sold })
 
 const dashboard: Dashboard = {
   from: "2026-09-19T00:00:00+07:00",
@@ -44,7 +45,7 @@ const dashboard: Dashboard = {
     average_order_value: 2780487,
     items_sold: 0,
   },
-  daily: [day("2026-10-17", 39800000, 1), day("2026-10-18", 0, 0)],
+  daily: [day("2026-10-17", 39800000, 1, 2), day("2026-10-18", 0, 0, 0)],
   by_source: [
     { source: "manual", sales: 75240000, orders: 27 },
     { source: "storefront", sales: 50160000, orders: 14 },
@@ -135,14 +136,23 @@ describe("the dashboard (P1-114)", () => {
     serve()
     renderSignedIn(<DashboardPage />)
     expect(await screen.findByText("Rp 1,254,000")).toBeInTheDocument()
-    // 1,254,000 against 1,045,000 is +20%; orders are level; the average is
-    // up 10%; items had nothing before.
-    expect(screen.getByText("+20%")).toBeInTheDocument()
-    expect(screen.getByText("+10%")).toBeInTheDocument()
-    expect(screen.getByText("+0%")).toBeInTheDocument()
+    // 1,254,000 against 1,045,000 is up 20%; orders are level, with no
+    // arrow; the average is up 10%; items had nothing before. The direction
+    // is said in words, not left to the arrow's colour.
     expect(
-      screen.getByText("Nothing in the previous 30 days to compare with"),
+      screen.getAllByText(/vs previous 30 days/).map((p) => p.textContent),
+    ).toEqual([
+      "Up 20% vs previous 30 days",
+      "0% vs previous 30 days",
+      "Up 10% vs previous 30 days",
+    ])
+    expect(
+      screen.getByText("Nothing in the previous 30 days"),
     ).toBeInTheDocument()
+    for (const name of ["Sales", "Orders", "Average order value", "Items sold"])
+      expect(
+        screen.getByRole("img", { name: `${name} per day` }),
+      ).toBeInTheDocument()
 
     const channel = screen.getByRole("img", { name: /^Sales by channel/ })
     expect(channel).toHaveAccessibleName(

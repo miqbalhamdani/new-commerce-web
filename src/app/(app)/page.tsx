@@ -1,6 +1,15 @@
 "use client"
 
-import { PackageCheck, RotateCcw, Truck, Wallet } from "lucide-react"
+import {
+  Banknote,
+  Package,
+  PackageCheck,
+  Receipt,
+  RotateCcw,
+  ShoppingBag,
+  Truck,
+  Wallet,
+} from "lucide-react"
 import Link from "next/link"
 import { useMemo, useState } from "react"
 
@@ -15,6 +24,7 @@ import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
 import { SegmentedTabs } from "@/components/ui/common/SegmentedTabs"
 import { SalesChart, dayLabel } from "@/components/ui/dashboard/SalesChart"
 import { ShareBar } from "@/components/ui/dashboard/ShareBar"
+import { KpiTile } from "@/components/ui/dashboard/KpiTile"
 import { StatTile } from "@/components/ui/dashboard/StatTile"
 import { TopProducts } from "@/components/ui/dashboard/TopProducts"
 import { OrderTable } from "@/components/ui/orders/OrderTable"
@@ -254,14 +264,21 @@ function NeedsAction({ n }: { n: Dashboard["needs_action"] }) {
   )
 }
 
-/** The period's four figures against the period before, each with its days. */
+/**
+ * The period's four figures against the period before, each with its days,
+ * as TailAdmin's sales tiles: one framed band of four. A day with no orders has
+ * no average order value, so that sparkline draws only the days that had one.
+ */
 function Figures({ d, periodLabel }: { d: Dashboard; periodLabel: string }) {
   const dates = d.daily.map((x) => dayLabel(x.date))
+  const sold = d.daily.filter((x) => x.orders > 0)
   const plain = (v: number) => v.toLocaleString("en-US")
   return (
-    <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 md:gap-6 xl:grid-cols-4">
-      <StatTile
+    <div className="mt-4 grid grid-cols-1 gap-2 rounded-2xl border border-gray-200 bg-gray-100 p-2 sm:grid-cols-2 xl:grid-cols-4 dark:border-gray-800 dark:bg-white/[0.02]">
+      <KpiTile
         label="Sales"
+        tone="green"
+        icon={<Banknote className="size-6" />}
         value={formatMoney(d.current.sales)}
         delta={change(d.current.sales, d.previous.sales)}
         periodLabel={periodLabel}
@@ -271,27 +288,43 @@ function Figures({ d, periodLabel }: { d: Dashboard; periodLabel: string }) {
           format: formatMoney,
         }}
       />
-      <StatTile
+      <KpiTile
         label="Orders"
+        tone="purple"
+        icon={<ShoppingBag className="size-6" />}
         value={plain(d.current.orders)}
         delta={change(d.current.orders, d.previous.orders)}
         periodLabel={periodLabel}
         trend={{ dates, values: d.daily.map((x) => x.orders), format: plain }}
       />
-      <StatTile
+      <KpiTile
         label="Average order value"
+        tone="blue"
+        icon={<Receipt className="size-6" />}
         value={formatMoney(d.current.average_order_value)}
         delta={change(
           d.current.average_order_value,
           d.previous.average_order_value,
         )}
         periodLabel={periodLabel}
+        trend={{
+          dates: sold.map((x) => dayLabel(x.date)),
+          values: sold.map((x) => Math.floor(x.sales / x.orders)),
+          format: formatMoney,
+        }}
       />
-      <StatTile
+      <KpiTile
         label="Items sold"
+        tone="orange"
+        icon={<Package className="size-6" />}
         value={plain(d.current.items_sold)}
         delta={change(d.current.items_sold, d.previous.items_sold)}
         periodLabel={periodLabel}
+        trend={{
+          dates,
+          values: d.daily.map((x) => x.items_sold),
+          format: plain,
+        }}
       />
     </div>
   )
