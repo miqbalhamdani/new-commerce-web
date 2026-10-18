@@ -2122,6 +2122,8 @@ export interface components {
             /** Format: uuid */
             product_id: string;
             title: string;
+            /** @description Main-tree categories only (`kind = category`), by path, as on the product list. */
+            categories: components["schemas"]["CategoryBrief"][];
             items_sold: number;
             sales: components["schemas"]["Money"];
         };
