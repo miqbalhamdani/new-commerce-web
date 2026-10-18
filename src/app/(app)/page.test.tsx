@@ -74,6 +74,10 @@ const dashboard: Dashboard = {
       sales: 20000000,
     },
   ],
+  top_customers: [
+    { customer_id: "c9", name: "Rina Wati", sales: 15920000, orders: 3 },
+    { customer_id: null, name: "Guest Budi", sales: 5000000, orders: 1 },
+  ],
 }
 
 const latest = {
@@ -117,7 +121,10 @@ describe("the dashboard (P1-114)", () => {
     const pending = tiles.getByRole("link", { name: /Awaiting payment/ })
     expect(pending).toHaveAttribute("href", "/orders?status=pending")
     expect(pending).toHaveTextContent("5")
-    expect(pending).toHaveTextContent("3 bank transfers to confirm")
+    expect(within(pending).getByText("3 to confirm")).toHaveAttribute(
+      "title",
+      "3 bank transfers to confirm",
+    )
     expect(tiles.getByRole("link", { name: /Ready to ship/ })).toHaveAttribute(
       "href",
       "/orders?status=paid&status=processing",
@@ -158,10 +165,27 @@ describe("the dashboard (P1-114)", () => {
     expect(channel).toHaveAccessibleName(
       "Sales by channel: WhatsApp & manual 60%, Website 40%",
     )
-    expect(screen.getByText(/Rp 752,400 · 27 orders/)).toBeInTheDocument()
+    expect(screen.getByText(/Rp 752.4K · 27 orders/)).toBeInTheDocument()
     expect(
       screen.getByRole("img", { name: /^Customers/ }),
     ).toHaveAccessibleName("Customers: New 39%, Returning 61%")
+    // 12 new and 19 returning, as one total over the bar.
+    const customers = screen
+      .getByRole("img", { name: /^Customers/ })
+      .closest("section")!
+    expect(within(customers).getByText("31")).toBeInTheDocument()
+    // Top customers: an account opens its customer, a guest has nowhere to go.
+    expect(screen.getByRole("link", { name: "Rina Wati" })).toHaveAttribute(
+      "href",
+      "/customers/c9",
+    )
+    expect(screen.getByText("Guest Budi").closest("a")).toBeNull()
+    expect(screen.getByRole("link", { name: "All customers" })).toHaveAttribute(
+      "href",
+      "/customers",
+    )
+    // Payment methods is no longer on the dashboard.
+    expect(screen.queryByText("Payment methods")).toBeNull()
 
     expect(
       screen.getByRole("link", { name: "Erigo Basic Tee" }),
@@ -204,6 +228,47 @@ describe("the dashboard (P1-114)", () => {
       "aria-pressed",
       "true",
     )
+  })
+
+  it("shows the latest orders one status at a time, and See all follows", async () => {
+    const fetch = serve()
+    renderSignedIn(<DashboardPage />)
+    await screen.findByText("ERG-000123")
+    expect(screen.getByRole("button", { name: "All" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    )
+    await userEvent.click(screen.getByRole("button", { name: "Shipped" }))
+    await waitFor(() =>
+      expect(
+        fetch.mock.calls.some(([u]) =>
+          String(u).endsWith("/v1/orders?limit=5&status=shipped"),
+        ),
+      ).toBe(true),
+    )
+    expect(screen.getByRole("button", { name: "Shipped" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    )
+    expect(screen.getByRole("link", { name: "See all" })).toHaveAttribute(
+      "href",
+      "/orders?status=shipped",
+    )
+  })
+
+  it("still renders when the API has no top customers yet", async () => {
+    // An API from before P1-115, as during a deploy.
+    const { top_customers: _, ...older } = dashboard
+    mockApi(["orders:read"], (url) => {
+      if (url.includes("/v1/dashboard?")) return json(older)
+      if (url.includes("/v1/orders?limit=5")) return json(latest)
+      return undefined
+    })
+    renderSignedIn(<DashboardPage />)
+    expect(
+      await screen.findByText("No customers in this period yet."),
+    ).toBeInTheDocument()
+    expect(screen.getByText("Rp 1,254,000")).toBeInTheDocument()
   })
 
   it("asks for nothing without orders:read", async () => {

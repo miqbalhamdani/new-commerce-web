@@ -1,6 +1,7 @@
 "use client"
 
 import {
+  ArrowRight,
   Banknote,
   Package,
   PackageCheck,
@@ -10,7 +11,6 @@ import {
   Truck,
   Wallet,
 } from "lucide-react"
-import Link from "next/link"
 import { useMemo, useState } from "react"
 
 import {
@@ -20,16 +20,19 @@ import {
   Page,
   Section,
 } from "@/components/ui/common/Page"
+import { ButtonLink } from "@/components/ui/common/ButtonLink"
 import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
 import { SegmentedTabs } from "@/components/ui/common/SegmentedTabs"
 import { SalesChart, dayLabel } from "@/components/ui/dashboard/SalesChart"
 import { ShareBar } from "@/components/ui/dashboard/ShareBar"
+import { ShareDonut } from "@/components/ui/dashboard/ShareDonut"
 import { KpiTile } from "@/components/ui/dashboard/KpiTile"
 import { StatTile } from "@/components/ui/dashboard/StatTile"
+import { TopCustomers } from "@/components/ui/dashboard/TopCustomers"
 import { TopProducts } from "@/components/ui/dashboard/TopProducts"
 import { OrderTable } from "@/components/ui/orders/OrderTable"
 import { useResource } from "@/lib/api/use-api"
-import type { Dashboard, OrderPage } from "@/lib/api/types"
+import type { Dashboard, OrderPage, OrderStatus } from "@/lib/api/types"
 import { useCan, useSession } from "@/lib/auth/session"
 import {
   change,
@@ -37,7 +40,8 @@ import {
   periodRange,
   type PeriodDays,
 } from "@/lib/dashboard/period"
-import { formatMoney } from "@/lib/format"
+import { formatMoney, formatMoneyCompact } from "@/lib/format"
+import { statusValues } from "@/lib/orders/filters"
 
 const count = (n: number, one: string, many: string) =>
   `${n.toLocaleString("en-US")} ${n === 1 ? one : many}`
@@ -57,7 +61,12 @@ export default function DashboardPage() {
   const { data, error, loading } = useResource<Dashboard>(
     canRead ? `/v1/dashboard?from=${range.from}&to=${range.to}` : null,
   )
-  const latest = useResource<OrderPage>(canRead ? "/v1/orders?limit=5" : null)
+  const [orderTab, setOrderTab] = useState<OrderTab>("all")
+  const latest = useResource<OrderPage>(
+    canRead
+      ? `/v1/orders?limit=5${orderTab === "all" ? "" : `&status=${orderTab}`}`
+      : null,
+  )
   const periodLabel = periodOptions.find((o) => o.value === days)!.label
 
   if (!canRead) {
@@ -102,47 +111,13 @@ export default function DashboardPage() {
           <Figures d={data} periodLabel={periodLabel} />
 
           <div className="mt-4 grid grid-cols-12 gap-4 md:mt-6 md:gap-6">
-            <div className="col-span-12 xl:col-span-8">
+            <div className="col-span-12 flex flex-col gap-4 md:gap-6 xl:col-span-8">
               <Section
                 title="Sales per day"
                 description={`Paid orders over the last ${periodLabel}, by the day they were placed.`}
               >
                 <SalesChart days={data.daily} />
               </Section>
-            </div>
-            <div className="col-span-12 flex flex-col gap-4 md:gap-6 xl:col-span-4">
-              <Section
-                title="Sales by channel"
-                description="WhatsApp and other orders typed in by staff, against the website."
-              >
-                <ShareBar
-                  label="Sales by channel"
-                  empty="No sales in this period yet."
-                  parts={data.by_source.map((s) => ({
-                    name:
-                      s.source === "manual" ? "WhatsApp & manual" : "Website",
-                    value: s.sales,
-                    detail: `${formatMoney(s.sales)} · ${count(s.orders, "order", "orders")}`,
-                  }))}
-                />
-              </Section>
-              <Section title="Payment methods">
-                <ShareBar
-                  label="Sales by payment method"
-                  empty="No sales in this period yet."
-                  parts={data.by_payment_method.map((m) => ({
-                    name:
-                      m.payment_method === "bank_transfer"
-                        ? "Bank transfer"
-                        : "Midtrans",
-                    value: m.sales,
-                    detail: `${formatMoney(m.sales)} · ${count(m.orders, "order", "orders")}`,
-                  }))}
-                />
-              </Section>
-            </div>
-
-            <div className="col-span-12 xl:col-span-8">
               <Section
                 title="Top products"
                 description="The five best sellers this period, by sales."
@@ -150,69 +125,57 @@ export default function DashboardPage() {
                 <TopProducts products={data.top_products} />
               </Section>
             </div>
-            <div className="col-span-12 xl:col-span-4">
-              <Section
-                title="Customers"
-                description="Who bought this period: first-timers, and people who had bought before."
-              >
+            <div className="col-span-12 flex flex-col gap-4 md:gap-6 xl:col-span-4">
+              <Section title="Sales by channel">
+                <ShareDonut
+                  label="Sales by channel"
+                  empty="No sales in this period yet."
+                  total={{
+                    value: formatMoneyCompact(data.current.sales),
+                    sub: count(data.current.orders, "order", "orders"),
+                  }}
+                  parts={data.by_source.map((s) => ({
+                    name:
+                      s.source === "manual" ? "WhatsApp & manual" : "Website",
+                    value: s.sales,
+                    detail: `${formatMoneyCompact(s.sales)} · ${count(s.orders, "order", "orders")}`,
+                    tooltip: `${formatMoney(s.sales)} · ${count(s.orders, "order", "orders")}`,
+                  }))}
+                />
+              </Section>
+              <Section title="Customers">
                 <ShareBar
                   label="Customers"
                   empty="No customers in this period yet."
+                  total={(
+                    data.customers.new + data.customers.returning
+                  ).toLocaleString("en-US")}
                   parts={[
                     {
                       name: "New",
                       value: data.customers.new,
-                      detail: count(
-                        data.customers.new,
-                        "customer",
-                        "customers",
-                      ),
+                      detail: data.customers.new.toLocaleString("en-US"),
                     },
                     {
                       name: "Returning",
                       value: data.customers.returning,
-                      detail: count(
-                        data.customers.returning,
-                        "customer",
-                        "customers",
-                      ),
+                      detail: data.customers.returning.toLocaleString("en-US"),
                     },
                   ]}
                 />
               </Section>
+              {/* An API from before P1-115 has no top_customers: show none
+                  rather than fail the page, as can happen mid-deploy. */}
+              <TopCustomers customers={data.top_customers ?? []} />
             </div>
 
             <div className="col-span-12">
-              <Card>
-                <div className="flex items-center justify-between gap-3 p-6 pb-4">
-                  <h2 className="text-base font-semibold text-gray-800 dark:text-white/90">
-                    Latest orders
-                  </h2>
-                  <Link
-                    href="/orders"
-                    className="text-theme-sm font-medium text-brand-500 hover:text-brand-600 dark:text-brand-400"
-                  >
-                    View all
-                  </Link>
-                </div>
-                <ErrorNotice
-                  error={latest.error}
-                  title="The latest orders did not load"
-                />
-                {latest.data && latest.data.data.length === 0 ? (
-                  <p className="px-6 pb-6 text-theme-sm text-gray-500 dark:text-gray-400">
-                    No orders yet.
-                  </p>
-                ) : (
-                  latest.data && (
-                    <OrderTable
-                      rows={latest.data.data}
-                      timezone={tenant?.timezone}
-                      bare
-                    />
-                  )
-                )}
-              </Card>
+              <LatestOrders
+                latest={latest}
+                tab={orderTab}
+                onTab={setOrderTab}
+                timezone={tenant?.timezone}
+              />
             </div>
           </div>
         </div>
@@ -230,33 +193,37 @@ function NeedsAction({ n }: { n: Dashboard["needs_action"] }) {
         <StatTile
           label="Awaiting payment"
           value={pending.toLocaleString("en-US")}
-          sub={count(
-            n.transfers_to_confirm,
-            "bank transfer to confirm",
-            "bank transfers to confirm",
-          )}
-          icon={<Wallet className="size-5" />}
+          badge={
+            n.transfers_to_confirm > 0
+              ? {
+                  text: `${n.transfers_to_confirm.toLocaleString("en-US")} to confirm`,
+                  title: count(
+                    n.transfers_to_confirm,
+                    "bank transfer to confirm",
+                    "bank transfers to confirm",
+                  ),
+                }
+              : undefined
+          }
+          icon={<Wallet className="size-6" />}
           href="/orders?status=pending"
         />
         <StatTile
           label="Ready to ship"
           value={n.ready_to_ship.toLocaleString("en-US")}
-          sub="Paid, not shipped yet"
-          icon={<PackageCheck className="size-5" />}
+          icon={<PackageCheck className="size-6" />}
           href="/orders?status=paid&status=processing"
         />
         <StatTile
           label="Shipped"
           value={n.shipped.toLocaleString("en-US")}
-          sub="On the way to the customer"
-          icon={<Truck className="size-5" />}
+          icon={<Truck className="size-6" />}
           href="/orders?status=shipped"
         />
         <StatTile
           label="Needs refund"
           value={n.refund_owed.toLocaleString("en-US")}
-          sub="Cancelled after payment"
-          icon={<RotateCcw className="size-5" />}
+          icon={<RotateCcw className="size-6" />}
           href="/orders?refund_owed=true"
         />
       </div>
@@ -266,15 +233,16 @@ function NeedsAction({ n }: { n: Dashboard["needs_action"] }) {
 
 /**
  * The period's four figures against the period before, each with its days,
- * as TailAdmin's sales tiles: one framed band of four. A day with no orders has
- * no average order value, so that sparkline draws only the days that had one.
+ * as TailAdmin's sales tiles, set on the page like the needs-action row. A day
+ * with no orders has no average order value, so that sparkline draws only the
+ * days that had one.
  */
 function Figures({ d, periodLabel }: { d: Dashboard; periodLabel: string }) {
   const dates = d.daily.map((x) => dayLabel(x.date))
   const sold = d.daily.filter((x) => x.orders > 0)
   const plain = (v: number) => v.toLocaleString("en-US")
   return (
-    <div className="mt-4 grid grid-cols-1 gap-2 rounded-2xl border border-gray-200 bg-gray-100 p-2 sm:grid-cols-2 xl:grid-cols-4 dark:border-gray-800 dark:bg-white/[0.02]">
+    <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 md:gap-6 xl:grid-cols-4">
       <KpiTile
         label="Sales"
         tone="green"
@@ -327,5 +295,88 @@ function Figures({ d, periodLabel }: { d: Dashboard; periodLabel: string }) {
         }}
       />
     </div>
+  )
+}
+
+type OrderTab = "all" | OrderStatus
+
+const orderTabs: { value: OrderTab; label: string }[] = [
+  { value: "all", label: "All" },
+  ...statusValues.map((s) => ({
+    value: s,
+    label: s[0].toUpperCase() + s.slice(1),
+  })),
+]
+
+/**
+ * The five newest orders, one status at a time, as TailAdmin's table-header
+ * tabs: the statuses are the order list's, named as their badges are. "See
+ * all" opens the list on the same status.
+ */
+function LatestOrders({
+  latest,
+  tab,
+  onTab,
+  timezone,
+}: {
+  latest: ReturnType<typeof useResource<OrderPage>>
+  tab: OrderTab
+  onTab: (tab: OrderTab) => void
+  timezone?: string
+}) {
+  const label = orderTabs.find((t) => t.value === tab)!.label
+  return (
+    <Card>
+      <div className="flex flex-wrap items-center justify-between gap-4 p-6 pb-4">
+        <div>
+          <h2 className="text-base font-semibold text-gray-800 dark:text-white/90">
+            Latest orders
+          </h2>
+          <p className="mt-1 text-theme-sm text-gray-500 dark:text-gray-400">
+            The newest orders first.
+          </p>
+        </div>
+        <div className="flex max-w-full flex-wrap items-center gap-4">
+          <SegmentedTabs
+            label="Order status"
+            variant="subtle"
+            options={orderTabs}
+            value={tab}
+            onChange={onTab}
+          />
+          <ButtonLink
+            href={tab === "all" ? "/orders" : `/orders?status=${tab}`}
+            variant="outline"
+          >
+            See all
+            <ArrowRight aria-hidden className="size-4" />
+          </ButtonLink>
+        </div>
+      </div>
+      <ErrorNotice
+        error={latest.error}
+        title="The latest orders did not load"
+      />
+      <div
+        className={
+          latest.loading
+            ? "opacity-60 transition-opacity"
+            : "transition-opacity"
+        }
+        aria-busy={latest.loading}
+      >
+        {latest.data && latest.data.data.length === 0 ? (
+          <p className="px-6 pb-6 text-theme-sm text-gray-500 dark:text-gray-400">
+            {tab === "all"
+              ? "No orders yet."
+              : `No ${label.toLowerCase()} orders.`}
+          </p>
+        ) : (
+          latest.data && (
+            <OrderTable rows={latest.data.data} timezone={timezone} bare />
+          )
+        )}
+      </div>
+    </Card>
   )
 }

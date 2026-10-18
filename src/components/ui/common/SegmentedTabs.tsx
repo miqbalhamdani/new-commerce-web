@@ -8,6 +8,9 @@ import { cx } from "@/lib/utils"
  * the card's divider, the chosen one underlined in brand, so the tabs read as
  * part of the table below rather than a control floating above it. Its parent
  * draws the divider (border-b) and gives no vertical padding.
+ *
+ * `subtle` is TailAdmin's table-header tabs: the same gray track, the chosen
+ * one a white chip, for filters that sit inside a card (P1-114).
  */
 export function SegmentedTabs<T extends string>({
   label,
@@ -21,9 +24,10 @@ export function SegmentedTabs<T extends string>({
   options: readonly { value: T; label: string }[]
   value: T | null
   onChange: (value: T) => void
-  variant?: "segmented" | "underline"
+  variant?: "segmented" | "underline" | "subtle"
 }) {
   const underline = variant === "underline"
+  const subtle = variant === "subtle"
   return (
     <div className="max-w-full overflow-x-auto">
       <div
@@ -55,14 +59,21 @@ export function SegmentedTabs<T extends string>({
                       ? "border-brand-500 text-brand-500 dark:text-brand-400"
                       : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-800 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:text-white/90",
                   )
-                : cx(
-                    "rounded-lg px-5 py-2",
-                    // The chosen one is filled brand so it reads at a glance;
-                    // the rest stay dark enough to read, not greyed out.
-                    value === o.value
-                      ? "bg-brand-500 text-white shadow-theme-xs"
-                      : "text-gray-700 hover:bg-white hover:text-gray-900 dark:text-gray-300 dark:hover:bg-white/5 dark:hover:text-white",
-                  ),
+                : subtle
+                  ? cx(
+                      "rounded-lg px-3 py-2",
+                      value === o.value
+                        ? "bg-white text-gray-900 shadow-theme-xs dark:bg-gray-800 dark:text-white"
+                        : "text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white",
+                    )
+                  : cx(
+                      "rounded-lg px-5 py-2",
+                      // The chosen one is filled brand so it reads at a glance;
+                      // the rest stay dark enough to read, not greyed out.
+                      value === o.value
+                        ? "bg-brand-500 text-white shadow-theme-xs"
+                        : "text-gray-700 hover:bg-white hover:text-gray-900 dark:text-gray-300 dark:hover:bg-white/5 dark:hover:text-white",
+                    ),
             )}
           >
             {o.label}
