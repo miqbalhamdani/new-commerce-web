@@ -164,7 +164,9 @@ export default function DashboardPage() {
                   ]}
                 />
               </Section>
-              <TopCustomers customers={data.top_customers} />
+              {/* An API from before P1-115 has no top_customers: show none
+                  rather than fail the page, as can happen mid-deploy. */}
+              <TopCustomers customers={data.top_customers ?? []} />
             </div>
 
             <div className="col-span-12">

@@ -256,6 +256,21 @@ describe("the dashboard (P1-114)", () => {
     )
   })
 
+  it("still renders when the API has no top customers yet", async () => {
+    // An API from before P1-115, as during a deploy.
+    const { top_customers: _, ...older } = dashboard
+    mockApi(["orders:read"], (url) => {
+      if (url.includes("/v1/dashboard?")) return json(older)
+      if (url.includes("/v1/orders?limit=5")) return json(latest)
+      return undefined
+    })
+    renderSignedIn(<DashboardPage />)
+    expect(
+      await screen.findByText("No customers in this period yet."),
+    ).toBeInTheDocument()
+    expect(screen.getByText("Rp 1,254,000")).toBeInTheDocument()
+  })
+
   it("asks for nothing without orders:read", async () => {
     const fetch = mockApi(["products:read"], () => undefined)
     renderSignedIn(<DashboardPage />)
