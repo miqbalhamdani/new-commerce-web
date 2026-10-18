@@ -17,6 +17,7 @@ import {
   ShoppingCart,
   Boxes,
   FolderTree,
+  LayoutDashboard,
   Package,
   ScrollText,
   Settings,
@@ -38,6 +39,14 @@ import { Logo } from "../../public/Logo"
  * visible hides its title too, so ops never sees an empty "Admin".
  */
 const groups = [
+  {
+    title: "Overview",
+    items: [
+      // P1-114: the home. "/" is a prefix of every path, so activeHref
+      // matches it only exactly.
+      { name: "Dashboard", href: "/", icon: LayoutDashboard, permission: "orders:read" },
+    ],
+  },
   {
     title: "Sales",
     items: [

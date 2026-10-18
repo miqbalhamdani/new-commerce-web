@@ -5,6 +5,7 @@ import {
   formatRelative,
   formatDateTime,
   formatMoney,
+  formatMoneyCompact,
   groupDigits,
   moneyInput,
   parseMoney,
@@ -15,6 +16,11 @@ describe("money", () => {
     expect(formatMoney(19900000)).toBe("Rp\u00a0199,000")
     expect(formatMoney(129900000)).toBe("Rp\u00a01,299,000")
     expect(formatMoney(null)).toBe("—")
+  })
+  it("shortens amounts for chart axes (P1-114)", () => {
+    expect(formatMoneyCompact(125400000)).toBe("Rp\u00a01.3M")
+    expect(formatMoneyCompact(39800000)).toBe("Rp\u00a0398K")
+    expect(formatMoneyCompact(0)).toBe("Rp\u00a00")
   })
   it("parses what people type, as minor units", () => {
     expect(parseMoney("199000")).toBe(19900000)

@@ -73,7 +73,7 @@ password and opens `/onboarding`. `GoogleButton` renders Google's own button (on
 ID token) when `GET /v1/auth/providers` names a client ID, and nothing otherwise. `(app)/layout.tsx` is a client guard: while the session is `loading` it shows
 "Loading…" (never a signed-out flash), on `anonymous` it `router.replace("/login")`s, and only on
 `authenticated` renders the TailAdmin shell (`SidebarProvider`, `AppSidebar`, `AppHeader`). The
-guard is a convenience; the API is the security boundary. `/` redirects to `/products`.
+guard is a convenience; the API is the security boundary. `/` is the dashboard (P1-114).
 
 **API layer (`src/lib/api/`).**
 - `schema.d.ts` -- GENERATED. `types.ts` re-exports its `components["schemas"]` under short
@@ -115,7 +115,10 @@ Architecture: configure, do not edit. **Every deliberate deviation lives in
 re-apply them. If a vendored file truly must change, keep the edit minimal, mark it, and add a
 numbered row to PATCHES.md saying what and why; otherwise wrap it in `ui/common/`. PATCHES.md also
 lists what was deliberately *not* vendored (upstream `form/Select`, `MultiSelect`, `Switch`,
-charts, notifications...) -- do not pull those in; `ui/common/Select.tsx` is the select.
+charts, notifications...) -- do not pull those in; `ui/common/Select.tsx` is the select. Charts
+are ApexCharts through `react-apexcharts` itself (P1-114), not TailAdmin's chart components:
+`components/ui/dashboard/Chart.tsx` loads it client-only and holds the chart colours, two
+categorical slots validated for both themes -- add a series colour there, not inline.
 `.prettierignore` keeps prettier away from the vendored files (and `components/header/`) so
 re-pull diffs stay honest.
 
@@ -364,7 +367,7 @@ empty.
 |---|---|
 | 0 Foundation | Sign in, app shell |
 | 1 Catalog | Brands (P1-031), categories (P1-032), product list with bulk actions (P1-033, P1-076), product editor (P1-034), variant matrix (P1-046, P1-047), media (P1-048), publish (P1-075), import wizard (P1-074), team (P1-066), onboarding (P1-068), audit log (P1-078) |
-| 2 Orders | Order list, detail, manual entry, customers, order export (P1-108…112) |
+| 2 Orders | Order list, detail, manual entry, customers, order export (P1-108…112), dashboard (P1-114) |
 | 3 Storefront | API keys (P1-201), storefront settings (P1-217), payment attempts (P1-229), deleting a customer's personal data (P1-215, owner only) |
 | 4 · 5 | Channels: marketplace product import (P1-309) |
 

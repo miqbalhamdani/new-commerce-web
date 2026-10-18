@@ -12,6 +12,13 @@ export function formatMoney(minor: number | null | undefined): string {
   return `Rp\u00a0${grouped.format(minor / 100)}`
 }
 
+const compact = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 })
+
+/** For a chart axis: 125400000 -> "Rp 1.3M". Exact amounts use formatMoney. */
+export function formatMoneyCompact(minor: number): string {
+  return `Rp\u00a0${compact.format(minor / 100)}`
+}
+
 /** Digits only, grouped in threes as someone types: "1500000" -> "1,500,000". */
 export function groupDigits(text: string): string {
   const digits = text.replace(/\D/g, "").replace(/^0+(?=\d)/, "")
