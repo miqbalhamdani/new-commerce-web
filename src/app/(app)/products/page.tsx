@@ -12,6 +12,7 @@ import { Select } from "@/components/ui/common/Select"
 import { BulkActions } from "@/components/ui/catalog/BulkActions"
 import { ProductTable } from "@/components/ui/catalog/ProductTable"
 import { Empty, Loading, Page } from "@/components/ui/common/Page"
+import { Pager } from "@/components/ui/common/Pager"
 import { ApiError } from "@/lib/api/client"
 import type {
   BrandPage,
@@ -28,6 +29,7 @@ import {
   rememberFilters,
   type ProductFilters,
 } from "@/lib/catalog/filters"
+import { pageFromQuery, withPage } from "@/lib/pagination"
 
 // P1-033: the catalog list (04-api-spec.md §7.1).
 
@@ -45,9 +47,9 @@ function ProductList() {
   const pathname = usePathname()
   const params = useSearchParams()
   const filters = filtersFromQuery(params)
+  const page = pageFromQuery(params)
   const canWrite = useCan("products:write")
   const canSettings = useCan("settings:write")
-  const [cursor, setCursor] = useState<string | null>(null)
   const [archiving, setArchiving] = useState<ProductListItem | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [failed, setFailed] = useState<Map<string, string>>(new Map())
@@ -58,20 +60,24 @@ function ProductList() {
       const saved = rememberedFilters()
       if (saved) router.replace(`${pathname}?${saved}`)
     } else {
-      rememberFilters(params.toString())
+      rememberFilters(withPage(params, 1))
     }
   }, [params, pathname, router])
 
   function update(next: Partial<ProductFilters>) {
     const q = filtersToQuery({ ...filters, ...next }).toString()
     rememberFilters(q)
-    setCursor(null)
+    router.replace(q ? `${pathname}?${q}` : pathname)
+  }
+
+  function goPage(n: number) {
+    const q = withPage(params, n)
     router.replace(q ? `${pathname}?${q}` : pathname)
   }
 
   const query = filtersToQuery(filters)
   query.set("limit", "50")
-  if (cursor) query.set("cursor", cursor)
+  if (page > 1) query.set("page", String(page))
   const { data, error, loading, reload } = useResource<ProductPage>(
     `/v1/products?${query}`,
   )
@@ -189,17 +195,14 @@ function ProductList() {
           />
         </>
       ) : null}
-      {data?.next_cursor && (
-        <div className="mt-4 flex justify-end">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setCursor(data.next_cursor)}
-          >
-            Next page
-          </Button>
-        </div>
-      )}
+      <Pager
+        className="mt-4"
+        page={page}
+        limit={50}
+        total={data?.total}
+        noun="products"
+        onPage={goPage}
+      />
       <ArchiveDialog
         product={archiving}
         onClose={() => setArchiving(null)}

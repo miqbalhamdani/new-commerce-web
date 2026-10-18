@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowLeft, ArrowRight, Download, Plus } from "lucide-react"
+import { Download, Plus } from "lucide-react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { Suspense, useEffect, useState } from "react"
 
@@ -12,6 +12,7 @@ import { MultiSelect } from "@/components/ui/common/Select"
 import { SearchInput } from "@/components/ui/common/SearchInput"
 import { SegmentedTabs } from "@/components/ui/common/SegmentedTabs"
 import { Card, Empty, Loading, Page } from "@/components/ui/common/Page"
+import { Pager } from "@/components/ui/common/Pager"
 import { ExportDialog } from "@/components/ui/orders/ExportDialog"
 import { OrderTable } from "@/components/ui/orders/OrderTable"
 import { NoteDialog } from "@/components/ui/orders/TransitionBar"
@@ -29,6 +30,7 @@ import {
   views,
   type OrderFilters,
 } from "@/lib/orders/filters"
+import { pageFromQuery, withPage } from "@/lib/pagination"
 
 // P1-108: the ops workspace (04-api-spec.md §5.1). The saved views are plain
 // filters; mark-paid works straight from the list (BR-070, BR-074).
@@ -47,13 +49,11 @@ function OrderList() {
   const pathname = usePathname()
   const params = useSearchParams()
   const filters = filtersFromQuery(params)
+  const page = pageFromQuery(params)
   const canRead = useCan("orders:read")
   const canWrite = useCan("orders:write")
   const canExport = useCan("exports:read")
   const { tenant } = useSession()
-  // The API pages forward only; the cursors already visited make "Previous".
-  const [cursors, setCursors] = useState<(string | null)[]>([null])
-  const cursor = cursors[cursors.length - 1]
   const [markingPaid, setMarkingPaid] = useState<OrderListRow | null>(null)
   const [cancelling, setCancelling] = useState<OrderListRow | null>(null)
   const [exporting, setExporting] = useState(false)
@@ -64,20 +64,24 @@ function OrderList() {
       const saved = rememberedFilters()
       if (saved) router.replace(`${pathname}?${saved}`)
     } else {
-      rememberFilters(params.toString())
+      rememberFilters(withPage(params, 1))
     }
   }, [params, pathname, router])
 
   function update(next: Partial<OrderFilters>) {
     const q = filtersToQuery({ ...filters, ...next }).toString()
     rememberFilters(q)
-    setCursors([null])
+    router.replace(q ? `${pathname}?${q}` : pathname)
+  }
+
+  function goPage(n: number) {
+    const q = withPage(params, n)
     router.replace(q ? `${pathname}?${q}` : pathname)
   }
 
   const query = filtersToQuery(filters)
   query.set("limit", "50")
-  if (cursor) query.set("cursor", cursor)
+  if (page > 1) query.set("page", String(page))
   const { data, error, loading, reload } = useResource<OrderPage>(
     canRead ? `/v1/orders?${query}` : null,
   )
@@ -93,8 +97,7 @@ function OrderList() {
   const view = activeView(filters)
   // A tab alone is undone by All; Clear is for a search or a custom status.
   const filtered = filters.q !== "" || view === null
-  const clear = () =>
-    update({ q: "", status: [], refund_owed: false })
+  const clear = () => update({ q: "", status: [], refund_owed: false })
   return (
     <Page wide title="Orders">
       {/* The saved views head the table's card; the other filters sit on the
@@ -201,33 +204,14 @@ function OrderList() {
           />
         ) : null}
 
-        {(cursors.length > 1 || data?.next_cursor) && (
-          <nav
-            aria-label="Orders pages"
-            className="flex items-center justify-between gap-3 border-t border-gray-100 px-5 py-4 sm:px-6 dark:border-white/[0.05]"
-          >
-            <Button
-              size="sm"
-              variant="outline"
-              startIcon={<ArrowLeft className="size-4" />}
-              disabled={cursors.length === 1}
-              onClick={() => setCursors(cursors.slice(0, -1))}
-            >
-              Previous
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              endIcon={<ArrowRight className="size-4" />}
-              disabled={!data?.next_cursor}
-              onClick={() =>
-                data?.next_cursor && setCursors([...cursors, data.next_cursor])
-              }
-            >
-              Next
-            </Button>
-          </nav>
-        )}
+        <Pager
+          className="border-t border-gray-100 px-5 py-4 sm:px-6 dark:border-white/[0.05]"
+          page={page}
+          limit={50}
+          total={data?.total}
+          noun="orders"
+          onPage={goPage}
+        />
       </Card>
       <MarkPaidDialog
         order={markingPaid}

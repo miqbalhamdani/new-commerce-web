@@ -2,12 +2,12 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
-import { Suspense, useState } from "react"
+import { Suspense } from "react"
 
-import Button from "@/components/ui/button/Button"
 import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
 import { SearchInput } from "@/components/ui/common/SearchInput"
 import { Empty, Loading, Page } from "@/components/ui/common/Page"
+import { Pager } from "@/components/ui/common/Pager"
 import {
   TableBody,
   TableCell,
@@ -25,6 +25,7 @@ import type { CustomerPage } from "@/lib/api/types"
 import { useResource } from "@/lib/api/use-api"
 import { useCan, useSession } from "@/lib/auth/session"
 import { formatDateTime, formatRelative } from "@/lib/format"
+import { pageFromQuery, withPage } from "@/lib/pagination"
 
 // P1-111: customers, read-only (04-api-spec.md §5.5; BR-092). Staff never
 // create accounts or set passwords.
@@ -42,19 +43,24 @@ function CustomerList() {
   const pathname = usePathname()
   const params = useSearchParams()
   const q = params.get("q") ?? ""
+  const page = pageFromQuery(params)
   const canRead = useCan("customers:read")
   const { tenant } = useSession()
-  const [cursor, setCursor] = useState<string | null>(null)
-
   function search(next: string) {
-    setCursor(null)
-    router.replace(next ? `${pathname}?q=${encodeURIComponent(next)}` : pathname)
+    router.replace(
+      next ? `${pathname}?q=${encodeURIComponent(next)}` : pathname,
+    )
+  }
+
+  function goPage(n: number) {
+    const query = withPage(params, n)
+    router.replace(query ? `${pathname}?${query}` : pathname)
   }
 
   const query = new URLSearchParams()
   if (q) query.set("q", q)
   query.set("limit", "50")
-  if (cursor) query.set("cursor", cursor)
+  if (page > 1) query.set("page", String(page))
   const { data, error, loading } = useResource<CustomerPage>(
     canRead ? `/v1/customers?${query}` : null,
   )
@@ -153,17 +159,14 @@ function CustomerList() {
           </TableBody>
         </ListTable>
       ) : null}
-      {data?.next_cursor && (
-        <div className="mt-4 flex justify-end">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setCursor(data.next_cursor)}
-          >
-            Next page
-          </Button>
-        </div>
-      )}
+      <Pager
+        className="mt-4"
+        page={page}
+        limit={50}
+        total={data?.total}
+        noun="customers"
+        onPage={goPage}
+      />
     </Page>
   )
 }

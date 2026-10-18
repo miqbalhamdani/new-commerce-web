@@ -102,7 +102,7 @@ render and wire them up. New business logic goes in `lib/` with a unit test.
 - DERIVED, ours to edit: `layout/` (AppSidebar, AppHeader, Backdrop), `components/header/`.
 - OURS: `components/ui/common/` (Page/Card/Section/Empty/Loading, Dialog on the vendored Modal, Field with
   Checkbox/Textarea, Listing, ErrorNotice, ButtonLink, Select, RowMenu, SearchInput, Dropzone,
-  ProgressBar, Stepper, DatePicker, SegmentedTabs, CopyField) and the feature dirs above.
+  ProgressBar, Stepper, DatePicker, SegmentedTabs, CopyField, Pager) and the feature dirs above.
 
 ---
 
