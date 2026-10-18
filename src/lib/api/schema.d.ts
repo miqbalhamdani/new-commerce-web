@@ -2082,6 +2082,7 @@ export interface components {
             by_payment_method: components["schemas"]["DashboardPaymentSales"][];
             customers: components["schemas"]["DashboardCustomers"];
             top_products: components["schemas"]["DashboardProduct"][];
+            top_customers: components["schemas"]["DashboardTopCustomer"][];
         };
         /** @description The shop now, whatever the period (BR-066). */
         DashboardNeedsAction: {
@@ -2118,6 +2119,18 @@ export interface components {
         DashboardCustomers: {
             new: number;
             returning: number;
+        };
+        /** @description One of the period's best customers by sales (BR-066). */
+        DashboardTopCustomer: {
+            /**
+             * Format: uuid
+             * @description `null` for a guest, found by the email or phone on their orders.
+             */
+            customer_id: string | null;
+            /** @description As on their latest order in the period. */
+            name: string;
+            sales: components["schemas"]["Money"];
+            orders: number;
         };
         DashboardProduct: {
             /** Format: uuid */
