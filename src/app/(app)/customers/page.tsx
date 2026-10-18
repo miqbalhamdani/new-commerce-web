@@ -25,7 +25,7 @@ import type { CustomerPage } from "@/lib/api/types"
 import { useResource } from "@/lib/api/use-api"
 import { useCan, useSession } from "@/lib/auth/session"
 import { formatDateTime, formatRelative } from "@/lib/format"
-import { pageFromQuery, withPage } from "@/lib/pagination"
+import { PAGE_SIZE, pageFromQuery, withPage } from "@/lib/pagination"
 
 // P1-111: customers, read-only (04-api-spec.md §5.5; BR-092). Staff never
 // create accounts or set passwords.
@@ -59,7 +59,7 @@ function CustomerList() {
 
   const query = new URLSearchParams()
   if (q) query.set("q", q)
-  query.set("limit", "50")
+  query.set("limit", String(PAGE_SIZE))
   if (page > 1) query.set("page", String(page))
   const { data, error, loading } = useResource<CustomerPage>(
     canRead ? `/v1/customers?${query}` : null,
@@ -162,7 +162,7 @@ function CustomerList() {
       <Pager
         className="mt-4"
         page={page}
-        limit={50}
+        limit={PAGE_SIZE}
         total={data?.total}
         noun="customers"
         onPage={goPage}

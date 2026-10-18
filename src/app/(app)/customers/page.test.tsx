@@ -74,7 +74,7 @@ describe("the customer list (P1-111)", () => {
     renderSignedIn(<CustomersPage />)
 
     expect(
-      await screen.findByText("51–100 of 120 customers"),
+      await screen.findByText("21–40 of 120 customers"),
     ).toBeInTheDocument()
     expect(asked.at(-1)).toContain("page=2")
 

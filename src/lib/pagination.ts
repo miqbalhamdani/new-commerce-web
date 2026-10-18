@@ -2,6 +2,9 @@
 // API takes `page` and answers `total` (04-api-spec.md §1, P1-231). The page
 // lives in the URL next to the filters, so reload and the back button keep it.
 
+/** Rows per page on the product, order and customer lists. */
+export const PAGE_SIZE = 20
+
 /** The current page from the query: a positive integer, else 1. */
 export function pageFromQuery(params: URLSearchParams): number {
   const n = Number(params.get("page"))

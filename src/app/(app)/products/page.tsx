@@ -29,7 +29,7 @@ import {
   rememberFilters,
   type ProductFilters,
 } from "@/lib/catalog/filters"
-import { pageFromQuery, withPage } from "@/lib/pagination"
+import { PAGE_SIZE, pageFromQuery, withPage } from "@/lib/pagination"
 
 // P1-033: the catalog list (04-api-spec.md §7.1).
 
@@ -76,7 +76,7 @@ function ProductList() {
   }
 
   const query = filtersToQuery(filters)
-  query.set("limit", "50")
+  query.set("limit", String(PAGE_SIZE))
   if (page > 1) query.set("page", String(page))
   const { data, error, loading, reload } = useResource<ProductPage>(
     `/v1/products?${query}`,
@@ -198,7 +198,7 @@ function ProductList() {
       <Pager
         className="mt-4"
         page={page}
-        limit={50}
+        limit={PAGE_SIZE}
         total={data?.total}
         noun="products"
         onPage={goPage}

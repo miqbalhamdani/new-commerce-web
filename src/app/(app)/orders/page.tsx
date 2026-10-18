@@ -30,7 +30,7 @@ import {
   views,
   type OrderFilters,
 } from "@/lib/orders/filters"
-import { pageFromQuery, withPage } from "@/lib/pagination"
+import { PAGE_SIZE, pageFromQuery, withPage } from "@/lib/pagination"
 
 // P1-108: the ops workspace (04-api-spec.md §5.1). The saved views are plain
 // filters; mark-paid works straight from the list (BR-070, BR-074).
@@ -80,7 +80,7 @@ function OrderList() {
   }
 
   const query = filtersToQuery(filters)
-  query.set("limit", "50")
+  query.set("limit", String(PAGE_SIZE))
   if (page > 1) query.set("page", String(page))
   const { data, error, loading, reload } = useResource<OrderPage>(
     canRead ? `/v1/orders?${query}` : null,
@@ -207,7 +207,7 @@ function OrderList() {
         <Pager
           className="border-t border-gray-100 px-5 py-4 sm:px-6 dark:border-white/[0.05]"
           page={page}
-          limit={50}
+          limit={PAGE_SIZE}
           total={data?.total}
           noun="orders"
           onPage={goPage}
