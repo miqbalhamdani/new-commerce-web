@@ -446,13 +446,15 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Products, filtered and cursor-paginated
+         * Products, filtered and paginated
          * @description `q` is a trigram match on the title, and an exact SKU also matches. `category_id`
          *     includes its descendants. Archived products appear only with `status=archived`. Each
          *     row's `categories` are its main-tree ones (`kind = category`), by path; an empty list
          *     means it cannot be published (BR-038). `price_min` and `price_max` come from
          *     `variant_price()` over live variants (BR-046), `null` when there are none. Target: p95
          *     under 600 ms at 10k products (P1-030). Requires `products:read`.
+         *     Page with `cursor`, or with `page` for a numbered pager; `total` counts every match
+         *     either way (P1-231).
          */
         get: operations["listProducts"];
         put?: never;
@@ -1065,7 +1067,7 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Orders, filtered and cursor-paginated
+         * Orders, filtered and paginated
          * @description The ops workspace (BR-075). `status` repeats to OR values; the saved views are plain
          *     filters — To confirm payment `status=pending`, To ship `status=paid&status=processing`,
          *     Shipped `status=shipped`, Cancelled refund owed `refund_owed=true`, which returns exactly
@@ -1073,6 +1075,8 @@ export interface paths {
          *     the customer's name, email and phone. `placed_from` and `placed_to` take an RFC 3339 time
          *     with an offset, or a date, which means midnight WIB (BR-007). `item_count` is the summed
          *     `qty`. Target: p95 first byte under 800 ms at 10k orders (P1-103). Requires `orders:read`.
+         *     Page with `cursor`, or with `page` for a numbered pager; `total` counts every match
+         *     either way (P1-231).
          */
         get: operations["listOrders"];
         put?: never;
@@ -1303,9 +1307,11 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Customers, searched and cursor-paginated
+         * Customers, searched and paginated
          * @description Read-only: staff never create accounts, set passwords or see password hashes (BR-092).
          *     `q` matches name, email and phone. Requires `customers:read`.
+         *     Page with `cursor`, or with `page` for a numbered pager; `total` counts every match
+         *     either way (P1-231).
          */
         get: operations["listCustomers"];
         put?: never;
@@ -1670,6 +1676,8 @@ export interface components {
         ProductPage: {
             data: components["schemas"]["ProductListItem"][];
             next_cursor: string | null;
+            /** @description Rows matching the filters, across every page (P1-231). */
+            total: number;
         };
         /** @enum {string} */
         JobKind: "product_import" | "order_export" | "channel_import" | "image_derivatives" | "customer_purge";
@@ -2264,6 +2272,8 @@ export interface components {
         OrderPage: {
             data: components["schemas"]["OrderListRow"][];
             next_cursor: string | null;
+            /** @description Rows matching the filters, across every page (P1-231). */
+            total: number;
         };
         /** @description The §5.1 order-list filters, with `status` as an array (BR-065). */
         OrderExportRequest: {
@@ -2296,6 +2306,8 @@ export interface components {
         CustomerPage: {
             data: components["schemas"]["Customer"][];
             next_cursor: string | null;
+            /** @description Rows matching the filters, across every page (P1-231). */
+            total: number;
         };
         CustomerDetail: components["schemas"]["Customer"] & {
             /** @description The customer's orders, newest first, up to 50. */
@@ -2453,13 +2465,20 @@ export interface components {
     };
     parameters: {
         Id: string;
-        /** @description Page size. Pairs with `cursor`; there is no `offset` in this API. */
+        /** @description Page size. Pairs with `cursor`, or `page` on the product, order and customer lists. */
         Limit: number;
         /**
-         * @description Opaque cursor from the previous page. Cursor pagination only — a deep `offset` on a large
-         *     table is a sequential scan, so the parameter does not exist.
+         * @description Opaque cursor from the previous page. Cursor pagination is the rule — a deep `offset` on a
+         *     large table is a sequential scan, so the parameter does not exist; the product, order and
+         *     customer lists also take `page` (P1-231).
          */
         Cursor: string;
+        /**
+         * @description 1-based page number, for a numbered pager: the alternative to `cursor` on the product, order
+         *     and customer lists (P1-231). Sending both, or a page below 1, is `422` on `page`; a page
+         *     past the last answers an empty `data`.
+         */
+        Page: number;
         /**
          * @description The `version` read from the resource. Required on every `PATCH`. The server checks it in
          *     the `UPDATE … WHERE version = $n` predicate; a stale value is `409 version_conflict`, not
@@ -2813,11 +2832,12 @@ export interface operations {
             query?: {
                 q?: string;
                 archived?: boolean;
-                /** @description Page size. Pairs with `cursor`; there is no `offset` in this API. */
+                /** @description Page size. Pairs with `cursor`, or `page` on the product, order and customer lists. */
                 limit?: components["parameters"]["Limit"];
                 /**
-                 * @description Opaque cursor from the previous page. Cursor pagination only — a deep `offset` on a large
-                 *     table is a sequential scan, so the parameter does not exist.
+                 * @description Opaque cursor from the previous page. Cursor pagination is the rule — a deep `offset` on a
+                 *     large table is a sequential scan, so the parameter does not exist; the product, order and
+                 *     customer lists also take `page` (P1-231).
                  */
                 cursor?: components["parameters"]["Cursor"];
             };
@@ -3087,13 +3107,20 @@ export interface operations {
                 category_id?: string;
                 q?: string;
                 sort?: "-created_at" | "-updated_at" | "title";
-                /** @description Page size. Pairs with `cursor`; there is no `offset` in this API. */
+                /** @description Page size. Pairs with `cursor`, or `page` on the product, order and customer lists. */
                 limit?: components["parameters"]["Limit"];
                 /**
-                 * @description Opaque cursor from the previous page. Cursor pagination only — a deep `offset` on a large
-                 *     table is a sequential scan, so the parameter does not exist.
+                 * @description Opaque cursor from the previous page. Cursor pagination is the rule — a deep `offset` on a
+                 *     large table is a sequential scan, so the parameter does not exist; the product, order and
+                 *     customer lists also take `page` (P1-231).
                  */
                 cursor?: components["parameters"]["Cursor"];
+                /**
+                 * @description 1-based page number, for a numbered pager: the alternative to `cursor` on the product, order
+                 *     and customer lists (P1-231). Sending both, or a page below 1, is `422` on `page`; a page
+                 *     past the last answers an empty `data`.
+                 */
+                page?: components["parameters"]["Page"];
             };
             header?: never;
             path?: never;
@@ -3612,11 +3639,12 @@ export interface operations {
             query?: {
                 status?: "invited" | "active" | "disabled";
                 role?: "owner" | "admin" | "ops" | "viewer";
-                /** @description Page size. Pairs with `cursor`; there is no `offset` in this API. */
+                /** @description Page size. Pairs with `cursor`, or `page` on the product, order and customer lists. */
                 limit?: components["parameters"]["Limit"];
                 /**
-                 * @description Opaque cursor from the previous page. Cursor pagination only — a deep `offset` on a large
-                 *     table is a sequential scan, so the parameter does not exist.
+                 * @description Opaque cursor from the previous page. Cursor pagination is the rule — a deep `offset` on a
+                 *     large table is a sequential scan, so the parameter does not exist; the product, order and
+                 *     customer lists also take `page` (P1-231).
                  */
                 cursor?: components["parameters"]["Cursor"];
             };
@@ -3953,11 +3981,12 @@ export interface operations {
                 actor_id?: string;
                 from?: string;
                 to?: string;
-                /** @description Page size. Pairs with `cursor`; there is no `offset` in this API. */
+                /** @description Page size. Pairs with `cursor`, or `page` on the product, order and customer lists. */
                 limit?: components["parameters"]["Limit"];
                 /**
-                 * @description Opaque cursor from the previous page. Cursor pagination only — a deep `offset` on a large
-                 *     table is a sequential scan, so the parameter does not exist.
+                 * @description Opaque cursor from the previous page. Cursor pagination is the rule — a deep `offset` on a
+                 *     large table is a sequential scan, so the parameter does not exist; the product, order and
+                 *     customer lists also take `page` (P1-231).
                  */
                 cursor?: components["parameters"]["Cursor"];
             };
@@ -4055,13 +4084,20 @@ export interface operations {
                 placed_to?: string;
                 q?: string;
                 sort?: "-placed_at" | "placed_at";
-                /** @description Page size. Pairs with `cursor`; there is no `offset` in this API. */
+                /** @description Page size. Pairs with `cursor`, or `page` on the product, order and customer lists. */
                 limit?: components["parameters"]["Limit"];
                 /**
-                 * @description Opaque cursor from the previous page. Cursor pagination only — a deep `offset` on a large
-                 *     table is a sequential scan, so the parameter does not exist.
+                 * @description Opaque cursor from the previous page. Cursor pagination is the rule — a deep `offset` on a
+                 *     large table is a sequential scan, so the parameter does not exist; the product, order and
+                 *     customer lists also take `page` (P1-231).
                  */
                 cursor?: components["parameters"]["Cursor"];
+                /**
+                 * @description 1-based page number, for a numbered pager: the alternative to `cursor` on the product, order
+                 *     and customer lists (P1-231). Sending both, or a page below 1, is `422` on `page`; a page
+                 *     past the last answers an empty `data`.
+                 */
+                page?: components["parameters"]["Page"];
             };
             header?: never;
             path?: never;
@@ -4376,13 +4412,20 @@ export interface operations {
         parameters: {
             query?: {
                 q?: string;
-                /** @description Page size. Pairs with `cursor`; there is no `offset` in this API. */
+                /** @description Page size. Pairs with `cursor`, or `page` on the product, order and customer lists. */
                 limit?: components["parameters"]["Limit"];
                 /**
-                 * @description Opaque cursor from the previous page. Cursor pagination only — a deep `offset` on a large
-                 *     table is a sequential scan, so the parameter does not exist.
+                 * @description Opaque cursor from the previous page. Cursor pagination is the rule — a deep `offset` on a
+                 *     large table is a sequential scan, so the parameter does not exist; the product, order and
+                 *     customer lists also take `page` (P1-231).
                  */
                 cursor?: components["parameters"]["Cursor"];
+                /**
+                 * @description 1-based page number, for a numbered pager: the alternative to `cursor` on the product, order
+                 *     and customer lists (P1-231). Sending both, or a page below 1, is `422` on `page`; a page
+                 *     past the last answers an empty `data`.
+                 */
+                page?: components["parameters"]["Page"];
             };
             header?: never;
             path?: never;
