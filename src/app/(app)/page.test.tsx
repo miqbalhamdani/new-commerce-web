@@ -209,7 +209,7 @@ describe("the dashboard (P1-114)", () => {
     )
   })
 
-  it("shows the latest orders one status at a time, and View all follows", async () => {
+  it("shows the latest orders one status at a time, and See all follows", async () => {
     const fetch = serve()
     renderSignedIn(<DashboardPage />)
     await screen.findByText("ERG-000123")
@@ -229,7 +229,7 @@ describe("the dashboard (P1-114)", () => {
       "aria-pressed",
       "true",
     )
-    expect(screen.getByRole("link", { name: "View all" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "See all" })).toHaveAttribute(
       "href",
       "/orders?status=shipped",
     )

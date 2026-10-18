@@ -1,6 +1,7 @@
 "use client"
 
 import {
+  ArrowRight,
   Banknote,
   Package,
   PackageCheck,
@@ -10,7 +11,6 @@ import {
   Truck,
   Wallet,
 } from "lucide-react"
-import Link from "next/link"
 import { useMemo, useState } from "react"
 
 import {
@@ -20,6 +20,7 @@ import {
   Page,
   Section,
 } from "@/components/ui/common/Page"
+import { ButtonLink } from "@/components/ui/common/ButtonLink"
 import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
 import { SegmentedTabs } from "@/components/ui/common/SegmentedTabs"
 import { SalesChart, dayLabel } from "@/components/ui/dashboard/SalesChart"
@@ -329,7 +330,7 @@ const orderTabs: { value: OrderTab; label: string }[] = [
 
 /**
  * The five newest orders, one status at a time, as TailAdmin's table-header
- * tabs: the statuses are the order list's, named as their badges are. "View
+ * tabs: the statuses are the order list's, named as their badges are. "See
  * all" opens the list on the same status.
  */
 function LatestOrders({
@@ -363,12 +364,13 @@ function LatestOrders({
             value={tab}
             onChange={onTab}
           />
-          <Link
+          <ButtonLink
             href={tab === "all" ? "/orders" : `/orders?status=${tab}`}
-            className="text-theme-sm font-medium text-brand-500 hover:text-brand-600 dark:text-brand-400"
+            variant="outline"
           >
-            View all
-          </Link>
+            See all
+            <ArrowRight aria-hidden className="size-4" />
+          </ButtonLink>
         </div>
       </div>
       <ErrorNotice
