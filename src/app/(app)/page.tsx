@@ -29,7 +29,7 @@ import { StatTile } from "@/components/ui/dashboard/StatTile"
 import { TopProducts } from "@/components/ui/dashboard/TopProducts"
 import { OrderTable } from "@/components/ui/orders/OrderTable"
 import { useResource } from "@/lib/api/use-api"
-import type { Dashboard, OrderPage } from "@/lib/api/types"
+import type { Dashboard, OrderPage, OrderStatus } from "@/lib/api/types"
 import { useCan, useSession } from "@/lib/auth/session"
 import {
   change,
@@ -38,6 +38,7 @@ import {
   type PeriodDays,
 } from "@/lib/dashboard/period"
 import { formatMoney } from "@/lib/format"
+import { statusValues } from "@/lib/orders/filters"
 
 const count = (n: number, one: string, many: string) =>
   `${n.toLocaleString("en-US")} ${n === 1 ? one : many}`
@@ -57,7 +58,12 @@ export default function DashboardPage() {
   const { data, error, loading } = useResource<Dashboard>(
     canRead ? `/v1/dashboard?from=${range.from}&to=${range.to}` : null,
   )
-  const latest = useResource<OrderPage>(canRead ? "/v1/orders?limit=5" : null)
+  const [orderTab, setOrderTab] = useState<OrderTab>("all")
+  const latest = useResource<OrderPage>(
+    canRead
+      ? `/v1/orders?limit=5${orderTab === "all" ? "" : `&status=${orderTab}`}`
+      : null,
+  )
   const periodLabel = periodOptions.find((o) => o.value === days)!.label
 
   if (!canRead) {
@@ -183,36 +189,12 @@ export default function DashboardPage() {
             </div>
 
             <div className="col-span-12">
-              <Card>
-                <div className="flex items-center justify-between gap-3 p-6 pb-4">
-                  <h2 className="text-base font-semibold text-gray-800 dark:text-white/90">
-                    Latest orders
-                  </h2>
-                  <Link
-                    href="/orders"
-                    className="text-theme-sm font-medium text-brand-500 hover:text-brand-600 dark:text-brand-400"
-                  >
-                    View all
-                  </Link>
-                </div>
-                <ErrorNotice
-                  error={latest.error}
-                  title="The latest orders did not load"
-                />
-                {latest.data && latest.data.data.length === 0 ? (
-                  <p className="px-6 pb-6 text-theme-sm text-gray-500 dark:text-gray-400">
-                    No orders yet.
-                  </p>
-                ) : (
-                  latest.data && (
-                    <OrderTable
-                      rows={latest.data.data}
-                      timezone={tenant?.timezone}
-                      bare
-                    />
-                  )
-                )}
-              </Card>
+              <LatestOrders
+                latest={latest}
+                tab={orderTab}
+                onTab={setOrderTab}
+                timezone={tenant?.timezone}
+              />
             </div>
           </div>
         </div>
@@ -332,5 +314,87 @@ function Figures({ d, periodLabel }: { d: Dashboard; periodLabel: string }) {
         }}
       />
     </div>
+  )
+}
+
+type OrderTab = "all" | OrderStatus
+
+const orderTabs: { value: OrderTab; label: string }[] = [
+  { value: "all", label: "All" },
+  ...statusValues.map((s) => ({
+    value: s,
+    label: s[0].toUpperCase() + s.slice(1),
+  })),
+]
+
+/**
+ * The five newest orders, one status at a time, as TailAdmin's table-header
+ * tabs: the statuses are the order list's, named as their badges are. "View
+ * all" opens the list on the same status.
+ */
+function LatestOrders({
+  latest,
+  tab,
+  onTab,
+  timezone,
+}: {
+  latest: ReturnType<typeof useResource<OrderPage>>
+  tab: OrderTab
+  onTab: (tab: OrderTab) => void
+  timezone?: string
+}) {
+  const label = orderTabs.find((t) => t.value === tab)!.label
+  return (
+    <Card>
+      <div className="flex flex-wrap items-center justify-between gap-4 p-6 pb-4">
+        <div>
+          <h2 className="text-base font-semibold text-gray-800 dark:text-white/90">
+            Latest orders
+          </h2>
+          <p className="mt-1 text-theme-sm text-gray-500 dark:text-gray-400">
+            The newest orders first.
+          </p>
+        </div>
+        <div className="flex max-w-full flex-wrap items-center gap-4">
+          <SegmentedTabs
+            label="Order status"
+            variant="subtle"
+            options={orderTabs}
+            value={tab}
+            onChange={onTab}
+          />
+          <Link
+            href={tab === "all" ? "/orders" : `/orders?status=${tab}`}
+            className="text-theme-sm font-medium text-brand-500 hover:text-brand-600 dark:text-brand-400"
+          >
+            View all
+          </Link>
+        </div>
+      </div>
+      <ErrorNotice
+        error={latest.error}
+        title="The latest orders did not load"
+      />
+      <div
+        className={
+          latest.loading
+            ? "opacity-60 transition-opacity"
+            : "transition-opacity"
+        }
+        aria-busy={latest.loading}
+      >
+        {latest.data && latest.data.data.length === 0 ? (
+          <p className="px-6 pb-6 text-theme-sm text-gray-500 dark:text-gray-400">
+            {tab === "all"
+              ? "No orders yet."
+              : `No ${label.toLowerCase()} orders.`}
+          </p>
+        ) : (
+          latest.data && (
+            <OrderTable rows={latest.data.data} timezone={timezone} bare />
+          )
+        )}
+      </div>
+    </Card>
   )
 }

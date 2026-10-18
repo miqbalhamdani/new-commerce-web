@@ -209,6 +209,32 @@ describe("the dashboard (P1-114)", () => {
     )
   })
 
+  it("shows the latest orders one status at a time, and View all follows", async () => {
+    const fetch = serve()
+    renderSignedIn(<DashboardPage />)
+    await screen.findByText("ERG-000123")
+    expect(screen.getByRole("button", { name: "All" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    )
+    await userEvent.click(screen.getByRole("button", { name: "Shipped" }))
+    await waitFor(() =>
+      expect(
+        fetch.mock.calls.some(([u]) =>
+          String(u).endsWith("/v1/orders?limit=5&status=shipped"),
+        ),
+      ).toBe(true),
+    )
+    expect(screen.getByRole("button", { name: "Shipped" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    )
+    expect(screen.getByRole("link", { name: "View all" })).toHaveAttribute(
+      "href",
+      "/orders?status=shipped",
+    )
+  })
+
   it("asks for nothing without orders:read", async () => {
     const fetch = mockApi(["products:read"], () => undefined)
     renderSignedIn(<DashboardPage />)
