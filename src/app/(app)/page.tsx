@@ -164,9 +164,7 @@ export default function DashboardPage() {
                   ]}
                 />
               </Section>
-              <Section title="Top customers">
-                <TopCustomers customers={data.top_customers} />
-              </Section>
+              <TopCustomers customers={data.top_customers} />
             </div>
 
             <div className="col-span-12">
