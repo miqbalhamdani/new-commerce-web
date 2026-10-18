@@ -58,8 +58,19 @@ const dashboard: Dashboard = {
     {
       product_id: "p1",
       title: "Erigo Basic Tee",
+      categories: [
+        { id: "c1", name: "Apparel", path: "apparel" },
+        { id: "c2", name: "Tees", path: "apparel.tees" },
+      ],
       items_sold: 18,
       sales: 35900000,
+    },
+    {
+      product_id: "p2",
+      title: "Gift Card",
+      categories: [],
+      items_sold: 2,
+      sales: 20000000,
     },
   ],
 }
@@ -145,6 +156,13 @@ describe("the dashboard (P1-114)", () => {
     expect(
       screen.getByRole("link", { name: "Erigo Basic Tee" }),
     ).toHaveAttribute("href", "/products/p1")
+    // Each product's main-tree categories, as the product list shows them.
+    const tee = screen
+      .getByRole("link", { name: "Erigo Basic Tee" })
+      .closest("tr")!
+    expect(within(tee).getByText("Apparel, Tees")).toBeInTheDocument()
+    const card = screen.getByRole("link", { name: "Gift Card" }).closest("tr")!
+    expect(within(card).getByText("—")).toBeInTheDocument()
     expect(await screen.findByText("ERG-000123")).toBeInTheDocument()
 
     // The chart's figures, every day of them, are in its table.

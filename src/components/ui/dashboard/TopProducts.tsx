@@ -18,6 +18,7 @@ export function TopProducts({ products }: { products: DashboardProduct[] }) {
         <thead className="border-b border-gray-100 text-theme-xs text-gray-500 dark:border-gray-800 dark:text-gray-400">
           <tr>
             <th className="py-3 pr-4 font-medium">Product</th>
+            <th className="py-3 pr-4 font-medium">Category</th>
             <th className="py-3 pr-4 text-right font-medium">Items sold</th>
             <th className="py-3 text-right font-medium">Sales</th>
           </tr>
@@ -32,6 +33,14 @@ export function TopProducts({ products }: { products: DashboardProduct[] }) {
                 >
                   {p.title}
                 </Link>
+              </td>
+              {/* The main tree only, by path, as the product list shows it. */}
+              <td className="py-3 pr-4 text-gray-500 dark:text-gray-400">
+                {p.categories.length ? (
+                  p.categories.map((c) => c.name).join(", ")
+                ) : (
+                  <span className="text-gray-400">—</span>
+                )}
               </td>
               <td className="py-3 pr-4 text-right tabular-nums text-gray-700 dark:text-gray-300">
                 {p.items_sold}
