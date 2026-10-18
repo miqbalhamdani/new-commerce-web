@@ -1299,6 +1299,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The dashboard's figures for a period
+         * @description BR-066's figures for orders placed in `[from, to)`: paid and not cancelled. `previous` is
+         *     the same span just before `from`; `daily` has every WIB day, zero-filled; `by_source` and
+         *     `by_payment_method` list every value; `top_products` has at most five, by sales.
+         *     `needs_action` is the shop now, whatever the period. `from` and `to` are each a date
+         *     (midnight WIB) or an RFC 3339 time with an offset (BR-007); `to` must be after `from` and
+         *     at most 366 days later. Requires `orders:read`.
+         */
+        get: operations["getDashboard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/customers": {
         parameters: {
             query?: never;
@@ -2044,6 +2069,69 @@ export interface components {
         OrderStatus: "pending" | "paid" | "processing" | "shipped" | "completed" | "cancelled";
         /** @enum {string} */
         OrderSource: "storefront" | "manual";
+        Dashboard: {
+            /** Format: date-time */
+            from: string;
+            /** Format: date-time */
+            to: string;
+            needs_action: components["schemas"]["DashboardNeedsAction"];
+            current: components["schemas"]["DashboardFigures"];
+            previous: components["schemas"]["DashboardFigures"];
+            daily: components["schemas"]["DashboardDay"][];
+            by_source: components["schemas"]["DashboardSourceSales"][];
+            by_payment_method: components["schemas"]["DashboardPaymentSales"][];
+            customers: components["schemas"]["DashboardCustomers"];
+            top_products: components["schemas"]["DashboardProduct"][];
+        };
+        /** @description The shop now, whatever the period (BR-066). */
+        DashboardNeedsAction: {
+            /** @description Pending orders paid through Midtrans. */
+            awaiting_payment: number;
+            /** @description Pending bank-transfer orders. */
+            transfers_to_confirm: number;
+            /** @description Paid and processing orders. */
+            ready_to_ship: number;
+            shipped: number;
+            refund_owed: number;
+        };
+        DashboardDay: {
+            /**
+             * Format: date
+             * @description A WIB calendar day.
+             */
+            date: string;
+            sales: components["schemas"]["Money"];
+            orders: number;
+        };
+        DashboardSourceSales: {
+            source: components["schemas"]["OrderSource"];
+            sales: components["schemas"]["Money"];
+            orders: number;
+        };
+        DashboardPaymentSales: {
+            /** @enum {string} */
+            payment_method: "bank_transfer" | "midtrans";
+            sales: components["schemas"]["Money"];
+            orders: number;
+        };
+        DashboardCustomers: {
+            new: number;
+            returning: number;
+        };
+        DashboardProduct: {
+            /** Format: uuid */
+            product_id: string;
+            title: string;
+            items_sold: number;
+            sales: components["schemas"]["Money"];
+        };
+        /** @description BR-066's figures for one period. */
+        DashboardFigures: {
+            sales: components["schemas"]["Money"];
+            orders: number;
+            average_order_value: components["schemas"]["Money"];
+            items_sold: number;
+        };
         /** @description The customer as they were when the order was placed (BR-076), not a live reference. */
         OrderCustomerSnapshot: {
             name: string;
@@ -4401,6 +4489,32 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobAccepted"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    getDashboard: {
+        parameters: {
+            query: {
+                from: string;
+                to: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The figures. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Dashboard"];
                 };
             };
             401: components["responses"]["Unauthorized"];
