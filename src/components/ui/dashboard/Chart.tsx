@@ -25,6 +25,11 @@ export function useChartTheme() {
   return {
     dark,
     series: ["#465FFF", dark ? "#EC4A0A" : "#FB6514"],
+    // A whole in two shades of brand, as TailAdmin's donuts are; every part
+    // is named and counted beside it, so the shades never carry it alone.
+    share: ["#465FFF", "#9CB9FF"],
+    // The card under a chart, for the gap drawn between slices.
+    surface: dark ? "#232323" : "#FFFFFF",
     ink: dark ? "#a8a8a8" : "#667085",
     grid: dark ? "#333333" : "#E4E7EC",
   }

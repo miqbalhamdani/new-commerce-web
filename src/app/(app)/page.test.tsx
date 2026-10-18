@@ -161,10 +161,17 @@ describe("the dashboard (P1-114)", () => {
     expect(channel).toHaveAccessibleName(
       "Sales by channel: WhatsApp & manual 60%, Website 40%",
     )
-    expect(screen.getByText(/Rp 752,400 · 27 orders/)).toBeInTheDocument()
+    expect(screen.getByText(/Rp 752.4K · 27 orders/)).toBeInTheDocument()
     expect(
       screen.getByRole("img", { name: /^Customers/ }),
     ).toHaveAccessibleName("Customers: New 39%, Returning 61%")
+    // 12 new and 19 returning, as one total over the bar.
+    const customers = screen
+      .getByRole("img", { name: /^Customers/ })
+      .closest("section")!
+    expect(within(customers).getByText("31")).toBeInTheDocument()
+    // Payment methods is no longer on the dashboard.
+    expect(screen.queryByText("Payment methods")).toBeNull()
 
     expect(
       screen.getByRole("link", { name: "Erigo Basic Tee" }),

@@ -25,6 +25,7 @@ import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
 import { SegmentedTabs } from "@/components/ui/common/SegmentedTabs"
 import { SalesChart, dayLabel } from "@/components/ui/dashboard/SalesChart"
 import { ShareBar } from "@/components/ui/dashboard/ShareBar"
+import { ShareDonut } from "@/components/ui/dashboard/ShareDonut"
 import { KpiTile } from "@/components/ui/dashboard/KpiTile"
 import { StatTile } from "@/components/ui/dashboard/StatTile"
 import { TopProducts } from "@/components/ui/dashboard/TopProducts"
@@ -38,7 +39,7 @@ import {
   periodRange,
   type PeriodDays,
 } from "@/lib/dashboard/period"
-import { formatMoney } from "@/lib/format"
+import { formatMoney, formatMoneyCompact } from "@/lib/format"
 import { statusValues } from "@/lib/orders/filters"
 
 const count = (n: number, one: string, many: string) =>
@@ -118,74 +119,52 @@ export default function DashboardPage() {
               </Section>
             </div>
             <div className="col-span-12 flex flex-col gap-4 md:gap-6 xl:col-span-4">
-              <Section
-                title="Sales by channel"
-                description="WhatsApp and other orders typed in by staff, against the website."
-              >
-                <ShareBar
+              <Section title="Sales by channel">
+                <ShareDonut
                   label="Sales by channel"
                   empty="No sales in this period yet."
+                  total={{
+                    value: formatMoneyCompact(data.current.sales),
+                    sub: count(data.current.orders, "order", "orders"),
+                  }}
                   parts={data.by_source.map((s) => ({
                     name:
                       s.source === "manual" ? "WhatsApp & manual" : "Website",
                     value: s.sales,
-                    detail: `${formatMoney(s.sales)} · ${count(s.orders, "order", "orders")}`,
+                    detail: `${formatMoneyCompact(s.sales)} · ${count(s.orders, "order", "orders")}`,
+                    tooltip: `${formatMoney(s.sales)} · ${count(s.orders, "order", "orders")}`,
                   }))}
                 />
               </Section>
-              <Section title="Payment methods">
+              <Section title="Customers">
                 <ShareBar
-                  label="Sales by payment method"
-                  empty="No sales in this period yet."
-                  parts={data.by_payment_method.map((m) => ({
-                    name:
-                      m.payment_method === "bank_transfer"
-                        ? "Bank transfer"
-                        : "Midtrans",
-                    value: m.sales,
-                    detail: `${formatMoney(m.sales)} · ${count(m.orders, "order", "orders")}`,
-                  }))}
+                  label="Customers"
+                  empty="No customers in this period yet."
+                  total={(
+                    data.customers.new + data.customers.returning
+                  ).toLocaleString("en-US")}
+                  parts={[
+                    {
+                      name: "New",
+                      value: data.customers.new,
+                      detail: data.customers.new.toLocaleString("en-US"),
+                    },
+                    {
+                      name: "Returning",
+                      value: data.customers.returning,
+                      detail: data.customers.returning.toLocaleString("en-US"),
+                    },
+                  ]}
                 />
               </Section>
             </div>
 
-            <div className="col-span-12 xl:col-span-8">
+            <div className="col-span-12">
               <Section
                 title="Top products"
                 description="The five best sellers this period, by sales."
               >
                 <TopProducts products={data.top_products} />
-              </Section>
-            </div>
-            <div className="col-span-12 xl:col-span-4">
-              <Section
-                title="Customers"
-                description="Who bought this period: first-timers, and people who had bought before."
-              >
-                <ShareBar
-                  label="Customers"
-                  empty="No customers in this period yet."
-                  parts={[
-                    {
-                      name: "New",
-                      value: data.customers.new,
-                      detail: count(
-                        data.customers.new,
-                        "customer",
-                        "customers",
-                      ),
-                    },
-                    {
-                      name: "Returning",
-                      value: data.customers.returning,
-                      detail: count(
-                        data.customers.returning,
-                        "customer",
-                        "customers",
-                      ),
-                    },
-                  ]}
-                />
               </Section>
             </div>
 
