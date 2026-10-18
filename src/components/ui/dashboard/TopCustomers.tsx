@@ -7,7 +7,7 @@ import type { DashboardTopCustomer } from "@/lib/api/types"
 import { formatMoney } from "@/lib/format"
 
 /**
- * The period's five best customers by sales, as TailAdmin's "Top Channels"
+ * The period's three best customers by sales, as TailAdmin's "Top Channels"
  * card (P1-116, BR-066): name and sales, with the way to every customer
  * beside the title. A customer with an account opens their page; a guest has
  * none, so their name stays plain.
