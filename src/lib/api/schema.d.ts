@@ -2102,6 +2102,7 @@ export interface components {
             date: string;
             sales: components["schemas"]["Money"];
             orders: number;
+            items_sold: number;
         };
         DashboardSourceSales: {
             source: components["schemas"]["OrderSource"];
