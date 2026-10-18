@@ -28,6 +28,7 @@ import { ShareBar } from "@/components/ui/dashboard/ShareBar"
 import { ShareDonut } from "@/components/ui/dashboard/ShareDonut"
 import { KpiTile } from "@/components/ui/dashboard/KpiTile"
 import { StatTile } from "@/components/ui/dashboard/StatTile"
+import { TopCustomers } from "@/components/ui/dashboard/TopCustomers"
 import { TopProducts } from "@/components/ui/dashboard/TopProducts"
 import { OrderTable } from "@/components/ui/orders/OrderTable"
 import { useResource } from "@/lib/api/use-api"
@@ -110,12 +111,18 @@ export default function DashboardPage() {
           <Figures d={data} periodLabel={periodLabel} />
 
           <div className="mt-4 grid grid-cols-12 gap-4 md:mt-6 md:gap-6">
-            <div className="col-span-12 xl:col-span-8">
+            <div className="col-span-12 flex flex-col gap-4 md:gap-6 xl:col-span-8">
               <Section
                 title="Sales per day"
                 description={`Paid orders over the last ${periodLabel}, by the day they were placed.`}
               >
                 <SalesChart days={data.daily} />
+              </Section>
+              <Section
+                title="Top products"
+                description="The five best sellers this period, by sales."
+              >
+                <TopProducts products={data.top_products} />
               </Section>
             </div>
             <div className="col-span-12 flex flex-col gap-4 md:gap-6 xl:col-span-4">
@@ -157,14 +164,8 @@ export default function DashboardPage() {
                   ]}
                 />
               </Section>
-            </div>
-
-            <div className="col-span-12">
-              <Section
-                title="Top products"
-                description="The five best sellers this period, by sales."
-              >
-                <TopProducts products={data.top_products} />
+              <Section title="Top customers">
+                <TopCustomers customers={data.top_customers} />
               </Section>
             </div>
 

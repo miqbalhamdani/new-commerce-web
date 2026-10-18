@@ -74,6 +74,10 @@ const dashboard: Dashboard = {
       sales: 20000000,
     },
   ],
+  top_customers: [
+    { customer_id: "c9", name: "Rina Wati", sales: 15920000, orders: 3 },
+    { customer_id: null, name: "Guest Budi", sales: 5000000, orders: 1 },
+  ],
 }
 
 const latest = {
@@ -170,6 +174,16 @@ describe("the dashboard (P1-114)", () => {
       .getByRole("img", { name: /^Customers/ })
       .closest("section")!
     expect(within(customers).getByText("31")).toBeInTheDocument()
+    // Top customers: an account opens its customer, a guest has nowhere to go.
+    expect(screen.getByRole("link", { name: "Rina Wati" })).toHaveAttribute(
+      "href",
+      "/customers/c9",
+    )
+    expect(screen.getByText("Guest Budi").closest("a")).toBeNull()
+    expect(screen.getByRole("link", { name: "All customers" })).toHaveAttribute(
+      "href",
+      "/customers",
+    )
     // Payment methods is no longer on the dashboard.
     expect(screen.queryByText("Payment methods")).toBeNull()
 
