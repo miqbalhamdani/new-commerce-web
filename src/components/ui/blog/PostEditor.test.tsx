@@ -272,13 +272,18 @@ describe("PostEditor (P1-607)", () => {
     ).toBeInTheDocument()
   })
 
-  it("Shop the guide shows what is selected, with a check and a word (BR-134)", async () => {
+  it("Shop the guide picks in a modal, each product with its category (BR-134)", async () => {
     api((url) => {
       if (url.includes("/v1/products?"))
         return json({
           data: [
-            { id: "a", title: "Plain White", cover_url: null },
-            { id: "b", title: "Steel Light", cover_url: null },
+            {
+              id: "a",
+              title: "Plain White",
+              cover_url: null,
+              categories: [{ id: "k1", name: "Bedding", path: "bedding" }],
+            },
+            { id: "b", title: "Steel Light", cover_url: null, categories: [] },
           ],
           next_cursor: null,
           total: 2,
@@ -289,17 +294,23 @@ describe("PostEditor (P1-607)", () => {
       await screen.findByText(/No products linked yet/),
     ).toBeInTheDocument()
 
-    await userEvent.click(screen.getByLabelText("Search products to add"))
-    await userEvent.click(
-      await screen.findByRole("option", { name: /Plain White/ }),
-    )
+    await userEvent.click(screen.getByRole("button", { name: "Add products" }))
+    expect(screen.getByLabelText("Search products to add")).toBeInTheDocument()
+    const plain = await screen.findByRole("option", { name: /Plain White/ })
+    expect(plain).toHaveTextContent("Bedding")
+    expect(
+      screen.getByRole("option", { name: /Steel Light/ }),
+    ).toHaveTextContent("No category")
+    await userEvent.click(plain)
     await userEvent.click(screen.getByRole("option", { name: /Steel Light/ }))
     expect(
       screen.getByRole("option", { name: /Plain White/ }),
     ).toHaveTextContent("Selected")
-    expect(screen.getByText("2 of 12 products selected")).toBeInTheDocument()
+    expect(screen.getByText("2 of 12 selected")).toBeInTheDocument()
 
     await userEvent.keyboard("{Escape}")
+    expect(screen.queryByLabelText("Search products to add")).toBeNull()
+    expect(screen.getByText("2 of 12 products selected")).toBeInTheDocument()
     await userEvent.click(
       screen.getByRole("button", { name: "Remove Plain White" }),
     )

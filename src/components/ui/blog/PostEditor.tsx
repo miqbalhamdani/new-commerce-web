@@ -17,6 +17,7 @@ import {
   ChevronDown,
   ImagePlus,
   Pencil,
+  Plus,
   Search,
   SlidersHorizontal,
   X,
@@ -29,6 +30,7 @@ import { RichTextEditor } from "@/components/ui/blog/RichTextEditor"
 import { TagInput } from "@/components/ui/blog/TagInput"
 import Button from "@/components/ui/button/Button"
 import { DatePicker } from "@/components/ui/common/DatePicker"
+import { Dialog } from "@/components/ui/common/Dialog"
 import { Dropzone } from "@/components/ui/common/Dropzone"
 import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
 import { Field, fieldClasses, Textarea } from "@/components/ui/common/Field"
@@ -657,10 +659,12 @@ function CoverField({
 }
 
 /**
- * Shop the guide (BR-134): the chosen products as numbered cards, and a
- * search that lists active products as you type (the first ten when you
- * click in). A chosen product shows a filled check and "Selected" in the
- * list, so the choice never rests on colour alone; at most 12.
+ * Shop the guide (BR-134): the chosen products as numbered cards, and Add
+ * products, which opens a modal to search active products (the first 20
+ * when empty) with each one's category. The card sits at the bottom of the
+ * page, so the list gets the modal's room rather than a squeezed dropdown.
+ * A chosen product shows a filled check and "Selected", so the choice never
+ * rests on colour alone; at most 12.
  */
 function ProductPicker({
   value,
@@ -673,32 +677,13 @@ function ProductPicker({
   error?: string
   onChange: (products: PickedProduct[]) => void
 }) {
-  const [typed, setTyped] = useState("")
-  const [q, setQ] = useState("")
-  const [open, setOpen] = useState(false)
-  useEffect(() => {
-    const t = setTimeout(() => setQ(typed.trim()), 250)
-    return () => clearTimeout(t)
-  }, [typed])
-  const params = new URLSearchParams({ status: "active", limit: "10" })
-  if (q) params.set("q", q)
-  const { data: results, error: searchError } = useResource<ProductPage>(
-    open ? `/v1/products?${params}` : null,
-  )
-  const full = value.length >= maxProducts
-  const picked = new Set(value.map((p) => p.id))
-  const options: PickedProduct[] = (results?.data ?? []).map((p) => ({
-    id: p.id,
-    title: p.title,
-    cover_url: p.cover_url,
-  }))
-
+  const [adding, setAdding] = useState(false)
   return (
     <div className="flex flex-col gap-4">
       <p className="text-theme-sm text-gray-500 dark:text-gray-400">
         {value.length
           ? `${value.length} of ${maxProducts} products selected`
-          : "No products linked yet. Search to add the ones this post mentions; only active products can be added."}
+          : "No products linked yet. Add the ones this post mentions; only active products can be added."}
       </p>
       {value.length > 0 && (
         <ol
@@ -734,82 +719,134 @@ function ProductPicker({
       )}
       {error && <p className="text-xs text-error-500">{error}</p>}
       {canWrite && (
-        <Combobox
-          multiple
-          immediate
-          by="id"
-          value={value}
-          onChange={(next: PickedProduct[]) =>
-            onChange(next.slice(0, maxProducts))
-          }
-          onClose={() => setTyped("")}
+        <Button
+          size="sm"
+          variant="outline"
+          className="self-start"
+          onClick={() => setAdding(true)}
         >
-          <div className="relative w-full max-w-md">
-            <Search
-              aria-hidden
-              className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-gray-400"
-            />
-            <ComboboxInput
-              aria-label="Search products to add"
-              placeholder="Search active products to add"
-              className={cx(fieldClasses(), "h-11 pl-10")}
-              value={typed}
-              onFocus={() => setOpen(true)}
-              onChange={(e) => {
-                setOpen(true)
-                setTyped(e.target.value)
-              }}
-            />
-          </div>
-          <ComboboxOptions
-            anchor="bottom start"
-            className="z-999999 w-[var(--input-width)] min-w-80 rounded-xl border border-gray-200 bg-white p-1 shadow-theme-lg [--anchor-gap:4px] [--anchor-max-height:22rem] focus:outline-none dark:border-gray-800 dark:bg-gray-dark"
-          >
-            <ErrorNotice
-              error={searchError}
-              title="Could not search the catalog"
-            />
-            {results && options.length === 0 && (
-              <p className="px-3 py-2 text-theme-sm text-gray-500 dark:text-gray-400">
-                {q
-                  ? "No active product matches."
-                  : "No active products yet. Activate a product to add it here."}
-              </p>
-            )}
-            {full && (
-              <p className="px-3 py-2 text-theme-xs text-gray-500 dark:text-gray-400">
-                {maxProducts} is the most a post can show; remove one to add
-                another.
-              </p>
-            )}
-            {options.map((p) => (
-              <ComboboxOption
-                key={p.id}
-                value={p}
-                disabled={full && !picked.has(p.id)}
-                className={cx(
-                  "group flex min-h-12 cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-700 dark:text-gray-300",
-                  "data-[focus]:bg-gray-100 data-[selected]:bg-brand-50 dark:data-[focus]:bg-white/5 dark:data-[selected]:bg-brand-500/10",
-                  "data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50",
-                )}
-              >
-                <span
-                  aria-hidden
-                  className="flex size-5 shrink-0 items-center justify-center rounded border border-gray-300 group-data-[selected]:border-brand-500 group-data-[selected]:bg-brand-500 dark:border-gray-700"
-                >
-                  <CheckLineIcon className="invisible size-3.5 text-white group-data-[selected]:visible" />
-                </span>
-                <Thumb url={p.cover_url} className="size-10" />
-                <span className="min-w-0 flex-1 truncate">{p.title}</span>
-                <span className="hidden text-theme-xs font-semibold text-brand-600 group-data-[selected]:inline dark:text-brand-400">
-                  Selected
-                </span>
-              </ComboboxOption>
-            ))}
-          </ComboboxOptions>
-        </Combobox>
+          <Plus className="size-4" aria-hidden />
+          Add products
+        </Button>
       )}
+      <Dialog
+        open={adding}
+        onOpenChange={setAdding}
+        size="lg"
+        title="Add products"
+        description={`Only active products can be added; a post shows up to ${maxProducts}.`}
+      >
+        <ProductSearch value={value} onChange={onChange} />
+      </Dialog>
     </div>
+  )
+}
+
+/** The Add products modal's body: a search and a tall list to tick. */
+function ProductSearch({
+  value,
+  onChange,
+}: {
+  value: PickedProduct[]
+  onChange: (products: PickedProduct[]) => void
+}) {
+  const [typed, setTyped] = useState("")
+  const [q, setQ] = useState("")
+  useEffect(() => {
+    const t = setTimeout(() => setQ(typed.trim()), 250)
+    return () => clearTimeout(t)
+  }, [typed])
+  const params = new URLSearchParams({ status: "active", limit: "20" })
+  if (q) params.set("q", q)
+  const { data: results, error: searchError } = useResource<ProductPage>(
+    `/v1/products?${params}`,
+  )
+  const full = value.length >= maxProducts
+  const picked = new Set(value.map((p) => p.id))
+  const options = results?.data ?? []
+
+  return (
+    <Combobox
+      multiple
+      by="id"
+      value={value}
+      onChange={(next: PickedProduct[]) =>
+        // Options are list items; keep only what the post holds.
+        onChange(
+          next
+            .slice(0, maxProducts)
+            .map(({ id, title, cover_url }) => ({ id, title, cover_url })),
+        )
+      }
+    >
+      <div className="relative">
+        <Search
+          aria-hidden
+          className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-gray-400"
+        />
+        <ComboboxInput
+          aria-label="Search products to add"
+          placeholder="Search active products"
+          className={cx(fieldClasses(), "h-11 pl-10")}
+          value={typed}
+          onChange={(e) => setTyped(e.target.value)}
+        />
+      </div>
+      <ErrorNotice error={searchError} title="Could not search the catalog" />
+      {full && (
+        <p className="mt-3 text-theme-xs text-gray-500 dark:text-gray-400">
+          {maxProducts} is the most a post can show; untick one to add another.
+        </p>
+      )}
+      <ComboboxOptions
+        static
+        className="custom-scrollbar mt-3 flex max-h-[min(28rem,55vh)] flex-col divide-y divide-gray-100 overflow-y-auto focus:outline-none dark:divide-white/[0.05]"
+      >
+        {results && options.length === 0 && (
+          <p className="px-3 py-4 text-theme-sm text-gray-500 dark:text-gray-400">
+            {q
+              ? "No active product matches."
+              : "No active products yet. Activate a product to add it here."}
+          </p>
+        )}
+        {options.map((p) => (
+          <ComboboxOption
+            key={p.id}
+            value={p}
+            disabled={full && !picked.has(p.id)}
+            className={cx(
+              "group flex min-h-16 cursor-pointer items-center gap-3 rounded-lg px-3 py-2",
+              "data-[focus]:bg-gray-50 data-[selected]:bg-brand-50 dark:data-[focus]:bg-white/5 dark:data-[selected]:bg-brand-500/10",
+              "data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50",
+            )}
+          >
+            <span
+              aria-hidden
+              className="flex size-5 shrink-0 items-center justify-center rounded border border-gray-300 group-data-[selected]:border-brand-500 group-data-[selected]:bg-brand-500 dark:border-gray-700"
+            >
+              <CheckLineIcon className="invisible size-3.5 text-white group-data-[selected]:visible" />
+            </span>
+            <Thumb url={p.cover_url} className="size-12" />
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-medium text-gray-800 dark:text-white/90">
+                {p.title}
+              </span>
+              <span className="block truncate text-theme-xs text-gray-500 dark:text-gray-400">
+                {p.categories.map((c) => c.name).join(", ") || "No category"}
+              </span>
+            </span>
+            <span className="hidden text-theme-xs font-semibold text-brand-600 group-data-[selected]:inline dark:text-brand-400">
+              Selected
+            </span>
+          </ComboboxOption>
+        ))}
+      </ComboboxOptions>
+      <p className="mt-4 text-theme-sm text-gray-500 dark:text-gray-400">
+        {value.length} of {maxProducts} selected
+        {results?.next_cursor &&
+          " · Showing the first 20; search to find others."}
+      </p>
+    </Combobox>
   )
 }
 
