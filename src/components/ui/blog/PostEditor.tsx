@@ -459,7 +459,7 @@ export function PostEditor({
                   />
                   <FieldNote error={err("author_id")} />
                 </SummaryRow>
-                <div className="flex min-h-12 items-center gap-4 py-3">
+                <div className="flex min-h-14 items-center gap-4 py-4">
                   <span className={rowLabel}>Featured</span>
                   <p className="min-w-0 flex-1 text-xs text-gray-500 dark:text-gray-400">
                     Shown first on your journal page; replaces the current
@@ -834,8 +834,8 @@ const rowLabel = "shrink-0 text-sm text-gray-500 dark:text-gray-400"
 
 /**
  * One line of the post's details, WordPress style: the label, and the value
- * in bold, a brand link with a pencil when it can be changed, opening its
- * editor underneath. open forces it open, for a field the API refused.
+ * in the label's size, a brand link with a pencil when it can be changed,
+ * opening its editor underneath. open forces it open, for a field the API refused.
  */
 function SummaryRow({
   label,
@@ -852,20 +852,20 @@ function SummaryRow({
 }) {
   if (!children || !editable)
     return (
-      <div className="flex min-h-12 items-center justify-between gap-4 py-3">
+      <div className="flex min-h-14 items-center justify-between gap-4 py-4">
         <span className={rowLabel}>{label}</span>
-        <span className="min-w-0 truncate text-right text-base font-semibold text-gray-800 dark:text-white/90">
+        <span className="min-w-0 truncate text-right text-sm text-gray-800 dark:text-white/90">
           {value}
         </span>
       </div>
     )
   return (
     <Disclosure as="div" key={open ? "open" : "closed"} defaultOpen={open}>
-      <DisclosureButton className="-mx-2 flex min-h-12 w-[calc(100%+1rem)] items-center justify-between gap-4 rounded-lg px-2 py-3 text-left hover:bg-gray-50 dark:hover:bg-white/[0.03]">
+      <DisclosureButton className="-mx-2 flex min-h-14 w-[calc(100%+1rem)] items-center justify-between gap-4 rounded-lg px-2 py-4 text-left hover:bg-gray-50 dark:hover:bg-white/[0.03]">
         <span className={rowLabel}>{label}</span>
-        <span className="flex min-w-0 items-center gap-2 text-base font-semibold text-brand-500">
+        <span className="flex min-w-0 items-center gap-1.5 text-sm text-brand-500">
           <span className="truncate">{value}</span>
-          <Pencil aria-hidden className="size-4 shrink-0" />
+          <Pencil aria-hidden className="size-3.5 shrink-0" />
         </span>
       </DisclosureButton>
       <DisclosurePanel className="pb-4">{children}</DisclosurePanel>
