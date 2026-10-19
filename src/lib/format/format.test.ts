@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest"
 
 import {
   dateInputRFC3339,
+  dateTimeInputRFC3339,
+  dateTimeInputValue,
   formatRelative,
   formatDateTime,
   formatMoney,
@@ -54,6 +56,16 @@ describe("date input to RFC 3339", () => {
   it("means midnight WIB, or end of day for a to-bound", () => {
     expect(dateInputRFC3339("2026-09-01")).toBe("2026-09-01T00:00:00+07:00")
     expect(dateInputRFC3339("2026-10-01", true)).toBe("2026-10-01T23:59:59+07:00")
+  })
+})
+
+describe("datetime-local input and RFC 3339 (P1-607)", () => {
+  it("means WIB both ways", () => {
+    expect(dateTimeInputRFC3339("2026-12-24T09:00")).toBe("2026-12-24T09:00:00+07:00")
+    expect(dateTimeInputRFC3339("2026-12-24T09:00:30")).toBe("2026-12-24T09:00:30+07:00")
+    expect(dateTimeInputValue("2026-12-24T02:00:00Z")).toBe("2026-12-24T09:00")
+    expect(dateTimeInputValue("2026-12-24T09:00:00+07:00")).toBe("2026-12-24T09:00")
+    expect(dateTimeInputValue(null)).toBe("")
   })
 })
 

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest"
 
-import { uploadImage } from "./upload"
+import { uploadCover, uploadImage } from "./upload"
 
 describe("uploadImage (P1-048)", () => {
   it("sends the bytes to the store and only their description to the API (BR-051)", async () => {
@@ -59,5 +59,37 @@ describe("uploadImage (P1-048)", () => {
       ),
     ).rejects.toThrow(/not a JPEG/)
     expect(api).not.toHaveBeenCalled()
+  })
+})
+
+describe("uploadCover (P1-607)", () => {
+  it("presigns under the post, puts the bytes, and returns the key with no confirm (BR-135)", async () => {
+    const file = new File([new Uint8Array([1, 2])], "cover.jpg", {
+      type: "image/jpeg",
+    })
+    const api = vi.fn(async () => ({
+      upload_url: "http://store/put",
+      r2_key: "t/blogs/post1/abc.jpg",
+      expires_in: 600,
+    })) as never
+    const put = vi.fn(async () => undefined)
+
+    const key = await uploadCover(api, "post1", file, put, vi.fn())
+
+    expect(key).toBe("t/blogs/post1/abc.jpg")
+    expect(put).toHaveBeenCalledOnce()
+    expect(api).toHaveBeenCalledOnce()
+    expect(vi.mocked(api as (...a: unknown[]) => unknown).mock.calls[0]).toEqual([
+      "/v1/media/presign",
+      {
+        method: "POST",
+        body: expect.objectContaining({
+          purpose: "blog_cover",
+          post_id: "post1",
+          mime_type: "image/jpeg",
+          bytes: 2,
+        }),
+      },
+    ])
   })
 })
