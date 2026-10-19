@@ -7,11 +7,10 @@ import Input from "@/components/form/input/InputField"
 import Button from "@/components/ui/button/Button"
 import { Dialog } from "@/components/ui/common/Dialog"
 import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
-import { Checkbox, Field } from "@/components/ui/common/Field"
+import { Field } from "@/components/ui/common/Field"
 import { ApiError } from "@/lib/api/client"
 import type { BlogCategory } from "@/lib/api/types"
 import { asApiError, fieldError, useApi } from "@/lib/api/use-api"
-import { slugify } from "@/lib/catalog/slug"
 
 /** What the dialog shows: the list, a form (null: adding), or a delete. */
 type Mode =
@@ -79,34 +78,42 @@ export function CategoryManager({
           ) : (
             <ul className="flex flex-col divide-y divide-gray-100 dark:divide-white/[0.05]">
               {categories.map((c) => (
-                <li key={c.id} className="flex items-center gap-3 py-2">
-                  <span className="w-6 text-theme-xs text-gray-400">
-                    {c.position}
-                  </span>
-                  <span className="flex-1">
-                    <span className="block text-sm font-medium text-gray-800 dark:text-white/90">
+                <li
+                  key={c.id}
+                  className="flex min-h-14 items-center gap-3 py-2"
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium text-gray-800 dark:text-white/90">
                       {c.name}
                     </span>
-                    <span className="block text-theme-xs text-gray-500">
-                      {c.slug}
+                    <span className="block text-theme-xs text-gray-500 dark:text-gray-400">
+                      Tab order {c.position}
                     </span>
                   </span>
-                  <button
-                    type="button"
-                    aria-label={`Edit ${c.name}`}
-                    className="text-gray-400 hover:text-brand-500"
-                    onClick={() => setMode({ kind: "form", category: c })}
-                  >
-                    <Pencil className="size-4" />
-                  </button>
-                  <button
-                    type="button"
-                    aria-label={`Delete ${c.name}`}
-                    className="text-gray-400 hover:text-error-500"
-                    onClick={() => setMode({ kind: "delete", category: c })}
-                  >
-                    <Trash2 className="size-4" />
-                  </button>
+                  {/* Labelled actions, not bare icons; Delete in the danger
+                      colour and apart from Edit. */}
+                  <div className="flex shrink-0 gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      aria-label={`Edit ${c.name}`}
+                      className="!py-2"
+                      onClick={() => setMode({ kind: "form", category: c })}
+                    >
+                      <Pencil className="size-4" aria-hidden />
+                      Edit
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      aria-label={`Delete ${c.name}`}
+                      className="!py-2 !text-error-600 !ring-error-300 hover:!bg-error-50 dark:!text-error-400 dark:!ring-error-500/40 dark:hover:!bg-error-500/10"
+                      onClick={() => setMode({ kind: "delete", category: c })}
+                    >
+                      <Trash2 className="size-4" aria-hidden />
+                      Delete
+                    </Button>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -154,9 +161,9 @@ export function CategoryManager({
 }
 
 /**
- * Adding asks for a name and an order only: the API derives the slug, and a
- * clash comes back on the name (BR-130). Editing shows the slug, which
- * follows the name until "Edit slug" is ticked, as for brands (BR-030).
+ * A name and an order, nothing else: the API derives the slug from the name,
+ * a rename re-derives it as for brands (BR-030), and a clash comes back on
+ * the name (BR-130).
  */
 function CategoryForm({
   category,
@@ -174,13 +181,8 @@ function CategoryForm({
   const [position, setPosition] = useState(
     String(category?.position ?? nextPosition),
   )
-  const [customSlug, setCustomSlug] = useState(
-    category ? category.slug !== slugify(category.name) : false,
-  )
-  const [slug, setSlug] = useState(category?.slug ?? "")
   const [error, setError] = useState<ApiError | null>(null)
   const [saving, setSaving] = useState(false)
-  const shownSlug = customSlug ? slug : slugify(name)
 
   async function save(e: React.FormEvent) {
     e.preventDefault()
@@ -191,11 +193,7 @@ function CategoryForm({
         category ? `/v1/blog/categories/${category.id}` : "/v1/blog/categories",
         {
           method: category ? "PATCH" : "POST",
-          body: {
-            name,
-            position: Number(position),
-            ...(customSlug ? { slug } : {}),
-          },
+          body: { name, position: Number(position) },
         },
       )
       onSaved(saved, !category)
@@ -207,7 +205,6 @@ function CategoryForm({
   }
 
   const nameError = fieldError(error, "name")
-  const slugError = fieldError(error, "slug")
   const positionError = fieldError(error, "position")
   return (
     <form onSubmit={save} className="flex flex-col gap-4">
@@ -220,39 +217,6 @@ function CategoryForm({
           error={Boolean(nameError)}
         />
       </Field>
-      {category && (
-        <>
-          <Field
-            id="blog-category-slug"
-            label="Slug"
-            error={slugError}
-            hint={
-              customSlug
-                ? "Lower-case letters and digits joined by hyphens."
-                : "Generated from the name."
-            }
-          >
-            <Input
-              id="blog-category-slug"
-              value={shownSlug}
-              readOnly={!customSlug}
-              className={customSlug ? "" : "!bg-gray-50 dark:!bg-white/[0.03]"}
-              onChange={(e) => setSlug(e.target.value)}
-              error={Boolean(slugError)}
-            />
-          </Field>
-          <label className="flex items-center gap-2 text-theme-sm text-gray-700 dark:text-gray-400">
-            <Checkbox
-              checked={customSlug}
-              onChange={(e) => {
-                if (e.target.checked) setSlug(shownSlug)
-                setCustomSlug(e.target.checked)
-              }}
-            />
-            Edit slug
-          </label>
-        </>
-      )}
       <Field
         id="blog-category-position"
         label="Order"
@@ -268,9 +232,7 @@ function CategoryForm({
           error={Boolean(positionError)}
         />
       </Field>
-      {error && !nameError && !slugError && !positionError && (
-        <ErrorNotice error={error} />
-      )}
+      {error && !nameError && !positionError && <ErrorNotice error={error} />}
       <div className="flex justify-end gap-2">
         <Button size="sm" type="button" variant="outline" onClick={onBack}>
           Back
@@ -279,11 +241,7 @@ function CategoryForm({
           size="sm"
           type="submit"
           isLoading={saving}
-          disabled={
-            !name.trim() ||
-            (customSlug && !slug.trim()) ||
-            !/^\d+$/.test(position)
-          }
+          disabled={!name.trim() || !/^\d+$/.test(position)}
         >
           {category ? "Save" : "Add category"}
         </Button>

@@ -9,7 +9,14 @@ import {
   ComboboxOption,
   ComboboxOptions,
 } from "@headlessui/react"
-import { ChevronDown, ImagePlus, Pencil, Search, X } from "lucide-react"
+import {
+  ChevronDown,
+  ImagePlus,
+  Pencil,
+  Search,
+  SlidersHorizontal,
+  X,
+} from "lucide-react"
 import { useEffect, useState } from "react"
 
 import Input from "@/components/form/input/InputField"
@@ -482,13 +489,15 @@ export function PostEditor({
                 />
                 <FieldNote error={err("category_id")} />
                 {editable && (
-                  <button
-                    type="button"
-                    className="mt-2 text-xs font-medium text-brand-500 hover:text-brand-600"
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="mt-3 w-full"
                     onClick={() => setManaging(true)}
                   >
+                    <SlidersHorizontal className="size-4" aria-hidden />
                     Manage categories
-                  </button>
+                  </Button>
                 )}
               </Panel>
               <Panel
