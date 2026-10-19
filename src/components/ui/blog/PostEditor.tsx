@@ -1,9 +1,13 @@
 "use client"
 
 import {
+  CloseButton,
   Disclosure,
   DisclosureButton,
   DisclosurePanel,
+  Popover,
+  PopoverButton,
+  PopoverPanel,
   Combobox,
   ComboboxInput,
   ComboboxOption,
@@ -364,7 +368,7 @@ export function PostEditor({
                         )
                       : "Immediately"
                   }
-                  open={Boolean(err("published_at"))}
+                  error={err("published_at")}
                   editable={editable}
                 >
                   <div className="flex flex-col gap-2">
@@ -412,7 +416,7 @@ export function PostEditor({
                       </span>
                     )
                   }
-                  open={Boolean(err("slug"))}
+                  error={err("slug")}
                   editable={editable}
                 >
                   <Input
@@ -441,7 +445,7 @@ export function PostEditor({
                       ? `${authors.get(draft.author_id)}${draft.author_id === user?.id ? " (you)" : ""}`
                       : "No author"
                   }
-                  open={Boolean(err("author_id"))}
+                  error={err("author_id")}
                   editable={editable}
                 >
                   <Select
@@ -834,19 +838,20 @@ const rowLabel = "shrink-0 text-sm text-gray-500 dark:text-gray-400"
 
 /**
  * One line of the post's details, WordPress style: the label, and the value
- * in the label's size, a brand link with a pencil when it can be changed,
- * opening its editor underneath. open forces it open, for a field the API refused.
+ * in the label's size, a brand link with a pencil when it can be changed. Its
+ * editor opens in a popover beside the column, titled and with a close
+ * button. A field the API refused shows its error under the row.
  */
 function SummaryRow({
   label,
   value,
-  open,
+  error,
   editable = false,
   children,
 }: {
   label: string
   value: React.ReactNode
-  open?: boolean
+  error?: string
   editable?: boolean
   children?: React.ReactNode
 }) {
@@ -860,16 +865,33 @@ function SummaryRow({
       </div>
     )
   return (
-    <Disclosure as="div" key={open ? "open" : "closed"} defaultOpen={open}>
-      <DisclosureButton className="-mx-2 flex min-h-14 w-[calc(100%+1rem)] items-center justify-between gap-4 rounded-lg px-2 py-4 text-left hover:bg-gray-50 dark:hover:bg-white/[0.03]">
+    <Popover className="py-1">
+      <PopoverButton className="focus-visible:ring-3 -mx-2 flex min-h-12 w-[calc(100%+1rem)] items-center justify-between gap-4 rounded-lg px-2 py-3 text-left hover:bg-gray-50 focus:outline-none focus-visible:ring-brand-500/10 data-[open]:bg-brand-50 dark:hover:bg-white/[0.03] dark:data-[open]:bg-brand-500/[0.12]">
         <span className={rowLabel}>{label}</span>
         <span className="flex min-w-0 items-center gap-1.5 text-sm text-brand-500">
           <span className="truncate">{value}</span>
           <Pencil aria-hidden className="size-3.5 shrink-0" />
         </span>
-      </DisclosureButton>
-      <DisclosurePanel className="pb-4">{children}</DisclosurePanel>
-    </Disclosure>
+      </PopoverButton>
+      {error && <p className="pb-2 text-xs text-error-500">{error}</p>}
+      <PopoverPanel
+        anchor="left start"
+        className="z-99999 w-80 rounded-xl border border-gray-200 bg-white p-5 shadow-theme-lg [--anchor-gap:24px] focus:outline-none dark:border-gray-800 dark:bg-gray-dark"
+      >
+        <div className="mb-4 flex items-center justify-between gap-4">
+          <h3 className="text-sm font-semibold text-gray-800 dark:text-white/90">
+            {label}
+          </h3>
+          <CloseButton
+            aria-label={`Close ${label.toLowerCase()}`}
+            className="-mr-2 flex size-9 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5"
+          >
+            <X aria-hidden className="size-5" />
+          </CloseButton>
+        </div>
+        {children}
+      </PopoverPanel>
+    </Popover>
   )
 }
 

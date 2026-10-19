@@ -133,6 +133,9 @@ describe("PostEditor (P1-607)", () => {
     await userEvent.click(
       screen.getByRole("button", { name: "Publish immediately instead" }),
     )
+    // The editor is a popover: its close button puts it away.
+    await userEvent.click(screen.getByRole("button", { name: "Close publish" }))
+    expect(screen.queryByLabelText("Publish date")).toBeNull()
     await userEvent.click(screen.getByRole("button", { name: "Publish" }))
     await waitFor(() =>
       expect(sent(fetch, "PATCH", "/v1/blog/posts/p1")).toEqual({
@@ -200,6 +203,14 @@ describe("PostEditor (P1-607)", () => {
     ).toBeInTheDocument()
     await userEvent.clear(slug)
     await userEvent.type(slug, "sprei-terbaik")
+    // Opening another row's popover closes this one.
+    await userEvent.click(
+      screen.getByRole("button", { name: /^Author\s*Budi \(you\)/ }),
+    )
+    expect(screen.queryByLabelText("Slug")).toBeNull()
+    expect(
+      screen.getByRole("button", { name: "Close author" }),
+    ).toBeInTheDocument()
     await userEvent.click(screen.getByRole("button", { name: /^Tags\s*None/ }))
     await userEvent.type(
       screen.getByLabelText("Tags"),
