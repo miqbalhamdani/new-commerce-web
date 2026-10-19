@@ -1,5 +1,6 @@
 import { screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
+import { useState } from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import type { BlogPost } from "@/lib/api/types"
@@ -306,6 +307,29 @@ describe("PostEditor (P1-607)", () => {
     const linked = screen.getByRole("list", { name: "Linked products" })
     expect(linked).toHaveTextContent("Steel Light")
     expect(linked).not.toHaveTextContent("Plain White")
+  })
+
+  it("a post with a cover offers Remove, and the drop box only once it is gone (BR-135)", async () => {
+    const withCover: BlogPost = {
+      ...post,
+      cover_url: "https://img.example/c.webp",
+      cover_r2_key: "t/blogs/p1/c.webp",
+    }
+    api((url, init) => {
+      if (url.endsWith("/v1/blog/posts/p1") && init?.method === "PATCH")
+        return json({ ...post, cover_url: null, cover_r2_key: null })
+    })
+    // The page swaps in the saved post, as /blog/[id] does.
+    function Page() {
+      const [p, setP] = useState(withCover)
+      return <PostEditor post={p} onSaved={setP} />
+    }
+    renderSignedIn(<Page />)
+    expect(await screen.findByAltText(post.title)).toBeInTheDocument()
+    expect(screen.queryByText(/Drop a cover/)).toBeNull()
+    await userEvent.click(screen.getByRole("button", { name: "Remove cover" }))
+    expect(await screen.findByText(/Drop a cover/)).toBeInTheDocument()
+    expect(screen.queryByAltText(post.title)).toBeNull()
   })
 
   it("a reader sees the post but no buttons", async () => {

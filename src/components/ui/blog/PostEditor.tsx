@@ -573,7 +573,10 @@ export function PostEditor({
   )
 }
 
-/** Upload, replace or remove the cover; each saves at once (BR-135). */
+/**
+ * Upload or remove the cover; each saves at once (BR-135). The drop box shows
+ * only while there is no cover: to change it, remove it first.
+ */
 function CoverField({
   post,
   canWrite,
@@ -636,13 +639,10 @@ function CoverField({
           )}
         </div>
       )}
-      {canWrite && (
+      {canWrite && !post.cover_url && (
         <Dropzone accept="image/jpeg,image/png,image/webp" onFiles={upload}>
           <ImagePlus className="size-6" aria-hidden />
-          <p>
-            {post.cover_url ? "Replace the cover" : "Drop a cover"}: JPEG, PNG
-            or WebP up to 20 MB, or
-          </p>
+          <p>Drop a cover: JPEG, PNG or WebP up to 20 MB, or</p>
         </Dropzone>
       )}
       {progress !== null && (
