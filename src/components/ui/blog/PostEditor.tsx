@@ -12,6 +12,7 @@ import {
 import {
   ChevronDown,
   ImagePlus,
+  Pencil,
   Search,
   SlidersHorizontal,
   X,
@@ -22,7 +23,6 @@ import Input from "@/components/form/input/InputField"
 import { CategoryManager } from "@/components/ui/blog/CategoryManager"
 import { RichTextEditor } from "@/components/ui/blog/RichTextEditor"
 import { TagInput } from "@/components/ui/blog/TagInput"
-import Badge from "@/components/ui/badge/Badge"
 import Button from "@/components/ui/button/Button"
 import { DatePicker } from "@/components/ui/common/DatePicker"
 import { Dropzone } from "@/components/ui/common/Dropzone"
@@ -61,10 +61,11 @@ import { CheckLineIcon } from "@/icons"
 import { dateTimeInputRFC3339, formatDateTime } from "@/lib/format"
 import { cx } from "@/lib/utils"
 
-const stateBadge = {
-  draft: { label: "Draft", color: "light" },
-  scheduled: { label: "Scheduled", color: "warning" },
-  published: { label: "Published", color: "success" },
+/** The post's state as the product editor shows a product's: a dot and a word. */
+const statusLook = {
+  draft: { label: "Draft", dot: "bg-gray-400" },
+  scheduled: { label: "Scheduled", dot: "bg-warning-500" },
+  published: { label: "Published", dot: "bg-success-500" },
 } as const
 
 /** The API's limit on a post's products (04-api-spec.md §13.2). */
@@ -72,8 +73,9 @@ const maxProducts = 12
 
 /**
  * The blog post editor (P1-607, 04-api-spec.md §13.2): the words on the left;
- * on the right a WordPress-style summary (status, publish date, slug, author,
- * each opening its editor) and folded panels for the optional fields. Status is
+ * on the right three cards: the status with its actions, the details
+ * (publish date, slug, author, featured; each opens its editor) and folded
+ * panels for the optional fields. Status is
  * set by the action buttons, not a field: Save draft / Publish (Schedule when
  * the date is later), or Unpublish / Update once live. The cover uploads on
  * its own once the post exists, so it never blocks the form.
@@ -123,6 +125,8 @@ export function PostEditor({
     canUsers ? "/v1/users?status=active&limit=200" : null,
   )
   const [managing, setManaging] = useState(false)
+  // A new post's slug follows its title until typed over, cleared included.
+  const [slugTyped, setSlugTyped] = useState(false)
 
   useEffect(() => {
     if (!dirty) return
@@ -271,16 +275,85 @@ export function PostEditor({
             aria-label="Publishing and organisation"
             className="flex flex-col gap-6 xl:self-start"
           >
-            <Section title="Publishing">
-              <div className="flex flex-col divide-y divide-gray-100 dark:divide-white/[0.05]">
-                <SummaryRow
-                  label="Status"
-                  value={
-                    <Badge size="sm" color={stateBadge[state].color}>
-                      {stateBadge[state].label}
-                    </Badge>
-                  }
+            <Section title="Status">
+              {/* As a product's status: a dot, the state, what it means. */}
+              <div className="flex gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-800 dark:bg-white/[0.03]">
+                <span
+                  aria-hidden
+                  className={cx(
+                    "mt-1.5 size-2.5 shrink-0 rounded-full",
+                    statusLook[state].dot,
+                  )}
                 />
+                <div>
+                  <p className="text-sm font-semibold text-gray-800 dark:text-white/90">
+                    {statusLook[state].label}
+                  </p>
+                  <p className="mt-0.5 text-theme-sm text-gray-500 dark:text-gray-400">
+                    {!post
+                      ? "Starts as a draft until you publish it."
+                      : state === "draft"
+                        ? "Hidden from your website."
+                        : state === "scheduled"
+                          ? `Goes live by itself on ${formatDateTime(post.published_at, tenant?.timezone)}.`
+                          : `Live on your website since ${formatDateTime(post.published_at, tenant?.timezone)}.`}
+                  </p>
+                </div>
+              </div>
+              {editable && (
+                <div className="mt-5 grid grid-cols-2 gap-3">
+                  {live ? (
+                    <>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        isLoading={saving === "draft"}
+                        disabled={saving !== null}
+                        onClick={() => void save("draft")}
+                      >
+                        Unpublish
+                      </Button>
+                      <Button
+                        size="sm"
+                        isLoading={saving === "save"}
+                        disabled={
+                          !dirty || !draft.title.trim() || saving !== null
+                        }
+                        onClick={() => void save()}
+                      >
+                        Update
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        isLoading={saving === "draft"}
+                        disabled={
+                          !draft.title.trim() ||
+                          (post !== null && !dirty) ||
+                          saving !== null
+                        }
+                        onClick={() => void save("draft")}
+                      >
+                        Save draft
+                      </Button>
+                      <Button
+                        size="sm"
+                        isLoading={saving === "published"}
+                        disabled={!draft.title.trim() || saving !== null}
+                        onClick={() => void save("published")}
+                      >
+                        {later ? "Schedule" : "Publish"}
+                      </Button>
+                    </>
+                  )}
+                </div>
+              )}
+            </Section>
+            <Section title="Details">
+              <div className="flex flex-col divide-y divide-gray-100 dark:divide-white/[0.05]">
                 <SummaryRow
                   label="Publish"
                   value={
@@ -332,30 +405,33 @@ export function PostEditor({
                 <SummaryRow
                   label="Slug"
                   value={
-                    (post ? draft.slug : slugify(draft.title)) || (
+                    draft.slug ||
+                    slugify(draft.title) || (
                       <span className="text-gray-400 dark:text-gray-500">
                         Set from the title
                       </span>
                     )
                   }
-                  hint={
-                    !post && draft.title.trim()
-                      ? "Editable once the post is created."
-                      : undefined
-                  }
                   open={Boolean(err("slug"))}
-                  editable={editable && post !== null}
+                  editable={editable}
                 >
                   <Input
                     aria-label="Slug"
-                    value={draft.slug}
+                    value={
+                      post || slugTyped ? draft.slug : slugify(draft.title)
+                    }
                     error={Boolean(err("slug"))}
-                    onChange={(e) => set({ slug: e.target.value })}
+                    onChange={(e) => {
+                      setSlugTyped(true)
+                      set({ slug: e.target.value })
+                    }}
                   />
                   <FieldNote error={err("slug")}>
-                    {draft.slug !== original.slug
-                      ? `Links to ${original.slug} will stop working once you save.`
-                      : "The post's address on your website. Changing the title never changes it."}
+                    {!post
+                      ? "Generated from the title until you change it."
+                      : draft.slug !== original.slug
+                        ? `Links to ${original.slug} will stop working once you save.`
+                        : "The post's address on your website. Changing the title never changes it."}
                   </FieldNote>
                 </SummaryRow>
                 <SummaryRow
@@ -397,57 +473,6 @@ export function PostEditor({
                   />
                 </div>
               </div>
-              {editable && (
-                <div className="mt-5 grid grid-cols-2 gap-3 border-t border-gray-100 pt-5 dark:border-white/[0.05]">
-                  {live ? (
-                    <>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        isLoading={saving === "draft"}
-                        disabled={saving !== null}
-                        onClick={() => void save("draft")}
-                      >
-                        Unpublish
-                      </Button>
-                      <Button
-                        size="sm"
-                        isLoading={saving === "save"}
-                        disabled={
-                          !dirty || !draft.title.trim() || saving !== null
-                        }
-                        onClick={() => void save()}
-                      >
-                        Update
-                      </Button>
-                    </>
-                  ) : (
-                    <>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        isLoading={saving === "draft"}
-                        disabled={
-                          !draft.title.trim() ||
-                          (post !== null && !dirty) ||
-                          saving !== null
-                        }
-                        onClick={() => void save("draft")}
-                      >
-                        Save draft
-                      </Button>
-                      <Button
-                        size="sm"
-                        isLoading={saving === "published"}
-                        disabled={!draft.title.trim() || saving !== null}
-                        onClick={() => void save("published")}
-                      >
-                        {later ? "Schedule" : "Publish"}
-                      </Button>
-                    </>
-                  )}
-                </div>
-              )}
             </Section>
             {/* Optional fields fold away, WordPress style: each panel's
                 header says what it holds, so nothing hides without a hint. */}
@@ -804,69 +829,46 @@ function Thumb({ url, className }: { url: string | null; className: string }) {
   )
 }
 
-/** A summary row's label, one width for all so the values line up. */
-const rowLabel = "w-20 shrink-0 text-sm text-gray-500 dark:text-gray-400"
+/** A summary row's label. */
+const rowLabel = "shrink-0 text-sm text-gray-500 dark:text-gray-400"
 
 /**
- * One line of the post summary, WordPress style. Something you can change
- * looks like a field (a bordered box with a chevron) and opens its editor
- * underneath; information is plain text, with no border and no hover
- * (read-only distinction). open forces it open, for a field the API refused.
+ * One line of the post's details, WordPress style: the label, and the value
+ * in bold, a brand link with a pencil when it can be changed, opening its
+ * editor underneath. open forces it open, for a field the API refused.
  */
 function SummaryRow({
   label,
   value,
-  hint,
   open,
   editable = false,
   children,
 }: {
   label: string
   value: React.ReactNode
-  hint?: string
   open?: boolean
   editable?: boolean
   children?: React.ReactNode
 }) {
   if (!children || !editable)
     return (
-      <div className="flex min-h-12 items-center gap-4 py-3">
+      <div className="flex min-h-12 items-center justify-between gap-4 py-3">
         <span className={rowLabel}>{label}</span>
-        <div className="min-w-0 flex-1 text-sm text-gray-800 dark:text-white/90">
-          <div className="truncate">{value}</div>
-          {hint && (
-            <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-              {hint}
-            </p>
-          )}
-        </div>
+        <span className="min-w-0 truncate text-right text-base font-semibold text-gray-800 dark:text-white/90">
+          {value}
+        </span>
       </div>
     )
   return (
-    <Disclosure
-      as="div"
-      key={open ? "open" : "closed"}
-      defaultOpen={open}
-      className="py-3"
-    >
-      <DisclosureButton className="group flex w-full items-center gap-4 text-left focus:outline-none">
+    <Disclosure as="div" key={open ? "open" : "closed"} defaultOpen={open}>
+      <DisclosureButton className="-mx-2 flex min-h-12 w-[calc(100%+1rem)] items-center justify-between gap-4 rounded-lg px-2 py-3 text-left hover:bg-gray-50 dark:hover:bg-white/[0.03]">
         <span className={rowLabel}>{label}</span>
-        <span
-          className={cx(
-            "flex h-10 min-w-0 flex-1 cursor-pointer items-center justify-between gap-2 rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-800 shadow-theme-xs transition-colors",
-            "group-hover:border-brand-300 group-data-[focus]:ring group-data-[focus]:ring-brand-500/20",
-            "group-data-[open]:border-brand-500 group-data-[open]:ring group-data-[open]:ring-brand-500/10",
-            "dark:border-gray-700 dark:bg-gray-900 dark:text-white/90",
-          )}
-        >
+        <span className="flex min-w-0 items-center gap-2 text-base font-semibold text-brand-500">
           <span className="truncate">{value}</span>
-          <ChevronDown
-            aria-hidden
-            className="size-4 shrink-0 text-gray-500 transition-transform duration-200 group-data-[open]:rotate-180 dark:text-gray-400"
-          />
+          <Pencil aria-hidden className="size-4 shrink-0" />
         </span>
       </DisclosureButton>
-      <DisclosurePanel className="pt-3">{children}</DisclosurePanel>
+      <DisclosurePanel className="pb-4">{children}</DisclosurePanel>
     </Disclosure>
   )
 }

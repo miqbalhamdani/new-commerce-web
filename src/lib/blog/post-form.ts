@@ -61,12 +61,13 @@ const ids = (d: PostDraft) => d.products.map((p) => p.id)
 
 /**
  * The POST body for a new post: only what was filled in, so the API's
- * defaults apply to the rest (BR-009). No slug: the API derives it from the
- * title, editable afterwards (BR-131). An empty excerpt is left out, so the
- * post shows the start of its body (BR-132).
+ * defaults apply to the rest (BR-009). The slug only when typed; without it
+ * the API derives one from the title (BR-131). An empty excerpt is left out,
+ * so the post shows the start of its body (BR-132).
  */
 export function createBodyOf(d: PostDraft): Record<string, unknown> {
   const body: Record<string, unknown> = { title: d.title.trim() }
+  if (d.slug.trim() !== "") body.slug = d.slug.trim()
   if (d.body !== "") body.body = d.body
   if (d.excerpt.trim() !== "") body.excerpt = d.excerpt.trim()
   if (d.category_id !== "") body.category_id = d.category_id

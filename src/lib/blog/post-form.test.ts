@@ -47,6 +47,7 @@ describe("the post form (P1-607)", () => {
       createBodyOf({
         ...emptyDraft(),
         title: "T",
+        slug: " t-custom ",
         excerpt: "  ",
         tags: ["a", "b"],
         status: "published",
@@ -56,6 +57,7 @@ describe("the post form (P1-607)", () => {
       }),
     ).toEqual({
       title: "T",
+      slug: "t-custom",
       tags: ["a", "b"],
       status: "published",
       published_at: "2026-12-24T09:00:00+07:00",

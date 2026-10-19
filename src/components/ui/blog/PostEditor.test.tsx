@@ -162,7 +162,7 @@ describe("PostEditor (P1-607)", () => {
     )
   })
 
-  it("a new post is by its writer, with tags as chips and its slug following the title (BR-133)", async () => {
+  it("a new post is by its writer, with tags as chips and a slug that follows the title until typed (BR-131, BR-133)", async () => {
     const fetch = api((url, init) => {
       if (url.endsWith("/v1/blog/posts") && init?.method === "POST")
         return json({ ...post, id: "p9" }, 201)
@@ -176,20 +176,30 @@ describe("PostEditor (P1-607)", () => {
     expect(
       await screen.findByRole("button", { name: /^Author\s*Budi \(you\)/ }),
     ).toBeInTheDocument()
-    // What you can change is a control; what you can't is plain text.
+    // The status is a block with its meaning, not a control.
+    expect(screen.getByText("Draft")).toBeInTheDocument()
+    expect(
+      screen.getByText("Starts as a draft until you publish it."),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: /^Status/ })).toBeNull()
     expect(
       screen.getByRole("button", { name: /^Publish\s*Immediately/ }),
     ).toBeInTheDocument()
-    expect(screen.queryByRole("button", { name: /^Status/ })).toBeNull()
-    expect(screen.queryByRole("button", { name: /^Slug/ })).toBeNull()
-    expect(screen.getByText("Set from the title")).toBeInTheDocument()
-    await userEvent.type(screen.getByLabelText("Title"), "Panduan Sprei")
     expect(
-      screen.getByText("Editable once the post is created."),
+      screen.getByRole("button", { name: /^Slug\s*Set from the title/ }),
     ).toBeInTheDocument()
-    // A new post's slug is shown, editable once it exists.
-    expect(screen.getByText("panduan-sprei")).toBeInTheDocument()
-    expect(screen.queryByLabelText("Slug")).toBeNull()
+    // The slug follows the title until it is typed over.
+    await userEvent.type(screen.getByLabelText("Title"), "Panduan Sprei")
+    await userEvent.click(
+      screen.getByRole("button", { name: /^Slug\s*panduan-sprei/ }),
+    )
+    const slug = screen.getByLabelText("Slug")
+    expect(slug).toHaveValue("panduan-sprei")
+    expect(
+      screen.getByText("Generated from the title until you change it."),
+    ).toBeInTheDocument()
+    await userEvent.clear(slug)
+    await userEvent.type(slug, "sprei-terbaik")
     await userEvent.click(screen.getByRole("button", { name: /^Tags\s*None/ }))
     await userEvent.type(
       screen.getByLabelText("Tags"),
@@ -203,6 +213,7 @@ describe("PostEditor (P1-607)", () => {
     await waitFor(() => expect(onSaved).toHaveBeenCalled())
     expect(sent(fetch, "POST", "/v1/blog/posts")).toEqual({
       title: "Panduan Sprei",
+      slug: "sprei-terbaik",
       author_id: "u1",
       tags: ["Bedding Tips", "Panduan"],
     })
