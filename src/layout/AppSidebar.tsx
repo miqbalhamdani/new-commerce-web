@@ -18,10 +18,12 @@ import {
   Boxes,
   FolderTree,
   LayoutDashboard,
+  Newspaper,
   Package,
   ScrollText,
   Settings,
   Store,
+  Tags,
   Users,
 } from "lucide-react"
 import Link from "next/link"
@@ -71,6 +73,19 @@ const groups = [
         permission: "categories:read",
       },
       { name: "Brands", href: "/brands", icon: Boxes, permission: "brands:read" },
+    ],
+  },
+  {
+    // P1-606, P1-607: the journal the shop's website reads (M6).
+    title: "Blog",
+    items: [
+      { name: "Posts", href: "/blog", icon: Newspaper, permission: "blog:read" },
+      {
+        name: "Blog categories",
+        href: "/blog/categories",
+        icon: Tags,
+        permission: "blog:read",
+      },
     ],
   },
   {

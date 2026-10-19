@@ -19,6 +19,7 @@ const labels: Record<string, string> = {
   products: "Products",
   categories: "Categories",
   brands: "Brands",
+  blog: "Blog",
   import: "Import",
   settings: "Settings",
   team: "Team",

@@ -96,4 +96,28 @@ describe("navigation by role (BR-025)", () => {
     expect(dashboard).toHaveClass("menu-item-inactive")
     expect(screen.getByRole("link", { name: "Products" })).toHaveClass("menu-item-active")
   })
+
+  it("the blog shows to whoever reads it, and only to them (P1-606)", async () => {
+    mockApi([...perms.viewer, "blog:read"], () => undefined, "viewer")
+    const { unmount } = renderSignedIn(
+      <SidebarProvider>
+        <AppSidebar />
+      </SidebarProvider>,
+    )
+    expect(await screen.findByRole("link", { name: "Posts" })).toHaveAttribute("href", "/blog")
+    expect(screen.getByRole("link", { name: "Blog categories" })).toHaveAttribute(
+      "href",
+      "/blog/categories",
+    )
+    unmount()
+
+    mockApi(perms.viewer, () => undefined, "viewer")
+    renderSignedIn(
+      <SidebarProvider>
+        <AppSidebar />
+      </SidebarProvider>,
+    )
+    await screen.findByRole("link", { name: "Products" })
+    expect(screen.queryByRole("link", { name: "Posts" })).toBeNull()
+  })
 })
