@@ -51,6 +51,7 @@ export function CategoryManager({
   return (
     <Dialog
       open={open}
+      size={mode.kind === "list" ? "lg" : "md"}
       onOpenChange={(o) => !o && close()}
       title={
         mode.kind === "form"
@@ -80,15 +81,17 @@ export function CategoryManager({
               {categories.map((c) => (
                 <li
                   key={c.id}
-                  className="flex min-h-14 items-center gap-3 py-2"
+                  className="flex min-h-14 items-center gap-4 py-2"
                 >
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-medium text-gray-800 dark:text-white/90">
-                      {c.name}
-                    </span>
-                    <span className="block text-theme-xs text-gray-500 dark:text-gray-400">
-                      Tab order {c.position}
-                    </span>
+                  {/* The tab's place on the journal page: its Order. */}
+                  <span
+                    aria-label={`Order ${c.position}`}
+                    className="flex size-7 shrink-0 items-center justify-center rounded-full bg-gray-100 text-theme-xs font-semibold text-gray-600 dark:bg-white/[0.05] dark:text-gray-300"
+                  >
+                    {c.position}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium text-gray-800 dark:text-white/90">
+                    {c.name}
                   </span>
                   {/* Labelled actions, not bare icons; Delete in the danger
                       colour and apart from Edit. */}
@@ -118,10 +121,8 @@ export function CategoryManager({
               ))}
             </ul>
           )}
-          <div className="flex justify-end gap-2">
-            <Button size="sm" variant="outline" onClick={close}>
-              Done
-            </Button>
+          {/* Closing is the dialog's own ×, Escape or a click outside. */}
+          <div className="mt-2 flex justify-end border-t border-gray-100 pt-5 dark:border-white/[0.05]">
             <Button
               size="sm"
               onClick={() => setMode({ kind: "form", category: null })}

@@ -211,7 +211,9 @@ describe("PostEditor (P1-607)", () => {
       await screen.findByText("Bedding tips", { selector: "span" }),
     ).toBeInTheDocument()
     // No slugs in the modal; the row actions are labelled buttons.
-    expect(screen.getByText("Tab order 1")).toBeInTheDocument()
+    expect(screen.getByLabelText("Order 1")).toHaveTextContent("1")
+    expect(screen.queryByText(/Tab order/)).toBeNull()
+    expect(screen.queryByRole("button", { name: "Done" })).toBeNull()
     expect(screen.queryByText("bedding-tips")).toBeNull()
     expect(
       screen.getByRole("button", { name: "Delete Bedding tips" }),
