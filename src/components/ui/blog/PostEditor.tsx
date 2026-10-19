@@ -12,7 +12,6 @@ import {
 import {
   ChevronDown,
   ImagePlus,
-  Pencil,
   Search,
   SlidersHorizontal,
   X,
@@ -273,7 +272,7 @@ export function PostEditor({
             className="flex flex-col gap-6 xl:self-start"
           >
             <Section title="Publishing">
-              <div className="flex flex-col">
+              <div className="flex flex-col divide-y divide-gray-100 dark:divide-white/[0.05]">
                 <SummaryRow
                   label="Status"
                   value={
@@ -332,7 +331,18 @@ export function PostEditor({
                 </SummaryRow>
                 <SummaryRow
                   label="Slug"
-                  value={(post ? draft.slug : slugify(draft.title)) || "—"}
+                  value={
+                    (post ? draft.slug : slugify(draft.title)) || (
+                      <span className="text-gray-400 dark:text-gray-500">
+                        Set from the title
+                      </span>
+                    )
+                  }
+                  hint={
+                    !post && draft.title.trim()
+                      ? "Editable once the post is created."
+                      : undefined
+                  }
                   open={Boolean(err("slug"))}
                   editable={editable && post !== null}
                 >
@@ -373,16 +383,12 @@ export function PostEditor({
                   />
                   <FieldNote error={err("author_id")} />
                 </SummaryRow>
-                <div className="mt-3 flex items-center justify-between gap-4 rounded-xl border border-gray-200 p-4 dark:border-gray-800">
-                  <div>
-                    <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                      Featured post
-                    </p>
-                    <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                      Shown first on your journal page; replaces the current
-                      featured post.
-                    </p>
-                  </div>
+                <div className="flex min-h-12 items-center gap-4 py-3">
+                  <span className={rowLabel}>Featured</span>
+                  <p className="min-w-0 flex-1 text-xs text-gray-500 dark:text-gray-400">
+                    Shown first on your journal page; replaces the current
+                    featured post.
+                  </p>
                   <Toggle
                     label="Featured post"
                     checked={draft.is_featured}
@@ -798,53 +804,69 @@ function Thumb({ url, className }: { url: string | null; className: string }) {
   )
 }
 
+/** A summary row's label, one width for all so the values line up. */
+const rowLabel = "w-20 shrink-0 text-sm text-gray-500 dark:text-gray-400"
+
 /**
- * One line of the post summary, WordPress style: the label, and the value as
- * a link that opens its editor underneath. Without children it is read-only.
- * open forces it open, for a field the API refused.
+ * One line of the post summary, WordPress style. Something you can change
+ * looks like a field (a bordered box with a chevron) and opens its editor
+ * underneath; information is plain text, with no border and no hover
+ * (read-only distinction). open forces it open, for a field the API refused.
  */
 function SummaryRow({
   label,
   value,
+  hint,
   open,
   editable = false,
   children,
 }: {
   label: string
   value: React.ReactNode
+  hint?: string
   open?: boolean
   editable?: boolean
   children?: React.ReactNode
 }) {
-  const row =
-    "flex min-h-10 w-full items-center justify-between gap-4 py-2 text-sm"
-  const name = (
-    <span className="shrink-0 text-gray-500 dark:text-gray-400">{label}</span>
-  )
   if (!children || !editable)
     return (
-      <div className={row}>
-        {name}
-        <span className="min-w-0 truncate text-right font-medium text-gray-800 dark:text-white/90">
-          {value}
-        </span>
+      <div className="flex min-h-12 items-center gap-4 py-3">
+        <span className={rowLabel}>{label}</span>
+        <div className="min-w-0 flex-1 text-sm text-gray-800 dark:text-white/90">
+          <div className="truncate">{value}</div>
+          {hint && (
+            <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+              {hint}
+            </p>
+          )}
+        </div>
       </div>
     )
   return (
-    <Disclosure key={open ? "open" : "closed"} defaultOpen={open}>
-      <DisclosureButton
-        className={cx(
-          row,
-          "-mx-2 w-[calc(100%+1rem)] rounded-lg px-2 text-left hover:bg-gray-50 dark:hover:bg-white/[0.03]",
-        )}
-      >
-        {name}
-        <span className="flex min-w-0 items-center gap-1.5 font-medium text-brand-500">
+    <Disclosure
+      as="div"
+      key={open ? "open" : "closed"}
+      defaultOpen={open}
+      className="py-3"
+    >
+      <DisclosureButton className="group flex w-full items-center gap-4 text-left focus:outline-none">
+        <span className={rowLabel}>{label}</span>
+        <span
+          className={cx(
+            "flex h-10 min-w-0 flex-1 cursor-pointer items-center justify-between gap-2 rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-800 shadow-theme-xs transition-colors",
+            "group-hover:border-brand-300 group-data-[focus]:ring group-data-[focus]:ring-brand-500/20",
+            "group-data-[open]:border-brand-500 group-data-[open]:ring group-data-[open]:ring-brand-500/10",
+            "dark:border-gray-700 dark:bg-gray-900 dark:text-white/90",
+          )}
+        >
           <span className="truncate">{value}</span>
-          <Pencil aria-hidden className="size-3.5 shrink-0" />
+          <ChevronDown
+            aria-hidden
+            className="size-4 shrink-0 text-gray-500 transition-transform duration-200 group-data-[open]:rotate-180 dark:text-gray-400"
+          />
         </span>
       </DisclosureButton>
-      <DisclosurePanel className="pb-3 pt-1">{children}</DisclosurePanel>
+      <DisclosurePanel className="pt-3">{children}</DisclosurePanel>
     </Disclosure>
   )
 }

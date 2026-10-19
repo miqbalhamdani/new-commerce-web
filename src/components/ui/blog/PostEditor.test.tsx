@@ -176,7 +176,17 @@ describe("PostEditor (P1-607)", () => {
     expect(
       await screen.findByRole("button", { name: /^Author\s*Budi \(you\)/ }),
     ).toBeInTheDocument()
+    // What you can change is a control; what you can't is plain text.
+    expect(
+      screen.getByRole("button", { name: /^Publish\s*Immediately/ }),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: /^Status/ })).toBeNull()
+    expect(screen.queryByRole("button", { name: /^Slug/ })).toBeNull()
+    expect(screen.getByText("Set from the title")).toBeInTheDocument()
     await userEvent.type(screen.getByLabelText("Title"), "Panduan Sprei")
+    expect(
+      screen.getByText("Editable once the post is created."),
+    ).toBeInTheDocument()
     // A new post's slug is shown, editable once it exists.
     expect(screen.getByText("panduan-sprei")).toBeInTheDocument()
     expect(screen.queryByLabelText("Slug")).toBeNull()
