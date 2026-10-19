@@ -198,14 +198,6 @@ export function PostEditor({
   return (
     <Page
       wide
-      back={{
-        href: "/blog",
-        label: "posts",
-        onClick: (e) => {
-          if (dirty && !confirm("Leave without saving your changes?"))
-            e.preventDefault()
-        },
-      }}
       title={post ? post.title : "New post"}
       description={
         archived
