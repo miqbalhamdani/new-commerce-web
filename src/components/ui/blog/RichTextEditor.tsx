@@ -3,6 +3,7 @@
 import Image from "@tiptap/extension-image"
 import { Markdown } from "@tiptap/markdown"
 import { EditorContent, useEditor, useEditorState } from "@tiptap/react"
+import { BubbleMenu } from "@tiptap/react/menus"
 import StarterKit from "@tiptap/starter-kit"
 import {
   Bold,
@@ -27,6 +28,57 @@ import { Field } from "@/components/ui/common/Field"
 import { imageTypes, maxImageBytes } from "@/lib/catalog/upload"
 import { cx } from "@/lib/utils"
 
+/** A body image's sizes: a percent of the column; null is the full column. */
+const imageSizes = [
+  { label: "Small", width: 33 },
+  { label: "Medium", width: 50 },
+  { label: "Large", width: 75 },
+  { label: "Full", width: null },
+] as const
+
+const widthFragment = /#w=(\d{1,3})$/
+
+/**
+ * The body's image. Markdown has no attributes and the website renders no
+ * raw HTML, so the width rides in the URL as #w=NN (BR-135); a renderer that
+ * ignores it shows the image full width.
+ */
+const BodyImage = Image.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      width: {
+        default: null,
+        parseHTML: (el) => Number(el.getAttribute("data-width")) || null,
+        renderHTML: (attrs) =>
+          attrs.width
+            ? { "data-width": attrs.width, style: `width: ${attrs.width}%` }
+            : {},
+      },
+    }
+  },
+  parseMarkdown: (token, helpers) => {
+    const href = token.href ?? ""
+    const m = widthFragment.exec(href)
+    const w = m ? Number(m[1]) : 0
+    const width = m && w >= 1 && w <= 100 ? w : null
+    return helpers.createNode("image", {
+      // An unknown fragment stays in the URL, untouched.
+      src: m && width ? href.slice(0, m.index) : href,
+      title: token.title,
+      alt: token.text,
+      width,
+    })
+  },
+  renderMarkdown: (node) => {
+    const { src, alt, title, width } = node.attrs ?? {}
+    const url = width ? `${src ?? ""}#w=${width}` : (src ?? "")
+    return title
+      ? `![${alt ?? ""}](${url} "${title}")`
+      : `![${alt ?? ""}](${url})`
+  },
+})
+
 /**
  * The extensions a post body uses, shared with the round-trip test. Markdown
  * is what is stored (BR-135): the editor reads it in and writes it out, so the
@@ -39,7 +91,7 @@ export const bodyExtensions = [
     underline: false,
     link: { openOnClick: false, autolink: true },
   }),
-  Image.configure({ allowBase64: false }),
+  BodyImage.configure({ allowBase64: false }),
   Markdown,
 ]
 
@@ -50,8 +102,9 @@ const imagesIn = (files: FileList | null | undefined) =>
  * A rich text field over a Markdown value (P1-607). onChange fires on edits
  * only, never on load, so an untouched post is not dirty. Images come from
  * the Image button, a drop or a paste; each opens ImageAltDialog for its alt
- * text, then uploadImage stores it and gives back its URL. Without uploadImage (a post
- * not saved yet) images are refused with a note.
+ * text, then uploadImage stores it and gives back its URL. Without uploadImage
+ * (a post not saved yet) images are refused with a note. A selected image
+ * shows a size bar: Small, Medium, Large, Full.
  */
 export function RichTextEditor({
   id,
@@ -123,6 +176,9 @@ export function RichTextEditor({
             ordered: e.isActive("orderedList"),
             quote: e.isActive("blockquote"),
             link: e.isActive("link"),
+            imageWidth: e.isActive("image")
+              ? ((e.getAttributes("image").width as number | null) ?? null)
+              : undefined,
           }
         : null,
   })
@@ -302,6 +358,37 @@ export function RichTextEditor({
               }}
             />
           </div>
+        )}
+        {editor && !disabled && (
+          <BubbleMenu
+            editor={editor}
+            shouldShow={({ editor: e }) => e.isEditable && e.isActive("image")}
+            role="group"
+            aria-label="Image size"
+            className="flex gap-0.5 rounded-lg border border-gray-200 bg-white p-1 shadow-theme-md dark:border-gray-800 dark:bg-gray-dark"
+          >
+            {imageSizes.map((size) => (
+              <button
+                key={size.label}
+                type="button"
+                aria-pressed={active?.imageWidth === size.width}
+                onClick={() =>
+                  editor
+                    .chain()
+                    .focus()
+                    .updateAttributes("image", { width: size.width })
+                    .run()
+                }
+                className={cx(
+                  "rounded-md px-2.5 py-1.5 text-theme-xs font-medium text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/5",
+                  active?.imageWidth === size.width &&
+                    "bg-brand-50 text-brand-600 hover:bg-brand-50 dark:bg-brand-500/15 dark:text-brand-400",
+                )}
+              >
+                {size.label}
+              </button>
+            ))}
+          </BubbleMenu>
         )}
         <EditorContent
           editor={editor}
