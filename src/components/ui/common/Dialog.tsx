@@ -58,7 +58,8 @@ export function Dialog({
         {title}
       </h2>
       {description && (
-        <p className="mt-1 text-theme-sm text-gray-500 dark:text-gray-400">
+        // Clear of the close button, as the title is.
+        <p className="mt-1 pr-12 text-theme-sm text-gray-500 dark:text-gray-400">
           {description}
         </p>
       )}

@@ -122,7 +122,7 @@ export function CategoryManager({
             </ul>
           )}
           {/* Closing is the dialog's own ×, Escape or a click outside. */}
-          <div className="mt-2 flex justify-end border-t border-gray-100 pt-5 dark:border-white/[0.05]">
+          <div className="mt-2 flex justify-end">
             <Button
               size="sm"
               onClick={() => setMode({ kind: "form", category: null })}
