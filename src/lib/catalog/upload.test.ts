@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest"
 
-import { uploadCover, uploadImage } from "./upload"
+import { uploadBodyImage, uploadCover, uploadImage } from "./upload"
 
 describe("uploadImage (P1-048)", () => {
   it("sends the bytes to the store and only their description to the API (BR-051)", async () => {
@@ -88,6 +88,37 @@ describe("uploadCover (P1-607)", () => {
           post_id: "post1",
           mime_type: "image/jpeg",
           bytes: 2,
+        }),
+      },
+    ])
+  })
+})
+
+describe("uploadBodyImage (P1-607)", () => {
+  it("presigns a blog_image under the post and returns where it is served (BR-135)", async () => {
+    const file = new File([new Uint8Array([1, 2])], "sprei.webp", {
+      type: "image/webp",
+    })
+    const api = vi.fn(async () => ({
+      upload_url: "http://store/put",
+      r2_key: "t/blogs/post1/abc.webp",
+      expires_in: 600,
+      public_url: "http://img/t/blogs/post1/abc.webp",
+    })) as never
+    const put = vi.fn(async () => undefined)
+
+    const url = await uploadBodyImage(api, "post1", file, put)
+
+    expect(url).toBe("http://img/t/blogs/post1/abc.webp")
+    expect(put).toHaveBeenCalledOnce()
+    expect(vi.mocked(api as (...a: unknown[]) => unknown).mock.calls[0]).toEqual([
+      "/v1/media/presign",
+      {
+        method: "POST",
+        body: expect.objectContaining({
+          purpose: "blog_image",
+          post_id: "post1",
+          mime_type: "image/webp",
         }),
       },
     ])

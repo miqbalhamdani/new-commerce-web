@@ -63,6 +63,25 @@ export async function uploadCover(
   return presign.r2_key
 }
 
+/**
+ * Uploads an image for a blog post's body: presign, PUT. The body links it
+ * by the returned public URL, as ![alt](url) (BR-135).
+ */
+export async function uploadBodyImage(
+  api: Api,
+  postId: string,
+  file: File,
+  put: Put,
+): Promise<string> {
+  const presign = await presignImage(api, file, {
+    purpose: "blog_image",
+    post_id: postId,
+  })
+  if (!presign.public_url) throw new Error("The upload has no public URL.")
+  await put(presign.upload_url, file, () => {})
+  return presign.public_url
+}
+
 /** Refuses what the store would refuse, before signing anything. */
 async function presignImage(
   api: Api,

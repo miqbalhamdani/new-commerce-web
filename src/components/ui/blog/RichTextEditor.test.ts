@@ -17,6 +17,8 @@ describe("the post body editor stores Markdown (P1-607, BR-135)", () => {
       "2. Ukur kasur",
       "",
       "> Ikuti tujuh langkah panduan.",
+      "",
+      "![Sprei putih](https://img.example/t/blogs/p1/abc.webp)",
     ].join("\n")
     const editor = new Editor({
       extensions: bodyExtensions,
@@ -33,6 +35,7 @@ describe("the post body editor stores Markdown (P1-607, BR-135)", () => {
       "- Single",
       "1. Tentukan anggaran",
       "> Ikuti tujuh langkah panduan.",
+      "![Sprei putih](https://img.example/t/blogs/p1/abc.webp)",
     ])
       expect(out).toContain(part)
     expect(out).not.toContain("<")

@@ -20,14 +20,17 @@ vi.mock("./RichTextEditor", () => ({
     id,
     value,
     onChange,
+    uploadImage,
   }: {
     id: string
     value: string
     onChange: (v: string) => void
+    uploadImage?: unknown
   }) => (
     <textarea
       id={id}
       defaultValue={value}
+      data-images={uploadImage ? "on" : "off"}
       onChange={(e) => onChange(e.target.value)}
     />
   ),
@@ -92,6 +95,8 @@ describe("PostEditor (P1-607)", () => {
     const excerpt = screen.getByLabelText("Excerpt")
     expect(excerpt).toHaveValue("")
     expect(excerpt).toHaveAttribute("placeholder", post.excerpt_preview)
+    // A saved post's body takes images (BR-135).
+    expect(screen.getByLabelText("Body")).toHaveAttribute("data-images", "on")
   })
 
   it("Save draft on a draft sends only what changed (BR-009)", async () => {
@@ -177,6 +182,8 @@ describe("PostEditor (P1-607)", () => {
     expect(
       await screen.findByText("Create the post to add a cover."),
     ).toBeInTheDocument()
+    // Images, like the cover, wait for the post to exist.
+    expect(screen.getByLabelText("Body")).toHaveAttribute("data-images", "off")
     expect(
       await screen.findByRole("button", { name: /^Author\s*Budi \(you\)/ }),
     ).toBeInTheDocument()

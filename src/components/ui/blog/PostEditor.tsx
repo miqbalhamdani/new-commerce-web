@@ -62,7 +62,7 @@ import {
   type PostDraft,
 } from "@/lib/blog/post-form"
 import { slugify } from "@/lib/catalog/slug"
-import { uploadCover, xhrPut } from "@/lib/catalog/upload"
+import { uploadBodyImage, uploadCover, xhrPut } from "@/lib/catalog/upload"
 import { CheckLineIcon } from "@/icons"
 import { dateTimeInputRFC3339, formatDateTime } from "@/lib/format"
 import { cx } from "@/lib/utils"
@@ -243,6 +243,13 @@ export function PostEditor({
                       value={draft.body}
                       disabled={!editable}
                       onChange={(body) => set({ body })}
+                      // Images go under the post, so it must exist first.
+                      uploadImage={
+                        post && editable
+                          ? (file) =>
+                              uploadBodyImage(api, post.id, file, xhrPut)
+                          : undefined
+                      }
                     />
                   </Field>
                 </fieldset>
