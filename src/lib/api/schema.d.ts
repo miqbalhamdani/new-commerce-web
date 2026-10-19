@@ -687,8 +687,9 @@ export interface paths {
          *     the API (BR-051). `product_image`: JPEG, PNG or WebP up to 20 MB, `product_id` required,
          *     `media:write`. `product_import`: CSV up to 50 MB, no `product_id`, `products:write`; the
          *     key carries the future job's id. `blog_cover`: an image as `product_image`, `post_id`
-         *     required, `blog:write`; there is no confirm, the key is set on the post (BR-135). The key
-         *     contains the content hash (BR-053). The URL lives 10 minutes.
+         *     required, `blog:write`; there is no confirm, the key is set on the post (BR-135).
+         *     `blog_image`: the same, for an image in the post's body, which links it by the returned
+         *     `public_url`. The key contains the content hash (BR-053). The URL lives 10 minutes.
          */
         post: operations["presignMedia"];
         delete?: never;
@@ -1886,12 +1887,12 @@ export interface components {
         };
         PresignRequest: {
             /** @enum {string} */
-            purpose: "product_image" | "product_import" | "blog_cover";
+            purpose: "product_image" | "product_import" | "blog_cover" | "blog_image";
             /** Format: uuid */
             product_id?: string;
             /**
              * Format: uuid
-             * @description The blog post a `blog_cover` is for.
+             * @description The blog post a `blog_cover` or `blog_image` is for.
              */
             post_id?: string;
             mime_type: string;
@@ -1904,6 +1905,8 @@ export interface components {
             r2_key: string;
             /** @example 600 */
             expires_in: number;
+            /** @description Where the image is served once uploaded; set for `blog_cover` and `blog_image`, so a body image can be linked from the post's Markdown (BR-135). */
+            public_url?: string;
         };
         ConfirmMedia: {
             r2_key: string;
