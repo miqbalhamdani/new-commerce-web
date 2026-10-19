@@ -20,7 +20,11 @@ import {
 } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 
-import { imageTypes } from "@/lib/catalog/upload"
+import Input from "@/components/form/input/InputField"
+import Button from "@/components/ui/button/Button"
+import { Dialog } from "@/components/ui/common/Dialog"
+import { Field } from "@/components/ui/common/Field"
+import { imageTypes, maxImageBytes } from "@/lib/catalog/upload"
 import { cx } from "@/lib/utils"
 
 /**
@@ -45,8 +49,8 @@ const imagesIn = (files: FileList | null | undefined) =>
 /**
  * A rich text field over a Markdown value (P1-607). onChange fires on edits
  * only, never on load, so an untouched post is not dirty. Images come from
- * the Image button, a drop or a paste; each asks for its alt text, then
- * uploadImage stores it and gives back its URL. Without uploadImage (a post
+ * the Image button, a drop or a paste; each opens ImageAltDialog for its alt
+ * text, then uploadImage stores it and gives back its URL. Without uploadImage (a post
  * not saved yet) images are refused with a note.
  */
 export function RichTextEditor({
@@ -62,7 +66,12 @@ export function RichTextEditor({
   disabled?: boolean
   uploadImage?: (file: File) => Promise<string>
 }) {
-  const [uploading, setUploading] = useState(false)
+  // The images waiting for their alt text, one dialog each, and where they go.
+  const [queue, setQueue] = useState<{
+    files: File[]
+    at: number
+    total: number
+  } | null>(null)
   const [imageError, setImageError] = useState<string | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
   // The editor's drop and paste handlers are made once; they reach the
@@ -118,43 +127,47 @@ export function RichTextEditor({
         : null,
   })
 
-  async function addImages(files: File[], at?: number) {
+  function addImages(files: File[], at?: number) {
     if (!editor) return
     if (!uploadImage) {
       setImageError("Save the post first to add images.")
       return
     }
-    setImageError(null)
-    let pos = at ?? editor.state.selection.to
-    for (const file of files) {
-      const alt = window.prompt(
-        "Describe the image for people who can't see it",
-        file.name.replace(/\.[^.]+$/, ""),
-      )
-      if (alt === null) continue
-      setUploading(true)
-      try {
-        const src = await uploadImage(file)
-        editor
-          .chain()
-          .focus()
-          .insertContentAt(Math.min(pos, editor.state.doc.content.size), {
-            type: "image",
-            attrs: { src, alt: alt.trim() },
-          })
-          .run()
-        pos = editor.state.selection.to
-      } catch (e) {
-        setImageError(
-          e instanceof Error ? e.message : "The image could not be uploaded.",
-        )
-      } finally {
-        setUploading(false)
-      }
-    }
+    // Refuse what the store would refuse before asking anything.
+    const ok = files.filter(
+      (f) => imageTypes.includes(f.type) && f.size <= maxImageBytes,
+    )
+    setImageError(
+      ok.length < files.length
+        ? "Images are JPEG, PNG or WebP up to 20 MB; the others were left out."
+        : null,
+    )
+    if (ok.length)
+      setQueue({
+        files: ok,
+        at: at ?? editor.state.selection.to,
+        total: ok.length,
+      })
+  }
+  const nextImage = (at: number) =>
+    setQueue((q) =>
+      q && q.files.length > 1 ? { ...q, files: q.files.slice(1), at } : null,
+    )
+  async function insertImage(alt: string) {
+    if (!editor || !uploadImage || !queue) return
+    const src = await uploadImage(queue.files[0])
+    editor
+      .chain()
+      .focus()
+      .insertContentAt(Math.min(queue.at, editor.state.doc.content.size), {
+        type: "image",
+        attrs: { src, alt: alt.trim() },
+      })
+      .run()
+    nextImage(editor.state.selection.to)
   }
   useEffect(() => {
-    add.current = (files, at) => void addImages(files, at)
+    add.current = addImages
   })
 
   function link() {
@@ -225,7 +238,7 @@ export function RichTextEditor({
           icon: ImagePlus,
           on: false,
           run: () => fileInput.current?.click(),
-          disabled: !uploadImage || uploading,
+          disabled: !uploadImage || queue !== null,
           title: uploadImage ? "Image" : "Save the post first to add images",
         },
         {
@@ -276,14 +289,6 @@ export function RichTextEditor({
                 <t.icon className="size-4" aria-hidden />
               </button>
             ))}
-            {uploading && (
-              <span
-                role="status"
-                className="ml-auto self-center px-2 text-theme-xs text-gray-500 dark:text-gray-400"
-              >
-                Uploading image…
-              </span>
-            )}
             <input
               ref={fileInput}
               type="file"
@@ -293,7 +298,7 @@ export function RichTextEditor({
               onChange={(e) => {
                 const files = [...(e.target.files ?? [])]
                 e.target.value = "" // the same file can be picked again
-                void addImages(files)
+                addImages(files)
               }}
             />
           </div>
@@ -306,6 +311,114 @@ export function RichTextEditor({
       {imageError && (
         <p className="mt-1.5 text-xs text-error-500">{imageError}</p>
       )}
+      {queue && (
+        <ImageAltDialog
+          key={queue.total - queue.files.length}
+          file={queue.files[0]}
+          note={
+            queue.total > 1
+              ? `Image ${queue.total - queue.files.length + 1} of ${queue.total}`
+              : undefined
+          }
+          onAdd={insertImage}
+          onSkip={() => nextImage(queue.at)}
+        />
+      )}
     </div>
+  )
+}
+
+/**
+ * Asks for one image's alt text, showing the image (P1-607). The field
+ * starts empty: a file name is rarely a description. onAdd uploads and
+ * inserts; the dialog waits on it, so an error can be retried here.
+ */
+export function ImageAltDialog({
+  file,
+  note,
+  onAdd,
+  onSkip,
+}: {
+  file: File
+  note?: string
+  onAdd: (alt: string) => Promise<void>
+  onSkip: () => void
+}) {
+  const [preview] = useState(() => URL.createObjectURL(file))
+  useEffect(() => () => URL.revokeObjectURL(preview), [preview])
+  const [alt, setAlt] = useState("")
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  // The Dialog focuses its title once open; the field takes it after.
+  useEffect(() => {
+    const t = setTimeout(() => document.getElementById("image-alt")?.focus())
+    return () => clearTimeout(t)
+  }, [])
+
+  async function add() {
+    setBusy(true)
+    setError(null)
+    try {
+      await onAdd(alt)
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : "The image could not be uploaded.",
+      )
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Dialog
+      open
+      onOpenChange={(o) => !o && onSkip()}
+      dismissible={!busy}
+      title="Add an image"
+      description={note}
+      footer={
+        <>
+          <Button size="sm" variant="outline" disabled={busy} onClick={onSkip}>
+            Cancel
+          </Button>
+          <Button size="sm" isLoading={busy} onClick={() => void add()}>
+            Add image
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        <figure>
+          {/* eslint-disable-next-line @next/next/no-img-element -- a local blob preview */}
+          <img
+            src={preview}
+            alt=""
+            className="max-h-64 w-full rounded-xl bg-gray-50 object-contain dark:bg-white/[0.03]"
+          />
+          <figcaption className="mt-1.5 truncate text-theme-xs text-gray-500 dark:text-gray-400">
+            {file.name}
+          </figcaption>
+        </figure>
+        <Field
+          id="image-alt"
+          label="Alt text"
+          hint="Describe what the image shows. Screen readers read it aloud and search engines use it."
+        >
+          <Input
+            id="image-alt"
+            value={alt}
+            placeholder="e.g. White cotton sheets on a made bed"
+            disabled={busy}
+            onChange={(e) => setAlt(e.target.value)}
+            onKeyDown={(e) => {
+              // Not a <form>: the dialog sits inside the post's form.
+              if (e.key !== "Enter") return
+              e.preventDefault()
+              if (!busy) void add()
+            }}
+          />
+        </Field>
+        {error && <p className="text-xs text-error-500">{error}</p>}
+      </div>
+    </Dialog>
   )
 }
