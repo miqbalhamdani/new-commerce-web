@@ -2144,7 +2144,7 @@ export interface components {
              *     The editor shows it as the excerpt's placeholder (BR-132).
              */
             excerpt_preview: string;
-            /** @description Markdown (BR-135). */
+            /** @description Markdown (BR-135). An image URL ending in `#w=NN` is that percent of the column wide. */
             body: string;
             tags: string[];
             cover_r2_key: string | null;
