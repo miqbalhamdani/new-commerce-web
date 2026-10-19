@@ -153,7 +153,11 @@ export function CategoryManager({
   )
 }
 
-/** The slug follows the name until "Edit slug" is ticked, as for brands (BR-030). */
+/**
+ * Adding asks for a name and an order only: the API derives the slug, and a
+ * clash comes back on the name (BR-130). Editing shows the slug, which
+ * follows the name until "Edit slug" is ticked, as for brands (BR-030).
+ */
 function CategoryForm({
   category,
   nextPosition,
@@ -216,35 +220,39 @@ function CategoryForm({
           error={Boolean(nameError)}
         />
       </Field>
-      <Field
-        id="blog-category-slug"
-        label="Slug"
-        error={slugError}
-        hint={
-          customSlug
-            ? "Lower-case letters and digits joined by hyphens."
-            : "Generated from the name."
-        }
-      >
-        <Input
-          id="blog-category-slug"
-          value={shownSlug}
-          readOnly={!customSlug}
-          className={customSlug ? "" : "!bg-gray-50 dark:!bg-white/[0.03]"}
-          onChange={(e) => setSlug(e.target.value)}
-          error={Boolean(slugError)}
-        />
-      </Field>
-      <label className="flex items-center gap-2 text-theme-sm text-gray-700 dark:text-gray-400">
-        <Checkbox
-          checked={customSlug}
-          onChange={(e) => {
-            if (e.target.checked) setSlug(shownSlug)
-            setCustomSlug(e.target.checked)
-          }}
-        />
-        Edit slug
-      </label>
+      {category && (
+        <>
+          <Field
+            id="blog-category-slug"
+            label="Slug"
+            error={slugError}
+            hint={
+              customSlug
+                ? "Lower-case letters and digits joined by hyphens."
+                : "Generated from the name."
+            }
+          >
+            <Input
+              id="blog-category-slug"
+              value={shownSlug}
+              readOnly={!customSlug}
+              className={customSlug ? "" : "!bg-gray-50 dark:!bg-white/[0.03]"}
+              onChange={(e) => setSlug(e.target.value)}
+              error={Boolean(slugError)}
+            />
+          </Field>
+          <label className="flex items-center gap-2 text-theme-sm text-gray-700 dark:text-gray-400">
+            <Checkbox
+              checked={customSlug}
+              onChange={(e) => {
+                if (e.target.checked) setSlug(shownSlug)
+                setCustomSlug(e.target.checked)
+              }}
+            />
+            Edit slug
+          </label>
+        </>
+      )}
       <Field
         id="blog-category-position"
         label="Order"

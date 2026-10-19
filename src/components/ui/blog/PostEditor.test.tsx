@@ -211,6 +211,9 @@ describe("PostEditor (P1-607)", () => {
       await screen.findByText("Bedding tips", { selector: "span" }),
     ).toBeInTheDocument()
     await userEvent.click(screen.getByRole("button", { name: "Add category" }))
+    // Adding asks for a name and an order; the API derives the slug.
+    expect(screen.queryByLabelText("Slug")).toBeNull()
+    expect(screen.queryByText("Edit slug")).toBeNull()
     await userEvent.type(screen.getByLabelText("Name"), "Materials")
     await userEvent.click(screen.getByRole("button", { name: "Add category" }))
     await waitFor(() =>
