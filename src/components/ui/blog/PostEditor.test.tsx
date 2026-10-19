@@ -12,6 +12,26 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
 }))
 
+// ProseMirror needs a real layout; RichTextEditor.test covers the editor
+// itself. Here the body is a textarea with the same contract.
+vi.mock("./RichTextEditor", () => ({
+  RichTextEditor: ({
+    id,
+    value,
+    onChange,
+  }: {
+    id: string
+    value: string
+    onChange: (v: string) => void
+  }) => (
+    <textarea
+      id={id}
+      defaultValue={value}
+      onChange={(e) => onChange(e.target.value)}
+    />
+  ),
+}))
+
 beforeEach(() => vi.unstubAllGlobals())
 
 const post: BlogPost = {
@@ -38,15 +58,25 @@ const post: BlogPost = {
 function api(
   extra?: (url: string, init?: RequestInit) => Response | undefined,
 ) {
+  const categories = [
+    { id: "c1", name: "Bedding tips", slug: "bedding-tips", position: 1 },
+  ]
   return mockApi(["blog:read", "blog:write"], (url, init) => {
-    if (url.endsWith("/v1/blog/categories"))
-      return json({
-        data: [
-          { id: "c1", name: "Bedding tips", slug: "bedding-tips", position: 1 },
-        ],
-      })
+    if (url.endsWith("/v1/blog/categories") && init?.method === "POST") {
+      const c = { id: "c2", name: "Materials", slug: "materials", position: 2 }
+      categories.push(c)
+      return json(c, 201)
+    }
+    if (url.endsWith("/v1/blog/categories")) return json({ data: categories })
     return extra?.(url, init)
   })
+}
+
+const sent = (fetch: ReturnType<typeof api>, method: string, path: string) => {
+  const call = fetch.mock.calls.find(
+    ([u, i]) => String(u).endsWith(path) && i?.method === method,
+  )
+  return JSON.parse(String(call![1]!.body))
 }
 
 describe("PostEditor (P1-607)", () => {
@@ -58,7 +88,7 @@ describe("PostEditor (P1-607)", () => {
     expect(excerpt).toHaveAttribute("placeholder", post.excerpt_preview)
   })
 
-  it("saves only what changed, and leaves an empty excerpt out (BR-009)", async () => {
+  it("Save draft on a draft sends only what changed (BR-009)", async () => {
     const saved = { ...post, body: "Isi baru.", excerpt_preview: "Isi baru." }
     const fetch = api((url, init) => {
       if (url.endsWith("/v1/blog/posts/p1") && init?.method === "PATCH")
@@ -67,20 +97,61 @@ describe("PostEditor (P1-607)", () => {
     const onSaved = vi.fn()
     renderSignedIn(<PostEditor post={post} onSaved={onSaved} />)
 
-    const body = await screen.findByLabelText("Body")
+    const save = await screen.findByRole("button", { name: "Save draft" })
+    expect(save).toBeDisabled()
+    const body = screen.getByLabelText("Body")
     await userEvent.clear(body)
     await userEvent.type(body, "Isi baru.")
-    await userEvent.click(screen.getByRole("button", { name: "Save" }))
-
+    await userEvent.click(save)
     await waitFor(() => expect(onSaved).toHaveBeenCalledWith(saved))
-    const patch = fetch.mock.calls.find(
-      ([u, i]) =>
-        String(u).endsWith("/v1/blog/posts/p1") && i?.method === "PATCH",
-    )
-    expect(JSON.parse(String(patch![1]!.body))).toEqual({ body: "Isi baru." })
+    expect(sent(fetch, "PATCH", "/v1/blog/posts/p1")).toEqual({
+      body: "Isi baru.",
+    })
   })
 
-  it("a new post is created as typed, its slug following the title", async () => {
+  it("Publish sends published; a later date makes it Schedule", async () => {
+    const fetch = api((url, init) => {
+      if (url.endsWith("/v1/blog/posts/p1") && init?.method === "PATCH")
+        return json({ ...post, status: "published" })
+    })
+    renderSignedIn(<PostEditor post={post} onSaved={vi.fn()} />)
+
+    await userEvent.type(
+      await screen.findByLabelText("Publish date (WIB)"),
+      "2099-01-01",
+    )
+    expect(screen.getByRole("button", { name: "Schedule" })).toBeInTheDocument()
+    await userEvent.clear(screen.getByLabelText("Publish date (WIB)"))
+    await userEvent.click(screen.getByRole("button", { name: "Publish" }))
+    await waitFor(() =>
+      expect(sent(fetch, "PATCH", "/v1/blog/posts/p1")).toEqual({
+        status: "published",
+      }),
+    )
+  })
+
+  it("a live post offers Unpublish and Update, not Publish", async () => {
+    const live: BlogPost = {
+      ...post,
+      status: "published",
+      published_at: "2026-10-01T09:00:00+07:00",
+    }
+    const fetch = api((url, init) => {
+      if (url.endsWith("/v1/blog/posts/p1") && init?.method === "PATCH")
+        return json({ ...live, status: "draft" })
+    })
+    renderSignedIn(<PostEditor post={live} onSaved={vi.fn()} />)
+    expect(await screen.findByRole("button", { name: "Update" })).toBeDisabled()
+    expect(screen.queryByRole("button", { name: "Publish" })).toBeNull()
+    await userEvent.click(screen.getByRole("button", { name: "Unpublish" }))
+    await waitFor(() =>
+      expect(sent(fetch, "PATCH", "/v1/blog/posts/p1")).toEqual({
+        status: "draft",
+      }),
+    )
+  })
+
+  it("a new post is by its writer, with tags as chips and its slug following the title (BR-133)", async () => {
     const fetch = api((url, init) => {
       if (url.endsWith("/v1/blog/posts") && init?.method === "POST")
         return json({ ...post, id: "p9" }, 201)
@@ -91,26 +162,52 @@ describe("PostEditor (P1-607)", () => {
     expect(
       await screen.findByText("Create the post to add a cover."),
     ).toBeInTheDocument()
+    await waitFor(() =>
+      expect(screen.getByLabelText("Author")).toHaveTextContent("Budi (you)"),
+    )
     await userEvent.type(screen.getByLabelText("Title"), "Panduan Sprei")
     expect(screen.getByLabelText("Slug")).toHaveValue("panduan-sprei")
-    await userEvent.type(screen.getByLabelText("Tags"), "Bedding Tips, Panduan")
-    await userEvent.click(screen.getByRole("button", { name: "Create post" }))
+    await userEvent.type(
+      screen.getByLabelText("Tags"),
+      "Bedding Tips,Panduan{Enter}",
+    )
+    expect(
+      screen.getByRole("button", { name: "Remove Panduan" }),
+    ).toBeInTheDocument()
+    await userEvent.click(screen.getByRole("button", { name: "Save draft" }))
 
     await waitFor(() => expect(onSaved).toHaveBeenCalled())
-    const create = fetch.mock.calls.find(
-      ([u, i]) => String(u).endsWith("/v1/blog/posts") && i?.method === "POST",
-    )
-    // No author_id: the API makes the creator the author (BR-133).
-    expect(JSON.parse(String(create![1]!.body))).toEqual({
+    expect(sent(fetch, "POST", "/v1/blog/posts")).toEqual({
       title: "Panduan Sprei",
+      author_id: "u1",
       tags: ["Bedding Tips", "Panduan"],
     })
   })
 
-  it("a reader sees the post but no save", async () => {
+  it("a category added from Manage categories is picked (P1-606)", async () => {
+    api()
+    renderSignedIn(<PostEditor post={post} onSaved={vi.fn()} />)
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Manage categories" }),
+    )
+    expect(
+      await screen.findByText("Bedding tips", { selector: "span" }),
+    ).toBeInTheDocument()
+    await userEvent.click(screen.getByRole("button", { name: "Add category" }))
+    await userEvent.type(screen.getByLabelText("Name"), "Materials")
+    await userEvent.click(screen.getByRole("button", { name: "Add category" }))
+    await waitFor(() =>
+      expect(screen.getByLabelText("Category")).toHaveTextContent("Materials"),
+    )
+  })
+
+  it("a reader sees the post but no buttons", async () => {
     mockApi(["blog:read"], () => json({ data: [] }))
     renderSignedIn(<PostEditor post={post} onSaved={vi.fn()} />)
     expect(await screen.findByLabelText("Title")).toBeDisabled()
-    expect(screen.queryByRole("button", { name: "Save" })).toBeNull()
+    expect(screen.queryByRole("button", { name: "Save draft" })).toBeNull()
+    expect(
+      screen.queryByRole("button", { name: "Manage categories" }),
+    ).toBeNull()
   })
 })

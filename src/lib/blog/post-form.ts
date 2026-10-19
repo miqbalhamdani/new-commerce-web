@@ -16,8 +16,7 @@ export interface PostDraft {
   body: string
   category_id: string
   author_id: string
-  /** As typed: comma-separated. */
-  tags: string
+  tags: string[]
   status: BlogPostStatus
   /** A datetime-local value in WIB, "" for none. */
   published_at: string
@@ -33,7 +32,7 @@ export function draftOf(p: BlogPost): PostDraft {
     body: p.body,
     category_id: p.category?.id ?? "",
     author_id: p.author?.id ?? "",
-    tags: p.tags.join(", "),
+    tags: p.tags,
     status: p.status,
     published_at: dateTimeInputValue(p.published_at),
     is_featured: p.is_featured,
@@ -41,32 +40,21 @@ export function draftOf(p: BlogPost): PostDraft {
   }
 }
 
-/**
- * A new post's form. No author: the API makes it whoever creates the post
- * (BR-133).
- */
-export function emptyDraft(): PostDraft {
+/** A new post's form; its author is whoever writes it (BR-133). */
+export function emptyDraft(authorId = ""): PostDraft {
   return {
     title: "",
     slug: "",
     excerpt: "",
     body: "",
     category_id: "",
-    author_id: "",
-    tags: "",
+    author_id: authorId,
+    tags: [],
     status: "draft",
     published_at: "",
     is_featured: false,
     products: [],
   }
-}
-
-/** "Bedding Tips, , Panduan" -> ["Bedding Tips", "Panduan"]. */
-export function parseTags(text: string): string[] {
-  return text
-    .split(",")
-    .map((t) => t.trim())
-    .filter(Boolean)
 }
 
 const ids = (d: PostDraft) => d.products.map((p) => p.id)
@@ -83,8 +71,7 @@ export function createBodyOf(d: PostDraft): Record<string, unknown> {
   if (d.excerpt.trim() !== "") body.excerpt = d.excerpt.trim()
   if (d.category_id !== "") body.category_id = d.category_id
   if (d.author_id !== "") body.author_id = d.author_id
-  const tags = parseTags(d.tags)
-  if (tags.length) body.tags = tags
+  if (d.tags.length) body.tags = d.tags
   if (d.status !== "draft") body.status = d.status
   if (d.published_at !== "")
     body.published_at = dateTimeInputRFC3339(d.published_at)
@@ -112,8 +99,7 @@ export function patchOf(
   if (d.category_id !== original.category_id)
     body.category_id = orNull(d.category_id)
   if (d.author_id !== original.author_id) body.author_id = orNull(d.author_id)
-  if (parseTags(d.tags).join("\n") !== parseTags(original.tags).join("\n"))
-    body.tags = parseTags(d.tags)
+  if (d.tags.join("\n") !== original.tags.join("\n")) body.tags = d.tags
   if (d.status !== original.status) body.status = d.status
   if (d.published_at !== original.published_at)
     body.published_at =
@@ -132,4 +118,20 @@ export function postState(
   return p.published_at && new Date(p.published_at).getTime() > now
     ? "scheduled"
     : "published"
+}
+
+/** A WIB datetime-local value as the date picker's and time box's halves. */
+export function splitDateTime(local: string): { date: string; time: string } {
+  const [date = "", time = ""] = local.split("T")
+  return { date, time }
+}
+
+/** The halves back as one value: no date is no value; no time is midnight. */
+export function joinDateTime(date: string, time: string): string {
+  return date === "" ? "" : `${date}T${time || "00:00"}`
+}
+
+/** Whether a WIB datetime-local value is later than now: Publish becomes Schedule. */
+export function isFuture(local: string, now = Date.now()): boolean {
+  return local !== "" && new Date(dateTimeInputRFC3339(local)).getTime() > now
 }

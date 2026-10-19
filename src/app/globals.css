@@ -94,6 +94,30 @@
   .menu-dropdown-badge-inactive {
     @apply bg-brand-50 group-hover:bg-brand-100 dark:bg-brand-500/15 dark:group-hover:bg-brand-500/20;
   }
+
+  /* The blog post body editor (P1-607): enough type to see the structure.
+     A blockquote is the website's tinted Kesimpulan box (BR-135). */
+  .post-body > * + * {
+    @apply mt-3;
+  }
+  .post-body h2 {
+    @apply text-lg font-semibold;
+  }
+  .post-body h3 {
+    @apply text-base font-semibold;
+  }
+  .post-body ul {
+    @apply list-disc pl-6;
+  }
+  .post-body ol {
+    @apply list-decimal pl-6;
+  }
+  .post-body a {
+    @apply text-brand-500 underline;
+  }
+  .post-body blockquote {
+    @apply rounded-lg bg-brand-50 px-4 py-3 dark:bg-brand-500/[0.08];
+  }
 }
 
 @layer utilities {

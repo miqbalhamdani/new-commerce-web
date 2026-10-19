@@ -3,19 +3,25 @@
 import { ImagePlus, X } from "lucide-react"
 import { useEffect, useState } from "react"
 
-import Button from "@/components/ui/button/Button"
 import Input from "@/components/form/input/InputField"
+import { CategoryManager } from "@/components/ui/blog/CategoryManager"
+import { RichTextEditor } from "@/components/ui/blog/RichTextEditor"
+import { TagInput } from "@/components/ui/blog/TagInput"
+import Button from "@/components/ui/button/Button"
+import { DatePicker } from "@/components/ui/common/DatePicker"
 import { Dropzone } from "@/components/ui/common/Dropzone"
 import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
-import { Checkbox, Field, Textarea } from "@/components/ui/common/Field"
+import { Field, Textarea } from "@/components/ui/common/Field"
 import { Page, Section } from "@/components/ui/common/Page"
 import { ProgressBar } from "@/components/ui/common/ProgressBar"
 import { SearchInput } from "@/components/ui/common/SearchInput"
 import { Select } from "@/components/ui/common/Select"
+import { Toggle } from "@/components/ui/common/Toggle"
 import { ApiError } from "@/lib/api/client"
 import type {
   BlogCategoryList,
   BlogPost,
+  BlogPostStatus,
   ProductPage,
   UserPage,
 } from "@/lib/api/types"
@@ -25,8 +31,11 @@ import {
   createBodyOf,
   draftOf,
   emptyDraft,
+  isFuture,
+  joinDateTime,
   patchOf,
   postState,
+  splitDateTime,
   type PickedProduct,
   type PostDraft,
 } from "@/lib/blog/post-form"
@@ -35,15 +44,17 @@ import { uploadCover, xhrPut } from "@/lib/catalog/upload"
 import { formatDateTime } from "@/lib/format"
 
 const stateLine = {
-  draft: "Hidden from your website.",
-  scheduled: "Goes live on your website by itself at its date.",
-  published: "Live on your website.",
+  draft: "Draft: hidden from your website.",
+  scheduled: "Scheduled: goes live by itself on",
+  published: "Published on your website since",
 } as const
 
 /**
- * The blog post editor (P1-607, 04-api-spec.md §13.2): the post's words in the
- * main column, publishing and organisation in a side panel, one Save. The
- * cover uploads on its own once the post exists, so it never blocks the form.
+ * The blog post editor (P1-607, 04-api-spec.md §13.2): the words on the left,
+ * publishing, the post's link and its organisation on the right. Status is
+ * set by the action buttons, not a field: Save draft / Publish (Schedule when
+ * the date is later), or Unpublish / Update once live. The cover uploads on
+ * its own once the post exists, so it never blocks the form.
  */
 export function PostEditor({
   post,
@@ -64,24 +75,34 @@ export function PostEditor({
   // upload updates the post and must not wipe what someone is typing.
   const [base, setBase] = useState(post)
   const [draft, setDraft] = useState<PostDraft>(() =>
-    post ? draftOf(post) : emptyDraft(),
+    post ? draftOf(post) : emptyDraft(user?.id),
   )
   if (post && post.id !== base?.id) {
     setBase(post)
     setDraft(draftOf(post))
   }
-  const original = base ? draftOf(base) : emptyDraft()
-  const patch = patchOf(original, draft)
-  const dirty = Object.keys(patch).length > 0
+  // A new post's author is whoever writes it (BR-133); the session can
+  // arrive after the first render.
+  const [authorSeeded, setAuthorSeeded] = useState(Boolean(post || user))
+  if (!authorSeeded && user) {
+    setAuthorSeeded(true)
+    setDraft((d) => ({ ...d, author_id: user.id }))
+  }
+  const original = base ? draftOf(base) : emptyDraft(user?.id)
+  const dirty = Object.keys(patchOf(original, draft)).length > 0
+  // Bumped to reload the rich text editor, which owns its content once mounted.
+  const [bodyKey, setBodyKey] = useState(0)
   const [error, setError] = useState<ApiError | null>(null)
-  const [saving, setSaving] = useState(false)
-
-  const { data: categories } = useResource<BlogCategoryList>(
-    "/v1/blog/categories",
+  const [saving, setSaving] = useState<"draft" | "published" | "save" | null>(
+    null,
   )
+
+  const { data: categories, reload: reloadCategories } =
+    useResource<BlogCategoryList>("/v1/blog/categories")
   const { data: users } = useResource<UserPage>(
     canUsers ? "/v1/users?status=active&limit=200" : null,
   )
+  const [managing, setManaging] = useState(false)
 
   useEffect(() => {
     if (!dirty) return
@@ -92,10 +113,12 @@ export function PostEditor({
 
   const set = (p: Partial<PostDraft>) => setDraft((d) => ({ ...d, ...p }))
 
-  async function save(e: React.FormEvent) {
-    e.preventDefault()
-    if (!dirty || !draft.title.trim()) return
-    setSaving(true)
+  /** Saves the draft, with status when an action button sets it. */
+  async function save(status?: BlogPostStatus) {
+    const next = status ? { ...draft, status } : draft
+    const patch = patchOf(original, next)
+    if (!next.title.trim() || (post && Object.keys(patch).length === 0)) return
+    setSaving(status ?? "save")
     try {
       const saved = post
         ? await api<BlogPost>(`/v1/blog/posts/${post.id}`, {
@@ -104,7 +127,7 @@ export function PostEditor({
           })
         : await api<BlogPost>("/v1/blog/posts", {
             method: "POST",
-            body: createBodyOf(draft),
+            body: createBodyOf(next),
           })
       setError(null)
       setBase(saved)
@@ -113,7 +136,7 @@ export function PostEditor({
     } catch (err) {
       setError(asApiError(err))
     } finally {
-      setSaving(false)
+      setSaving(null)
     }
   }
 
@@ -131,12 +154,16 @@ export function PostEditor({
     "is_featured",
     "product_ids",
   ].some((f) => err(f))
+  const live = post !== null && post.status === "published"
   const state = post ? postState(post) : "draft"
-  // Authors: the shop's active staff, plus the post's own if no longer listed.
+  const later = isFuture(draft.published_at)
+  const { date, time } = splitDateTime(draft.published_at)
+  // Authors: the shop's active staff, plus the post's own and the signed-in
+  // user, who may not be listed (users:read is owner and admin only).
   const authors = new Map((users?.data ?? []).map((u) => [u.id, u.name]))
   if (post?.author && !authors.has(post.author.id))
     authors.set(post.author.id, post.author.name)
-  if (post && user && !authors.has(user.id)) authors.set(user.id, user.name)
+  if (user && !authors.has(user.id)) authors.set(user.id, user.name)
 
   return (
     <Page
@@ -163,7 +190,14 @@ export function PostEditor({
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1.55fr)_minmax(320px,0.78fr)]">
           <div className="flex min-w-0 flex-col gap-6">
             <Section id="post" title="Post">
-              <form id="post-form" onSubmit={save}>
+              {/* Enter in the title saves, keeping the post's status. */}
+              <form
+                id="post-form"
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  void save()
+                }}
+              >
                 <fieldset disabled={!editable} className="flex flex-col gap-5">
                   <Field id="title" label="Title" error={err("title")}>
                     <Input
@@ -172,65 +206,13 @@ export function PostEditor({
                       onChange={(e) => set({ title: e.target.value })}
                     />
                   </Field>
-                  <Field
-                    id="slug"
-                    label="Slug"
-                    error={err("slug")}
-                    hint={
-                      !post
-                        ? "Generated from the title. You can change it after creating."
-                        : draft.slug !== original.slug
-                          ? undefined
-                          : "The post's address on your website. Changing the title never changes it."
-                    }
-                  >
-                    <Input
-                      id="slug"
-                      value={post ? draft.slug : slugify(draft.title)}
-                      readOnly={!post}
-                      className={
-                        post ? "" : "!bg-gray-50 dark:!bg-white/[0.03]"
-                      }
-                      onChange={(e) => set({ slug: e.target.value })}
-                    />
-                    {post && draft.slug !== original.slug && (
-                      <p
-                        role="alert"
-                        className="text-xs text-warning-600 dark:text-orange-400"
-                      >
-                        Links to {original.slug} will stop working once you
-                        save.
-                      </p>
-                    )}
-                  </Field>
-                  <Field
-                    id="excerpt"
-                    label="Excerpt"
-                    error={err("excerpt")}
-                    hint="Shown on the post's card and to search engines. Leave it empty to use the start of the post, as shown."
-                  >
-                    <Textarea
-                      id="excerpt"
-                      rows={3}
-                      value={draft.excerpt}
-                      placeholder={post?.excerpt_preview ?? ""}
-                      hasError={Boolean(err("excerpt"))}
-                      onChange={(e) => set({ excerpt: e.target.value })}
-                    />
-                  </Field>
-                  <Field
-                    id="body"
-                    label="Body"
-                    error={err("body")}
-                    hint="Markdown: ## for a heading, [text](link) for a link, - for a list, > for the boxed Kesimpulan."
-                  >
-                    <Textarea
+                  <Field id="body" label="Body" error={err("body")}>
+                    <RichTextEditor
+                      key={`${post?.id ?? "new"}-${bodyKey}`}
                       id="body"
-                      rows={20}
-                      className="font-mono"
                       value={draft.body}
-                      hasError={Boolean(err("body"))}
-                      onChange={(e) => set({ body: e.target.value })}
+                      disabled={!editable}
+                      onChange={(body) => set({ body })}
                     />
                   </Field>
                 </fieldset>
@@ -275,63 +257,169 @@ export function PostEditor({
                   {post
                     ? state === "draft"
                       ? stateLine.draft
-                      : `${stateLine[state]} ${formatDateTime(post.published_at, tenant?.timezone)}`
-                    : "Starts as a draft unless you publish it."}
+                      : `${stateLine[state]} ${formatDateTime(post.published_at, tenant?.timezone)}.`
+                    : "A new post starts as a draft until you publish it."}
                 </p>
-                <Field id="status" label="Status" error={err("status")}>
-                  <Select
-                    id="status"
-                    className="w-full"
-                    value={draft.status}
-                    onChange={(v) => set({ status: v as PostDraft["status"] })}
-                    options={[
-                      { value: "draft", label: "Draft" },
-                      { value: "published", label: "Published" },
-                    ]}
-                  />
-                </Field>
                 <Field
-                  id="published_at"
+                  id="publish-date"
                   label="Publish date (WIB)"
                   error={err("published_at")}
                   hint="Empty publishes now. A later date schedules it."
                 >
-                  <Input
-                    id="published_at"
-                    type="datetime-local"
-                    value={draft.published_at}
-                    onChange={(e) => set({ published_at: e.target.value })}
-                  />
+                  <div className="flex gap-2">
+                    <DatePicker
+                      id="publish-date"
+                      className="flex-1"
+                      value={date}
+                      onChange={(d) =>
+                        set({ published_at: joinDateTime(d, time) })
+                      }
+                    />
+                    <div className="w-32">
+                      <Input
+                        type="time"
+                        aria-label="Publish time"
+                        value={time}
+                        disabled={!editable || date === ""}
+                        onChange={(e) =>
+                          set({
+                            published_at: joinDateTime(date, e.target.value),
+                          })
+                        }
+                      />
+                    </div>
+                  </div>
                 </Field>
-                <label className="flex items-center gap-2 text-theme-sm text-gray-700 dark:text-gray-400">
-                  <Checkbox
+                <div className="flex items-center justify-between gap-4 rounded-xl border border-gray-200 p-4 dark:border-gray-800">
+                  <div>
+                    <p className="text-sm font-medium text-gray-800 dark:text-white/90">
+                      Featured post
+                    </p>
+                    <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                      Shown first on your journal page; replaces the current
+                      featured post.
+                    </p>
+                  </div>
+                  <Toggle
+                    label="Featured post"
                     checked={draft.is_featured}
-                    onChange={(e) => set({ is_featured: e.target.checked })}
+                    disabled={!editable}
+                    onChange={(on) => set({ is_featured: on })}
                   />
-                  Feature it at the top of the journal page
-                </label>
+                </div>
               </fieldset>
               {editable && (
-                <div className="mt-5 grid grid-cols-2 gap-3 border-t border-gray-100 pt-5 dark:border-white/[0.05]">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={!dirty}
-                    onClick={() => setDraft(original)}
-                  >
-                    Discard changes
-                  </Button>
-                  <Button
-                    size="sm"
-                    type="submit"
-                    form="post-form"
-                    isLoading={saving}
-                    disabled={!dirty || !draft.title.trim()}
-                  >
-                    {post ? "Save" : "Create post"}
-                  </Button>
+                <div className="mt-5 flex flex-col gap-3 border-t border-gray-100 pt-5 dark:border-white/[0.05]">
+                  <div className="grid grid-cols-2 gap-3">
+                    {live ? (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          isLoading={saving === "draft"}
+                          disabled={saving !== null}
+                          onClick={() => void save("draft")}
+                        >
+                          Unpublish
+                        </Button>
+                        <Button
+                          size="sm"
+                          isLoading={saving === "save"}
+                          disabled={
+                            !dirty || !draft.title.trim() || saving !== null
+                          }
+                          onClick={() => void save()}
+                        >
+                          Update
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          isLoading={saving === "draft"}
+                          disabled={
+                            !draft.title.trim() ||
+                            (post !== null && !dirty) ||
+                            saving !== null
+                          }
+                          onClick={() => void save("draft")}
+                        >
+                          Save draft
+                        </Button>
+                        <Button
+                          size="sm"
+                          isLoading={saving === "published"}
+                          disabled={!draft.title.trim() || saving !== null}
+                          onClick={() => void save("published")}
+                        >
+                          {later ? "Schedule" : "Publish"}
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                  {dirty && (
+                    <button
+                      type="button"
+                      className="self-center text-theme-xs text-gray-500 hover:text-gray-700 dark:text-gray-400"
+                      onClick={() => {
+                        setDraft(original)
+                        setBodyKey((k) => k + 1)
+                      }}
+                    >
+                      Discard changes
+                    </button>
+                  )}
                 </div>
               )}
+            </Section>
+            <Section title="Link & excerpt">
+              <fieldset disabled={!editable} className="flex flex-col gap-5">
+                <Field
+                  id="slug"
+                  label="Slug"
+                  error={err("slug")}
+                  hint={
+                    !post
+                      ? "Generated from the title. You can change it after creating."
+                      : draft.slug !== original.slug
+                        ? undefined
+                        : "The post's address on your website. Changing the title never changes it."
+                  }
+                >
+                  <Input
+                    id="slug"
+                    value={post ? draft.slug : slugify(draft.title)}
+                    readOnly={!post}
+                    className={post ? "" : "!bg-gray-50 dark:!bg-white/[0.03]"}
+                    onChange={(e) => set({ slug: e.target.value })}
+                  />
+                  {post && draft.slug !== original.slug && (
+                    <p
+                      role="alert"
+                      className="text-xs text-warning-600 dark:text-orange-400"
+                    >
+                      Links to {original.slug} will stop working once you save.
+                    </p>
+                  )}
+                </Field>
+                <Field
+                  id="excerpt"
+                  label="Excerpt"
+                  error={err("excerpt")}
+                  hint="Shown on the post's card and to search engines. Leave it empty to use the start of the post, as shown."
+                >
+                  <Textarea
+                    id="excerpt"
+                    rows={4}
+                    value={draft.excerpt}
+                    placeholder={post?.excerpt_preview ?? ""}
+                    hasError={Boolean(err("excerpt"))}
+                    onChange={(e) => set({ excerpt: e.target.value })}
+                  />
+                </Field>
+              </fieldset>
             </Section>
             <Section title="Organization">
               <fieldset disabled={!editable} className="flex flex-col gap-5">
@@ -353,6 +441,15 @@ export function PostEditor({
                       })),
                     ]}
                   />
+                  {editable && (
+                    <button
+                      type="button"
+                      className="mt-1.5 text-xs font-medium text-brand-500 hover:text-brand-600"
+                      onClick={() => setManaging(true)}
+                    >
+                      Manage categories
+                    </button>
+                  )}
                 </Field>
                 <Field id="author" label="Author" error={err("author_id")}>
                   <Select
@@ -361,11 +458,10 @@ export function PostEditor({
                     value={draft.author_id}
                     onChange={(v) => set({ author_id: v })}
                     options={[
-                      // On a new post, empty means whoever creates it (BR-133).
-                      { value: "", label: post ? "No author" : "You" },
+                      { value: "", label: "No author" },
                       ...[...authors].map(([id, name]) => ({
                         value: id,
-                        label: name,
+                        label: id === user?.id ? `${name} (you)` : name,
                       })),
                     ]}
                   />
@@ -374,12 +470,14 @@ export function PostEditor({
                   id="tags"
                   label="Tags"
                   error={err("tags")}
-                  hint="Separate with commas. Up to 10."
+                  hint="Enter or a comma adds a tag. Up to 10."
                 >
-                  <Input
+                  <TagInput
                     id="tags"
                     value={draft.tags}
-                    onChange={(e) => set({ tags: e.target.value })}
+                    disabled={!editable}
+                    error={Boolean(err("tags"))}
+                    onChange={(tags) => set({ tags })}
                   />
                 </Field>
               </fieldset>
@@ -387,6 +485,15 @@ export function PostEditor({
           </aside>
         </div>
       </div>
+      {managing && (
+        <CategoryManager
+          open
+          categories={categories?.data ?? []}
+          onClose={() => setManaging(false)}
+          onChanged={reloadCategories}
+          onCreated={(c) => set({ category_id: c.id })}
+        />
+      )}
     </Page>
   )
 }
@@ -474,7 +581,10 @@ function CoverField({
   )
 }
 
-/** Search the catalog, add products as chips; at most 12 (BR-134). */
+/**
+ * The linked products in order, and a search that lists active products as
+ * you type (or the first ten when you click in); at most 12 (BR-134).
+ */
 function ProductPicker({
   value,
   canWrite,
@@ -486,29 +596,19 @@ function ProductPicker({
   error?: string
   onChange: (products: PickedProduct[]) => void
 }) {
-  const api = useApi()
-  const [results, setResults] = useState<PickedProduct[] | null>(null)
-  const [searchError, setSearchError] = useState<ApiError | null>(null)
+  const [typed, setTyped] = useState("")
+  const [q, setQ] = useState("")
+  const [open, setOpen] = useState(false)
+  useEffect(() => {
+    const t = setTimeout(() => setQ(typed.trim()), 250)
+    return () => clearTimeout(t)
+  }, [typed])
+  const params = new URLSearchParams({ status: "active", limit: "10" })
+  if (q) params.set("q", q)
+  const { data: results, error: searchError } = useResource<ProductPage>(
+    open ? `/v1/products?${params}` : null,
+  )
   const picked = new Set(value.map((p) => p.id))
-
-  async function search(q: string) {
-    if (!q.trim()) return
-    try {
-      const page = await api<ProductPage>(
-        `/v1/products?q=${encodeURIComponent(q.trim())}&status=active&limit=10`,
-      )
-      setResults(
-        page.data.map((p) => ({
-          id: p.id,
-          title: p.title,
-          cover_url: p.cover_url,
-        })),
-      )
-      setSearchError(null)
-    } catch (e) {
-      setSearchError(asApiError(e))
-    }
-  }
 
   return (
     <div className="flex flex-col gap-3">
@@ -548,7 +648,8 @@ function ProductPicker({
         </ol>
       ) : (
         <p className="text-theme-sm text-gray-500 dark:text-gray-400">
-          No products yet.
+          No products linked yet. Search to add the ones this post mentions;
+          only active products can be added.
         </p>
       )}
       {error && <p className="text-xs text-error-500">{error}</p>}
@@ -556,33 +657,37 @@ function ProductPicker({
         <>
           <SearchInput
             aria-label="Search products to add"
-            placeholder="Search products, Enter to look up"
+            placeholder="Search active products"
             className="w-full max-w-sm"
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault()
-                void search(e.currentTarget.value)
-              }
-            }}
+            value={typed}
+            onFocus={() => setOpen(true)}
+            onChange={(e) => setTyped(e.target.value)}
           />
           <ErrorNotice
             error={searchError}
             title="Could not search the catalog"
           />
-          {results?.length === 0 && (
+          {open && results?.data.length === 0 && (
             <p className="text-theme-sm text-gray-500 dark:text-gray-400">
-              Nothing in the live catalog matches.
+              {q
+                ? "No active product matches."
+                : "No active products yet. Activate a product to add it here."}
             </p>
           )}
-          {results && results.length > 0 && (
+          {open && results && results.data.length > 0 && (
             <ul className="flex flex-col gap-1" aria-label="Search results">
-              {results.map((p) => (
+              {results.data.map((p) => (
                 <li key={p.id}>
                   <Button
                     size="sm"
                     variant="ghost"
                     disabled={picked.has(p.id)}
-                    onClick={() => onChange([...value, p])}
+                    onClick={() =>
+                      onChange([
+                        ...value,
+                        { id: p.id, title: p.title, cover_url: p.cover_url },
+                      ])
+                    }
                   >
                     {picked.has(p.id) ? `${p.title} (added)` : `Add ${p.title}`}
                   </Button>

@@ -1,6 +1,5 @@
 "use client"
 
-import { Switch } from "@headlessui/react"
 import { useState } from "react"
 
 import Button from "@/components/ui/button/Button"
@@ -10,6 +9,7 @@ import { CopyField } from "@/components/ui/common/CopyField"
 import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
 import { Checkbox, Textarea } from "@/components/ui/common/Field"
 import { Select } from "@/components/ui/common/Select"
+import { Toggle } from "@/components/ui/common/Toggle"
 import { ApiError } from "@/lib/api/client"
 import type { CourierCode, StorefrontSettings } from "@/lib/api/types"
 import { asApiError, fieldError, useApi } from "@/lib/api/use-api"
@@ -478,23 +478,7 @@ function ToggleRow({
         <p className={hintText}>{hint}</p>
         {error && <p className="mt-1.5 text-xs text-error-500">{error}</p>}
       </div>
-      <Switch
-        aria-label={label}
-        checked={checked}
-        disabled={disabled}
-        onChange={onChange}
-        className={cx(
-          "group relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full bg-gray-200 transition-colors dark:bg-white/10",
-          "data-[checked]:bg-brand-500 dark:data-[checked]:bg-brand-500",
-          "focus:outline-none data-[focus]:ring-2 data-[focus]:ring-brand-500/30",
-          "data-[disabled]:cursor-not-allowed data-[disabled]:opacity-60",
-        )}
-      >
-        <span
-          aria-hidden
-          className="pointer-events-none mt-0.5 size-5 translate-x-0.5 rounded-full bg-white shadow-theme-xs transition-transform group-data-[checked]:translate-x-[1.375rem]"
-        />
-      </Switch>
+      <Toggle label={label} checked={checked} disabled={disabled} onChange={onChange} />
     </div>
   )
 }

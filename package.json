@@ -16,6 +16,10 @@
   },
   "dependencies": {
     "@headlessui/react": "^2.2.10",
+    "@tiptap/markdown": "^3.31.4",
+    "@tiptap/pm": "^3.31.4",
+    "@tiptap/react": "^3.31.4",
+    "@tiptap/starter-kit": "^3.31.4",
     "apexcharts": "^7.8.0",
     "clsx": "^2.1.1",
     "lucide-react": "^0.473.0",
