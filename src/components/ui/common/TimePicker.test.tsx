@@ -43,6 +43,12 @@ describe("TimePicker (P1-607)", () => {
     expect(screen.getByRole("status")).toHaveTextContent("14:05")
   })
 
+  it("opens from a click in the box, not only the icon", async () => {
+    render(<Harness />)
+    await userEvent.click(screen.getByLabelText("Time"))
+    expect(screen.getByRole("button", { name: "Hour 09" })).toBeInTheDocument()
+  })
+
   it("clears", async () => {
     render(<Harness start="10:15" />)
     await userEvent.click(

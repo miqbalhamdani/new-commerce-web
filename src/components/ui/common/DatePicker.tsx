@@ -1,7 +1,7 @@
 "use client"
 
 import { Popover, PopoverButton, PopoverPanel } from "@headlessui/react"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 
 import { CalenderIcon, ChevronLeftIcon } from "@/icons"
 import { cx } from "@/lib/utils"
@@ -35,6 +35,9 @@ export function DatePicker({
 }) {
   const [draft, setDraft] = useState(value)
   useEffect(() => setDraft(value), [value])
+  // A click in the box opens the calendar too, not only the icon; typing
+  // still works.
+  const button = useRef<HTMLButtonElement>(null)
 
   const today = new Date()
   const todayIso = iso(today.getFullYear(), today.getMonth(), today.getDate())
@@ -68,6 +71,13 @@ export function DatePicker({
         inputMode="numeric"
         className={cx(fieldClasses(error), "h-11 pr-11")}
         value={draft}
+        onClick={(e) => {
+          if (button.current?.hasAttribute("data-open")) return
+          // The popover focuses its button on open; keep typing in the box.
+          const box = e.currentTarget
+          button.current?.click()
+          box.focus()
+        }}
         onChange={(e) => {
           const v = e.target.value
           setDraft(v)
@@ -76,6 +86,7 @@ export function DatePicker({
         onBlur={() => setDraft(value)}
       />
       <PopoverButton
+        ref={button}
         aria-label="Open calendar"
         onClick={() =>
           setView({

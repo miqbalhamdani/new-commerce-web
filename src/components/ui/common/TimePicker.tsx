@@ -1,7 +1,7 @@
 "use client"
 
 import { Popover, PopoverButton, PopoverPanel } from "@headlessui/react"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 
 import { TimeIcon } from "@/icons"
 import { cx } from "@/lib/utils"
@@ -53,6 +53,8 @@ export function TimePicker({
   const [draft, setDraft] = useState(value)
   useEffect(() => setDraft(value), [value])
   const [hh = "", mm = ""] = HHMM.test(value) ? value.split(":") : []
+  // A click in the box opens the panel too, as in the DatePicker.
+  const button = useRef<HTMLButtonElement>(null)
 
   const cell = (on: boolean) =>
     cx(
@@ -82,6 +84,13 @@ export function TimePicker({
           "h-11 pr-11 disabled:cursor-not-allowed disabled:opacity-60",
         )}
         value={draft}
+        onClick={(e) => {
+          if (button.current?.hasAttribute("data-open")) return
+          // The popover focuses its button on open; keep typing in the box.
+          const box = e.currentTarget
+          button.current?.click()
+          box.focus()
+        }}
         onChange={(e) => {
           const v = e.target.value
           setDraft(v)
@@ -90,6 +99,7 @@ export function TimePicker({
         onBlur={() => setDraft(value)}
       />
       <PopoverButton
+        ref={button}
         aria-label="Open time picker"
         disabled={disabled}
         className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-gray-500 hover:text-brand-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 dark:text-gray-400"
