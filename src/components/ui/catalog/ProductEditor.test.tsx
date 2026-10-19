@@ -56,9 +56,8 @@ describe("ProductEditor (new product)", () => {
       screen.getByText("Create the product to add variants."),
     ).toBeInTheDocument()
 
-    expect(
-      screen.getByRole("link", { name: "Back to products" }),
-    ).toHaveAttribute("href", "/products")
+    // The breadcrumb leads back; there is no back button.
+    expect(screen.queryByRole("link", { name: "Back to products" })).toBeNull()
     expect(screen.getByText("Draft")).toBeInTheDocument()
     expect(screen.getByText(/Starts as a draft/)).toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "Publish product" })).toBeNull()
