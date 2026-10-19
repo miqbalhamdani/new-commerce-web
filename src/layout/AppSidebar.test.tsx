@@ -97,18 +97,19 @@ describe("navigation by role (BR-025)", () => {
     expect(screen.getByRole("link", { name: "Products" })).toHaveClass("menu-item-active")
   })
 
-  it("the blog shows to whoever reads it, and only to them (P1-606)", async () => {
+  it("the blog is one Catalog entry, shown to whoever reads it (P1-606)", async () => {
     mockApi([...perms.viewer, "blog:read"], () => undefined, "viewer")
     const { unmount } = renderSignedIn(
       <SidebarProvider>
         <AppSidebar />
       </SidebarProvider>,
     )
-    expect(await screen.findByRole("link", { name: "Posts" })).toHaveAttribute("href", "/blog")
-    expect(screen.getByRole("link", { name: "Blog categories" })).toHaveAttribute(
-      "href",
-      "/blog/categories",
-    )
+    const blog = await screen.findByRole("link", { name: "Blog" })
+    expect(blog).toHaveAttribute("href", "/blog")
+    expect(
+      screen.getByRole("heading", { name: "Catalog" }).parentElement,
+    ).toContainElement(blog)
+    expect(screen.queryByRole("link", { name: "Blog categories" })).toBeNull()
     unmount()
 
     mockApi(perms.viewer, () => undefined, "viewer")
@@ -118,6 +119,21 @@ describe("navigation by role (BR-025)", () => {
       </SidebarProvider>,
     )
     await screen.findByRole("link", { name: "Products" })
-    expect(screen.queryByRole("link", { name: "Posts" })).toBeNull()
+    expect(screen.queryByRole("link", { name: "Blog" })).toBeNull()
+  })
+
+  it("four groups: the dashboard on its own, then Sales, Catalog and Settings", async () => {
+    mockApi([...perms.owner, "orders:read", "customers:read"], () => undefined, "owner")
+    renderSignedIn(
+      <SidebarProvider>
+        <AppSidebar />
+      </SidebarProvider>,
+    )
+    await screen.findByRole("link", { name: "Dashboard" })
+    expect(screen.getAllByRole("heading").map((h) => h.textContent)).toEqual([
+      "Sales",
+      "Catalog",
+      "Settings",
+    ])
   })
 })
