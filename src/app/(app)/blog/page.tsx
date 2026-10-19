@@ -63,34 +63,33 @@ export default function BlogPostsPage() {
       title="Posts"
       description="Your journal. Your website lists published posts, newest first."
     >
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-3">
-          <SearchInput
-            aria-label="Search posts"
-            placeholder="Search posts"
-            className="w-full max-w-xs"
-            value={q}
-            onChange={(e) => {
-              setQ(e.target.value)
-              setCursor(null)
-            }}
-          />
-          <Select
-            aria-label="Status"
-            value={status}
-            onChange={(v) => {
-              setStatus(v)
-              setCursor(null)
-            }}
-            options={[
-              { value: "", label: "Any status" },
-              { value: "draft", label: "Draft" },
-              { value: "published", label: "Published or scheduled" },
-            ]}
-          />
-        </div>
+      {/* One row, as on Products: search, status, then New post at the end. */}
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <SearchInput
+          aria-label="Search posts"
+          placeholder="Search posts"
+          className="w-full max-w-xs"
+          value={q}
+          onChange={(e) => {
+            setQ(e.target.value)
+            setCursor(null)
+          }}
+        />
+        <Select
+          aria-label="Status"
+          value={status}
+          onChange={(v) => {
+            setStatus(v)
+            setCursor(null)
+          }}
+          options={[
+            { value: "", label: "Any status" },
+            { value: "draft", label: "Draft" },
+            { value: "published", label: "Published or scheduled" },
+          ]}
+        />
         {canWrite && (
-          <Link href="/blog/new">
+          <Link href="/blog/new" className="ml-auto">
             <Button size="sm">New post</Button>
           </Link>
         )}
