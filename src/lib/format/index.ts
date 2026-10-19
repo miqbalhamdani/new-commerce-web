@@ -93,3 +93,28 @@ export function formatRelative(iso: string | null | undefined, now = Date.now())
 export function dateInputRFC3339(date: string, endOfDay = false): string {
   return `${date}T${endOfDay ? "23:59:59" : "00:00:00"}+07:00`
 }
+
+/**
+ * An <input type="datetime-local"> value as the RFC 3339 WIB instant the API
+ * wants (BR-007): "2026-12-24T09:00" -> "2026-12-24T09:00:00+07:00". WIB like
+ * dateInputRFC3339; the input never carries a zone of its own.
+ */
+export function dateTimeInputRFC3339(local: string): string {
+  return `${local.length === 16 ? `${local}:00` : local}+07:00`
+}
+
+/** The other way: an instant as a datetime-local value in WIB, "" for none. */
+export function dateTimeInputValue(iso: string | null | undefined): string {
+  if (!iso) return ""
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Jakarta",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(iso))
+  const part = (type: string) => parts.find((p) => p.type === type)?.value
+  return `${part("year")}-${part("month")}-${part("day")}T${part("hour")}:${part("minute")}`
+}

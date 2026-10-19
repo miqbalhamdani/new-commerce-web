@@ -1,0 +1,295 @@
+"use client"
+
+import { Pencil, Trash2 } from "lucide-react"
+import { useState } from "react"
+
+import Input from "@/components/form/input/InputField"
+import Button from "@/components/ui/button/Button"
+import { Dialog } from "@/components/ui/common/Dialog"
+import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
+import { Field } from "@/components/ui/common/Field"
+import { ApiError } from "@/lib/api/client"
+import type { BlogCategory } from "@/lib/api/types"
+import { asApiError, fieldError, useApi } from "@/lib/api/use-api"
+
+/** What the dialog shows: the list, a form (null: adding), or a delete. */
+type Mode =
+  | { kind: "list" }
+  | { kind: "form"; category: BlogCategory | null }
+  | { kind: "delete"; category: BlogCategory }
+
+/**
+ * Blog categories, managed from the post editor (P1-606, 04-api-spec.md
+ * §13.1, BR-130): add, rename, reorder by position, delete (archive). A
+ * category added here is handed back so the post picks it.
+ */
+export function CategoryManager({
+  open,
+  categories,
+  startAdding,
+  onClose,
+  onChanged,
+  onCreated,
+}: {
+  open: boolean
+  categories: BlogCategory[]
+  /** Open straight on the add form. */
+  startAdding?: boolean
+  onClose: () => void
+  onChanged: () => void
+  onCreated: (c: BlogCategory) => void
+}) {
+  const [mode, setMode] = useState<Mode>(
+    startAdding ? { kind: "form", category: null } : { kind: "list" },
+  )
+  const next = Math.max(0, ...categories.map((c) => c.position)) + 1
+  const close = () => {
+    setMode({ kind: "list" })
+    onClose()
+  }
+
+  return (
+    <Dialog
+      open={open}
+      size={mode.kind === "list" ? "lg" : "md"}
+      onOpenChange={(o) => !o && close()}
+      title={
+        mode.kind === "form"
+          ? mode.category
+            ? `Edit ${mode.category.name}`
+            : "Add a category"
+          : mode.kind === "delete"
+            ? `Delete ${mode.category.name}?`
+            : "Blog categories"
+      }
+      description={
+        mode.kind === "delete"
+          ? "Its posts stay, and show on your website with no category until you move them."
+          : mode.kind === "list"
+            ? "The tabs on your journal page, lowest order first. Your website shows tabs only when there are two or more."
+            : undefined
+      }
+    >
+      {mode.kind === "list" && (
+        <div className="flex flex-col gap-4">
+          {categories.length === 0 ? (
+            <p className="text-theme-sm text-gray-500 dark:text-gray-400">
+              No categories yet. A post&apos;s category is optional.
+            </p>
+          ) : (
+            <ul className="flex flex-col divide-y divide-gray-100 dark:divide-white/[0.05]">
+              {categories.map((c) => (
+                <li
+                  key={c.id}
+                  className="flex min-h-14 items-center gap-4 py-2"
+                >
+                  {/* The tab's place on the journal page: its Order. */}
+                  <span
+                    aria-label={`Order ${c.position}`}
+                    className="flex size-7 shrink-0 items-center justify-center rounded-full bg-gray-100 text-theme-xs font-semibold text-gray-600 dark:bg-white/[0.05] dark:text-gray-300"
+                  >
+                    {c.position}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium text-gray-800 dark:text-white/90">
+                    {c.name}
+                  </span>
+                  {/* Labelled actions, not bare icons; Delete in the danger
+                      colour and apart from Edit. */}
+                  <div className="flex shrink-0 gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      aria-label={`Edit ${c.name}`}
+                      className="!py-2"
+                      onClick={() => setMode({ kind: "form", category: c })}
+                    >
+                      <Pencil className="size-4" aria-hidden />
+                      Edit
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      aria-label={`Delete ${c.name}`}
+                      className="!py-2 !text-error-600 !ring-error-300 hover:!bg-error-50 dark:!text-error-400 dark:!ring-error-500/40 dark:hover:!bg-error-500/10"
+                      onClick={() => setMode({ kind: "delete", category: c })}
+                    >
+                      <Trash2 className="size-4" aria-hidden />
+                      Delete
+                    </Button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+          {/* Closing is the dialog's own ×, Escape or a click outside. */}
+          <div className="mt-2 flex justify-end">
+            <Button
+              size="sm"
+              onClick={() => setMode({ kind: "form", category: null })}
+            >
+              Add category
+            </Button>
+          </div>
+        </div>
+      )}
+      {mode.kind === "form" && (
+        <CategoryForm
+          key={mode.category?.id ?? "new"}
+          category={mode.category}
+          nextPosition={next}
+          onBack={() => setMode({ kind: "list" })}
+          onSaved={(c, created) => {
+            onChanged()
+            if (created) {
+              onCreated(c)
+              close()
+            } else setMode({ kind: "list" })
+          }}
+        />
+      )}
+      {mode.kind === "delete" && (
+        <DeleteCategory
+          category={mode.category}
+          onBack={() => setMode({ kind: "list" })}
+          onDeleted={() => {
+            onChanged()
+            setMode({ kind: "list" })
+          }}
+        />
+      )}
+    </Dialog>
+  )
+}
+
+/**
+ * A name and an order, nothing else: the API derives the slug from the name,
+ * a rename re-derives it as for brands (BR-030), and a clash comes back on
+ * the name (BR-130).
+ */
+function CategoryForm({
+  category,
+  nextPosition,
+  onBack,
+  onSaved,
+}: {
+  category: BlogCategory | null
+  nextPosition: number
+  onBack: () => void
+  onSaved: (c: BlogCategory, created: boolean) => void
+}) {
+  const api = useApi()
+  const [name, setName] = useState(category?.name ?? "")
+  const [position, setPosition] = useState(
+    String(category?.position ?? nextPosition),
+  )
+  const [error, setError] = useState<ApiError | null>(null)
+  const [saving, setSaving] = useState(false)
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault()
+    e.stopPropagation() // the dialog sits inside the post's form
+    setSaving(true)
+    try {
+      const saved = await api<BlogCategory>(
+        category ? `/v1/blog/categories/${category.id}` : "/v1/blog/categories",
+        {
+          method: category ? "PATCH" : "POST",
+          body: { name, position: Number(position) },
+        },
+      )
+      onSaved(saved, !category)
+    } catch (err) {
+      setError(asApiError(err))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const nameError = fieldError(error, "name")
+  const positionError = fieldError(error, "position")
+  return (
+    <form onSubmit={save} className="flex flex-col gap-4">
+      <Field id="blog-category-name" label="Name" error={nameError}>
+        <Input
+          id="blog-category-name"
+          value={name}
+          autoFocus
+          onChange={(e) => setName(e.target.value)}
+          error={Boolean(nameError)}
+        />
+      </Field>
+      <Field
+        id="blog-category-position"
+        label="Order"
+        error={positionError}
+        hint="Tabs show lowest first."
+      >
+        <Input
+          id="blog-category-position"
+          type="number"
+          min="0"
+          value={position}
+          onChange={(e) => setPosition(e.target.value)}
+          error={Boolean(positionError)}
+        />
+      </Field>
+      {error && !nameError && !positionError && <ErrorNotice error={error} />}
+      <div className="flex justify-end gap-2">
+        <Button size="sm" type="button" variant="outline" onClick={onBack}>
+          Back
+        </Button>
+        <Button
+          size="sm"
+          type="submit"
+          isLoading={saving}
+          disabled={!name.trim() || !/^\d+$/.test(position)}
+        >
+          {category ? "Save" : "Add category"}
+        </Button>
+      </div>
+    </form>
+  )
+}
+
+function DeleteCategory({
+  category,
+  onBack,
+  onDeleted,
+}: {
+  category: BlogCategory
+  onBack: () => void
+  onDeleted: () => void
+}) {
+  const api = useApi()
+  const [error, setError] = useState<ApiError | null>(null)
+  const [busy, setBusy] = useState(false)
+  async function remove() {
+    setBusy(true)
+    try {
+      await api(`/v1/blog/categories/${category.id}`, { method: "DELETE" })
+      onDeleted()
+    } catch (err) {
+      setError(asApiError(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <div className="flex flex-col gap-4">
+      <ErrorNotice error={error} />
+      <div className="flex justify-end gap-2">
+        <Button size="sm" variant="outline" onClick={onBack}>
+          Back
+        </Button>
+        <Button
+          size="sm"
+          variant="destructive"
+          isLoading={busy}
+          onClick={remove}
+        >
+          Delete
+        </Button>
+      </div>
+    </div>
+  )
+}

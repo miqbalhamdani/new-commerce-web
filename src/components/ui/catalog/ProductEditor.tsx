@@ -67,14 +67,6 @@ export function ProductEditor({
   return (
     <Page
       wide
-      back={{
-        href: "/products",
-        label: "products",
-        onClick: (e) => {
-          if (form.dirty && !confirm("Leave without saving your changes?"))
-            e.preventDefault()
-        },
-      }}
       title={product ? product.title : "New product"}
       description={
         product

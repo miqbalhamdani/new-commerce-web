@@ -20,6 +20,7 @@ export function Dialog({
   children,
   footer,
   dismissible = true,
+  size = "md",
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -28,6 +29,8 @@ export function Dialog({
   children?: React.ReactNode
   footer?: React.ReactNode
   dismissible?: boolean
+  /** lg: room for a list whose rows carry their own actions. */
+  size?: "md" | "lg"
 }) {
   const titleId = useId()
   const titleRef = useRef<HTMLHeadingElement>(null)
@@ -44,7 +47,7 @@ export function Dialog({
       onClose={() => dismissible && onOpenChange(false)}
       showCloseButton={dismissible}
       labelledBy={titleId}
-      className="m-4 max-w-lg p-6 lg:p-8"
+      className={`m-4 ${size === "lg" ? "max-w-2xl" : "max-w-lg"} p-6 lg:p-8`}
     >
       <h2
         id={titleId}
@@ -55,7 +58,8 @@ export function Dialog({
         {title}
       </h2>
       {description && (
-        <p className="mt-1 text-theme-sm text-gray-500 dark:text-gray-400">
+        // Clear of the close button, as the title is.
+        <p className="mt-1 pr-12 text-theme-sm text-gray-500 dark:text-gray-400">
           {description}
         </p>
       )}

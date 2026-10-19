@@ -33,23 +33,72 @@ export async function uploadImage(
   put: Put,
   onProgress: (f: number) => void,
 ): Promise<Media> {
-  if (!imageTypes.includes(file.type))
-    throw new Error(`${file.name} is not a JPEG, PNG or WebP image.`)
-  if (file.size > maxImageBytes) throw new Error(`${file.name} is over 20 MB.`)
-  const presign = await api<PresignResponse>("/v1/media/presign", {
-    method: "POST",
-    body: {
-      purpose: "product_image",
-      product_id: productId,
-      mime_type: file.type,
-      bytes: file.size,
-      sha256: await sha256Hex(file),
-    },
+  const presign = await presignImage(api, file, {
+    purpose: "product_image",
+    product_id: productId,
   })
   await put(presign.upload_url, file, onProgress)
   return api<Media>("/v1/media/confirm", {
     method: "POST",
     body: { r2_key: presign.r2_key, product_id: productId },
+  })
+}
+
+/**
+ * Uploads a blog post's cover: presign, PUT. There is no confirm; the
+ * returned key is saved as the post's cover_r2_key (BR-135).
+ */
+export async function uploadCover(
+  api: Api,
+  postId: string,
+  file: File,
+  put: Put,
+  onProgress: (f: number) => void,
+): Promise<string> {
+  const presign = await presignImage(api, file, {
+    purpose: "blog_cover",
+    post_id: postId,
+  })
+  await put(presign.upload_url, file, onProgress)
+  return presign.r2_key
+}
+
+/**
+ * Uploads an image for a blog post's body: presign, PUT. The body links it
+ * by the returned public URL, as ![alt](url) (BR-135).
+ */
+export async function uploadBodyImage(
+  api: Api,
+  postId: string,
+  file: File,
+  put: Put,
+): Promise<string> {
+  const presign = await presignImage(api, file, {
+    purpose: "blog_image",
+    post_id: postId,
+  })
+  if (!presign.public_url) throw new Error("The upload has no public URL.")
+  await put(presign.upload_url, file, () => {})
+  return presign.public_url
+}
+
+/** Refuses what the store would refuse, before signing anything. */
+async function presignImage(
+  api: Api,
+  file: File,
+  target: Record<string, string>,
+): Promise<PresignResponse> {
+  if (!imageTypes.includes(file.type))
+    throw new Error(`${file.name} is not a JPEG, PNG or WebP image.`)
+  if (file.size > maxImageBytes) throw new Error(`${file.name} is over 20 MB.`)
+  return api<PresignResponse>("/v1/media/presign", {
+    method: "POST",
+    body: {
+      ...target,
+      mime_type: file.type,
+      bytes: file.size,
+      sha256: await sha256Hex(file),
+    },
   })
 }
 

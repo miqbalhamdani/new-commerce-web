@@ -1,6 +1,3 @@
-import { ChevronLeft } from "lucide-react"
-import Link from "next/link"
-
 import { Breadcrumbs } from "@/components/ui/navigation/Breadcrumbs"
 import { cx } from "@/lib/utils"
 
@@ -16,15 +13,7 @@ export function Page({
   actions,
   children,
   wide,
-  back,
 }: {
-  /** A way back up, as an icon button left of the title. label names the
-      destination for the accessible name: "Back to {label}". */
-  back?: {
-    href: string
-    label: string
-    onClick?: React.MouseEventHandler<HTMLAnchorElement>
-  }
   title: string
   description?: string
   actions?: React.ReactNode
@@ -35,19 +24,6 @@ export function Page({
     <div className={cx("mx-auto", wide ? "max-w-full" : "max-w-5xl")}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
-          {back && (
-            <Link
-              href={back.href}
-              onClick={back.onClick}
-              aria-label={`Back to ${back.label}`}
-              className="inline-flex h-10 min-w-10 shrink-0 items-center justify-center gap-1 rounded-lg border border-gray-200 bg-white text-theme-sm font-medium text-gray-700 shadow-theme-xs transition-colors hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 sm:pl-2 sm:pr-3.5 dark:border-gray-800 dark:bg-white/[0.03] dark:text-gray-300 dark:hover:bg-white/5 dark:hover:text-white"
-            >
-              <ChevronLeft aria-hidden className="size-5" />
-              {/* The destination's name says what the button does; phones
-                  keep the bare chevron so the title still fits. */}
-              <span className="hidden capitalize sm:inline">{back.label}</span>
-            </Link>
-          )}
           <h1 className="text-xl font-semibold text-gray-800 dark:text-white/90">
             {title}
           </h1>

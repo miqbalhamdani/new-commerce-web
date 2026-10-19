@@ -18,6 +18,7 @@ import {
   Boxes,
   FolderTree,
   LayoutDashboard,
+  Newspaper,
   Package,
   ScrollText,
   Settings,
@@ -36,11 +37,12 @@ import { Logo } from "../../public/Logo"
  * A user who lacks the permission does not see the link at all. Rendering it
  * disabled would advertise a capability they do not have and generate a
  * support question -- absent beats disabled (BR-025). A group with nothing
- * visible hides its title too, so ops never sees an empty "Admin".
+ * visible hides its title too, so ops never sees an empty "Settings". The
+ * Dashboard group has no title: it sits above the rest on its own.
  */
 const groups = [
   {
-    title: "Overview",
+    title: "",
     items: [
       // P1-114: the home. "/" is a prefix of every path, so activeHref
       // matches it only exactly.
@@ -71,10 +73,13 @@ const groups = [
         permission: "categories:read",
       },
       { name: "Brands", href: "/brands", icon: Boxes, permission: "brands:read" },
+      // P1-606: the journal the shop's website reads (M6); its categories
+      // are managed from the post editor.
+      { name: "Blog", href: "/blog", icon: Newspaper, permission: "blog:read" },
     ],
   },
   {
-    title: "Storefront",
+    title: "Settings",
     items: [
       {
         name: "Storefront",
@@ -88,11 +93,6 @@ const groups = [
         icon: KeyRound,
         permission: "api_keys:read",
       },
-    ],
-  },
-  {
-    title: "Admin",
-    items: [
       { name: "Team", href: "/settings/team", icon: Users, permission: "users:read" },
       {
         name: "Settings",
@@ -167,14 +167,16 @@ export default function AppSidebar() {
       <div className="no-scrollbar flex flex-col overflow-y-auto duration-300 ease-linear">
         <nav className="flex flex-col gap-6">
           {visibleGroups.map((group) => (
-            <div key={group.title}>
-              <h2
-                className={`mb-4 flex text-xs uppercase leading-5 text-gray-400 ${
-                  showLabels ? "justify-start" : "lg:justify-center"
-                }`}
-              >
-                {showLabels ? group.title : <HorizontaLDots />}
-              </h2>
+            <div key={group.title || "top"}>
+              {group.title && (
+                <h2
+                  className={`mb-4 flex text-xs uppercase leading-5 text-gray-400 ${
+                    showLabels ? "justify-start" : "lg:justify-center"
+                  }`}
+                >
+                  {showLabels ? group.title : <HorizontaLDots />}
+                </h2>
+              )}
               <ul className="flex flex-col gap-1">
                 {group.items.map((item) => {
                   const active = activeHref(pathname) === item.href
