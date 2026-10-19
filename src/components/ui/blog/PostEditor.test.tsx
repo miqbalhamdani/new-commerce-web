@@ -83,7 +83,12 @@ describe("PostEditor (P1-607)", () => {
   it("shows the excerpt the website will use as the empty excerpt's placeholder (BR-132)", async () => {
     api()
     renderSignedIn(<PostEditor post={post} onSaved={vi.fn()} />)
-    const excerpt = await screen.findByLabelText("Excerpt")
+    // Folded until wanted, its header saying what it holds.
+    expect(screen.queryByLabelText("Excerpt")).toBeNull()
+    await userEvent.click(
+      await screen.findByRole("button", { name: /^Excerpt\s*Automatic/ }),
+    )
+    const excerpt = screen.getByLabelText("Excerpt")
     expect(excerpt).toHaveValue("")
     expect(excerpt).toHaveAttribute("placeholder", post.excerpt_preview)
   })
@@ -116,12 +121,18 @@ describe("PostEditor (P1-607)", () => {
     })
     renderSignedIn(<PostEditor post={post} onSaved={vi.fn()} />)
 
-    await userEvent.type(
-      await screen.findByLabelText("Publish date (WIB)"),
-      "2099-01-01",
+    await userEvent.click(
+      await screen.findByRole("button", { name: /^Publish\s*Immediately/ }),
     )
+    await userEvent.type(screen.getByLabelText("Publish date"), "2099-01-01")
+    await userEvent.type(screen.getByLabelText("Publish time"), "09:30")
     expect(screen.getByRole("button", { name: "Schedule" })).toBeInTheDocument()
-    await userEvent.clear(screen.getByLabelText("Publish date (WIB)"))
+    expect(
+      screen.getByRole("button", { name: /^Publish\s*1 Jan 2099/ }),
+    ).toBeInTheDocument()
+    await userEvent.click(
+      screen.getByRole("button", { name: "Publish immediately instead" }),
+    )
     await userEvent.click(screen.getByRole("button", { name: "Publish" }))
     await waitFor(() =>
       expect(sent(fetch, "PATCH", "/v1/blog/posts/p1")).toEqual({
@@ -162,11 +173,14 @@ describe("PostEditor (P1-607)", () => {
     expect(
       await screen.findByText("Create the post to add a cover."),
     ).toBeInTheDocument()
-    await waitFor(() =>
-      expect(screen.getByLabelText("Author")).toHaveTextContent("Budi (you)"),
-    )
+    expect(
+      await screen.findByRole("button", { name: /^Author\s*Budi \(you\)/ }),
+    ).toBeInTheDocument()
     await userEvent.type(screen.getByLabelText("Title"), "Panduan Sprei")
-    expect(screen.getByLabelText("Slug")).toHaveValue("panduan-sprei")
+    // A new post's slug is shown, editable once it exists.
+    expect(screen.getByText("panduan-sprei")).toBeInTheDocument()
+    expect(screen.queryByLabelText("Slug")).toBeNull()
+    await userEvent.click(screen.getByRole("button", { name: /^Tags\s*None/ }))
     await userEvent.type(
       screen.getByLabelText("Tags"),
       "Bedding Tips,Panduan{Enter}",
@@ -188,7 +202,10 @@ describe("PostEditor (P1-607)", () => {
     api()
     renderSignedIn(<PostEditor post={post} onSaved={vi.fn()} />)
     await userEvent.click(
-      await screen.findByRole("button", { name: "Manage categories" }),
+      await screen.findByRole("button", { name: /^Category\s*None/ }),
+    )
+    await userEvent.click(
+      screen.getByRole("button", { name: "Manage categories" }),
     )
     expect(
       await screen.findByText("Bedding tips", { selector: "span" }),
@@ -199,6 +216,46 @@ describe("PostEditor (P1-607)", () => {
     await waitFor(() =>
       expect(screen.getByLabelText("Category")).toHaveTextContent("Materials"),
     )
+    expect(
+      screen.getByRole("button", { name: /^Category\s*Materials/ }),
+    ).toBeInTheDocument()
+  })
+
+  it("Shop the guide shows what is selected, with a check and a word (BR-134)", async () => {
+    api((url) => {
+      if (url.includes("/v1/products?"))
+        return json({
+          data: [
+            { id: "a", title: "Plain White", cover_url: null },
+            { id: "b", title: "Steel Light", cover_url: null },
+          ],
+          next_cursor: null,
+          total: 2,
+        })
+    })
+    renderSignedIn(<PostEditor post={post} onSaved={vi.fn()} />)
+    expect(
+      await screen.findByText(/No products linked yet/),
+    ).toBeInTheDocument()
+
+    await userEvent.click(screen.getByLabelText("Search products to add"))
+    await userEvent.click(
+      await screen.findByRole("option", { name: /Plain White/ }),
+    )
+    await userEvent.click(screen.getByRole("option", { name: /Steel Light/ }))
+    expect(
+      screen.getByRole("option", { name: /Plain White/ }),
+    ).toHaveTextContent("Selected")
+    expect(screen.getByText("2 of 12 products selected")).toBeInTheDocument()
+
+    await userEvent.keyboard("{Escape}")
+    await userEvent.click(
+      screen.getByRole("button", { name: "Remove Plain White" }),
+    )
+    expect(screen.getByText("1 of 12 products selected")).toBeInTheDocument()
+    const linked = screen.getByRole("list", { name: "Linked products" })
+    expect(linked).toHaveTextContent("Steel Light")
+    expect(linked).not.toHaveTextContent("Plain White")
   })
 
   it("a reader sees the post but no buttons", async () => {
@@ -206,6 +263,7 @@ describe("PostEditor (P1-607)", () => {
     renderSignedIn(<PostEditor post={post} onSaved={vi.fn()} />)
     expect(await screen.findByLabelText("Title")).toBeDisabled()
     expect(screen.queryByRole("button", { name: "Save draft" })).toBeNull()
+    expect(screen.queryByRole("button", { name: "Discard changes" })).toBeNull()
     expect(
       screen.queryByRole("button", { name: "Manage categories" }),
     ).toBeNull()

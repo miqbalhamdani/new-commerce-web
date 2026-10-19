@@ -19,12 +19,14 @@ export function TagInput({
   onChange,
   disabled,
   error,
+  "aria-label": ariaLabel,
 }: {
   id: string
   value: string[]
   onChange: (tags: string[]) => void
   disabled?: boolean
   error?: boolean
+  "aria-label"?: string
 }) {
   const [text, setText] = useState("")
   const full = value.length >= maxTags
@@ -67,6 +69,7 @@ export function TagInput({
       {!disabled && !full && (
         <input
           id={id}
+          aria-label={ariaLabel}
           value={text}
           placeholder={value.length ? "" : "Type a tag, then Enter"}
           className="min-w-24 flex-1 border-0 bg-transparent p-0 text-sm focus:outline-none focus:ring-0"

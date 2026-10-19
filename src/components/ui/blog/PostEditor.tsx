@@ -1,21 +1,31 @@
 "use client"
 
-import { ImagePlus, X } from "lucide-react"
+import {
+  Disclosure,
+  DisclosureButton,
+  DisclosurePanel,
+  Combobox,
+  ComboboxInput,
+  ComboboxOption,
+  ComboboxOptions,
+} from "@headlessui/react"
+import { ChevronDown, ImagePlus, Pencil, Search, X } from "lucide-react"
 import { useEffect, useState } from "react"
 
 import Input from "@/components/form/input/InputField"
 import { CategoryManager } from "@/components/ui/blog/CategoryManager"
 import { RichTextEditor } from "@/components/ui/blog/RichTextEditor"
 import { TagInput } from "@/components/ui/blog/TagInput"
+import Badge from "@/components/ui/badge/Badge"
 import Button from "@/components/ui/button/Button"
 import { DatePicker } from "@/components/ui/common/DatePicker"
 import { Dropzone } from "@/components/ui/common/Dropzone"
 import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
-import { Field, Textarea } from "@/components/ui/common/Field"
-import { Page, Section } from "@/components/ui/common/Page"
+import { Field, fieldClasses, Textarea } from "@/components/ui/common/Field"
+import { Card, Page, Section } from "@/components/ui/common/Page"
 import { ProgressBar } from "@/components/ui/common/ProgressBar"
-import { SearchInput } from "@/components/ui/common/SearchInput"
 import { Select } from "@/components/ui/common/Select"
+import { TimePicker } from "@/components/ui/common/TimePicker"
 import { Toggle } from "@/components/ui/common/Toggle"
 import { ApiError } from "@/lib/api/client"
 import type {
@@ -41,17 +51,23 @@ import {
 } from "@/lib/blog/post-form"
 import { slugify } from "@/lib/catalog/slug"
 import { uploadCover, xhrPut } from "@/lib/catalog/upload"
-import { formatDateTime } from "@/lib/format"
+import { CheckLineIcon } from "@/icons"
+import { dateTimeInputRFC3339, formatDateTime } from "@/lib/format"
+import { cx } from "@/lib/utils"
 
-const stateLine = {
-  draft: "Draft: hidden from your website.",
-  scheduled: "Scheduled: goes live by itself on",
-  published: "Published on your website since",
+const stateBadge = {
+  draft: { label: "Draft", color: "light" },
+  scheduled: { label: "Scheduled", color: "warning" },
+  published: { label: "Published", color: "success" },
 } as const
 
+/** The API's limit on a post's products (04-api-spec.md §13.2). */
+const maxProducts = 12
+
 /**
- * The blog post editor (P1-607, 04-api-spec.md §13.2): the words on the left,
- * publishing, the post's link and its organisation on the right. Status is
+ * The blog post editor (P1-607, 04-api-spec.md §13.2): the words on the left;
+ * on the right a WordPress-style summary (status, publish date, slug, author,
+ * each opening its editor) and folded panels for the optional fields. Status is
  * set by the action buttons, not a field: Save draft / Publish (Schedule when
  * the date is later), or Unpublish / Update once live. The cover uploads on
  * its own once the post exists, so it never blocks the form.
@@ -90,8 +106,6 @@ export function PostEditor({
   }
   const original = base ? draftOf(base) : emptyDraft(user?.id)
   const dirty = Object.keys(patchOf(original, draft)).length > 0
-  // Bumped to reload the rich text editor, which owns its content once mounted.
-  const [bodyKey, setBodyKey] = useState(0)
   const [error, setError] = useState<ApiError | null>(null)
   const [saving, setSaving] = useState<"draft" | "published" | "save" | null>(
     null,
@@ -208,7 +222,7 @@ export function PostEditor({
                   </Field>
                   <Field id="body" label="Body" error={err("body")}>
                     <RichTextEditor
-                      key={`${post?.id ?? "new"}-${bodyKey}`}
+                      key={post?.id ?? "new"}
                       id="body"
                       value={draft.body}
                       disabled={!editable}
@@ -252,45 +266,107 @@ export function PostEditor({
             className="flex flex-col gap-6 xl:self-start"
           >
             <Section title="Publishing">
-              <fieldset disabled={!editable} className="flex flex-col gap-4">
-                <p className="text-theme-sm text-gray-500 dark:text-gray-400">
-                  {post
-                    ? state === "draft"
-                      ? stateLine.draft
-                      : `${stateLine[state]} ${formatDateTime(post.published_at, tenant?.timezone)}.`
-                    : "A new post starts as a draft until you publish it."}
-                </p>
-                <Field
-                  id="publish-date"
-                  label="Publish date (WIB)"
-                  error={err("published_at")}
-                  hint="Empty publishes now. A later date schedules it."
+              <div className="flex flex-col">
+                <SummaryRow
+                  label="Status"
+                  value={
+                    <Badge size="sm" color={stateBadge[state].color}>
+                      {stateBadge[state].label}
+                    </Badge>
+                  }
+                />
+                <SummaryRow
+                  label="Publish"
+                  value={
+                    draft.published_at
+                      ? formatDateTime(
+                          dateTimeInputRFC3339(draft.published_at),
+                          tenant?.timezone,
+                        )
+                      : "Immediately"
+                  }
+                  open={Boolean(err("published_at"))}
+                  editable={editable}
                 >
-                  <div className="flex gap-2">
-                    <DatePicker
-                      id="publish-date"
-                      className="flex-1"
-                      value={date}
-                      onChange={(d) =>
-                        set({ published_at: joinDateTime(d, time) })
-                      }
-                    />
-                    <div className="w-32">
-                      <Input
-                        type="time"
+                  <div className="flex flex-col gap-2">
+                    <div className="flex gap-2">
+                      <DatePicker
+                        aria-label="Publish date"
+                        className="flex-1"
+                        value={date}
+                        error={Boolean(err("published_at"))}
+                        onChange={(d) =>
+                          set({ published_at: joinDateTime(d, time) })
+                        }
+                      />
+                      <TimePicker
                         aria-label="Publish time"
+                        className="w-32"
                         value={time}
-                        disabled={!editable || date === ""}
-                        onChange={(e) =>
-                          set({
-                            published_at: joinDateTime(date, e.target.value),
-                          })
+                        disabled={date === ""}
+                        onChange={(t) =>
+                          set({ published_at: joinDateTime(date, t) })
                         }
                       />
                     </div>
+                    <FieldNote error={err("published_at")}>
+                      In WIB. A later date schedules the post.
+                    </FieldNote>
+                    {draft.published_at && (
+                      <button
+                        type="button"
+                        className="self-start text-xs font-medium text-brand-500 hover:text-brand-600"
+                        onClick={() => set({ published_at: "" })}
+                      >
+                        Publish immediately instead
+                      </button>
+                    )}
                   </div>
-                </Field>
-                <div className="flex items-center justify-between gap-4 rounded-xl border border-gray-200 p-4 dark:border-gray-800">
+                </SummaryRow>
+                <SummaryRow
+                  label="Slug"
+                  value={(post ? draft.slug : slugify(draft.title)) || "—"}
+                  open={Boolean(err("slug"))}
+                  editable={editable && post !== null}
+                >
+                  <Input
+                    aria-label="Slug"
+                    value={draft.slug}
+                    error={Boolean(err("slug"))}
+                    onChange={(e) => set({ slug: e.target.value })}
+                  />
+                  <FieldNote error={err("slug")}>
+                    {draft.slug !== original.slug
+                      ? `Links to ${original.slug} will stop working once you save.`
+                      : "The post's address on your website. Changing the title never changes it."}
+                  </FieldNote>
+                </SummaryRow>
+                <SummaryRow
+                  label="Author"
+                  value={
+                    authors.get(draft.author_id)
+                      ? `${authors.get(draft.author_id)}${draft.author_id === user?.id ? " (you)" : ""}`
+                      : "No author"
+                  }
+                  open={Boolean(err("author_id"))}
+                  editable={editable}
+                >
+                  <Select
+                    aria-label="Author"
+                    className="w-full"
+                    value={draft.author_id}
+                    onChange={(v) => set({ author_id: v })}
+                    options={[
+                      { value: "", label: "No author" },
+                      ...[...authors].map(([id, name]) => ({
+                        value: id,
+                        label: id === user?.id ? `${name} (you)` : name,
+                      })),
+                    ]}
+                  />
+                  <FieldNote error={err("author_id")} />
+                </SummaryRow>
+                <div className="mt-3 flex items-center justify-between gap-4 rounded-xl border border-gray-200 p-4 dark:border-gray-800">
                   <div>
                     <p className="text-sm font-medium text-gray-800 dark:text-white/90">
                       Featured post
@@ -307,181 +383,136 @@ export function PostEditor({
                     onChange={(on) => set({ is_featured: on })}
                   />
                 </div>
-              </fieldset>
+              </div>
               {editable && (
-                <div className="mt-5 flex flex-col gap-3 border-t border-gray-100 pt-5 dark:border-white/[0.05]">
-                  <div className="grid grid-cols-2 gap-3">
-                    {live ? (
-                      <>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          isLoading={saving === "draft"}
-                          disabled={saving !== null}
-                          onClick={() => void save("draft")}
-                        >
-                          Unpublish
-                        </Button>
-                        <Button
-                          size="sm"
-                          isLoading={saving === "save"}
-                          disabled={
-                            !dirty || !draft.title.trim() || saving !== null
-                          }
-                          onClick={() => void save()}
-                        >
-                          Update
-                        </Button>
-                      </>
-                    ) : (
-                      <>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          isLoading={saving === "draft"}
-                          disabled={
-                            !draft.title.trim() ||
-                            (post !== null && !dirty) ||
-                            saving !== null
-                          }
-                          onClick={() => void save("draft")}
-                        >
-                          Save draft
-                        </Button>
-                        <Button
-                          size="sm"
-                          isLoading={saving === "published"}
-                          disabled={!draft.title.trim() || saving !== null}
-                          onClick={() => void save("published")}
-                        >
-                          {later ? "Schedule" : "Publish"}
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                  {dirty && (
-                    <button
-                      type="button"
-                      className="self-center text-theme-xs text-gray-500 hover:text-gray-700 dark:text-gray-400"
-                      onClick={() => {
-                        setDraft(original)
-                        setBodyKey((k) => k + 1)
-                      }}
-                    >
-                      Discard changes
-                    </button>
+                <div className="mt-5 grid grid-cols-2 gap-3 border-t border-gray-100 pt-5 dark:border-white/[0.05]">
+                  {live ? (
+                    <>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        isLoading={saving === "draft"}
+                        disabled={saving !== null}
+                        onClick={() => void save("draft")}
+                      >
+                        Unpublish
+                      </Button>
+                      <Button
+                        size="sm"
+                        isLoading={saving === "save"}
+                        disabled={
+                          !dirty || !draft.title.trim() || saving !== null
+                        }
+                        onClick={() => void save()}
+                      >
+                        Update
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        isLoading={saving === "draft"}
+                        disabled={
+                          !draft.title.trim() ||
+                          (post !== null && !dirty) ||
+                          saving !== null
+                        }
+                        onClick={() => void save("draft")}
+                      >
+                        Save draft
+                      </Button>
+                      <Button
+                        size="sm"
+                        isLoading={saving === "published"}
+                        disabled={!draft.title.trim() || saving !== null}
+                        onClick={() => void save("published")}
+                      >
+                        {later ? "Schedule" : "Publish"}
+                      </Button>
+                    </>
                   )}
                 </div>
               )}
             </Section>
-            <Section title="Link & excerpt">
-              <fieldset disabled={!editable} className="flex flex-col gap-5">
-                <Field
-                  id="slug"
-                  label="Slug"
-                  error={err("slug")}
-                  hint={
-                    !post
-                      ? "Generated from the title. You can change it after creating."
-                      : draft.slug !== original.slug
-                        ? undefined
-                        : "The post's address on your website. Changing the title never changes it."
-                  }
-                >
-                  <Input
-                    id="slug"
-                    value={post ? draft.slug : slugify(draft.title)}
-                    readOnly={!post}
-                    className={post ? "" : "!bg-gray-50 dark:!bg-white/[0.03]"}
-                    onChange={(e) => set({ slug: e.target.value })}
-                  />
-                  {post && draft.slug !== original.slug && (
-                    <p
-                      role="alert"
-                      className="text-xs text-warning-600 dark:text-orange-400"
-                    >
-                      Links to {original.slug} will stop working once you save.
-                    </p>
-                  )}
-                </Field>
-                <Field
-                  id="excerpt"
-                  label="Excerpt"
-                  error={err("excerpt")}
-                  hint="Shown on the post's card and to search engines. Leave it empty to use the start of the post, as shown."
-                >
-                  <Textarea
-                    id="excerpt"
-                    rows={4}
-                    value={draft.excerpt}
-                    placeholder={post?.excerpt_preview ?? ""}
-                    hasError={Boolean(err("excerpt"))}
-                    onChange={(e) => set({ excerpt: e.target.value })}
-                  />
-                </Field>
-              </fieldset>
-            </Section>
-            <Section title="Organization">
-              <fieldset disabled={!editable} className="flex flex-col gap-5">
-                <Field
-                  id="category"
-                  label="Category"
-                  error={err("category_id")}
-                >
-                  <Select
-                    id="category"
-                    className="w-full"
-                    value={draft.category_id}
-                    onChange={(v) => set({ category_id: v })}
-                    options={[
-                      { value: "", label: "No category" },
-                      ...(categories?.data ?? []).map((c) => ({
-                        value: c.id,
-                        label: c.name,
-                      })),
-                    ]}
-                  />
-                  {editable && (
-                    <button
-                      type="button"
-                      className="mt-1.5 text-xs font-medium text-brand-500 hover:text-brand-600"
-                      onClick={() => setManaging(true)}
-                    >
-                      Manage categories
-                    </button>
-                  )}
-                </Field>
-                <Field id="author" label="Author" error={err("author_id")}>
-                  <Select
-                    id="author"
-                    className="w-full"
-                    value={draft.author_id}
-                    onChange={(v) => set({ author_id: v })}
-                    options={[
-                      { value: "", label: "No author" },
-                      ...[...authors].map(([id, name]) => ({
-                        value: id,
-                        label: id === user?.id ? `${name} (you)` : name,
-                      })),
-                    ]}
-                  />
-                </Field>
-                <Field
+            {/* Optional fields fold away, WordPress style: each panel's
+                header says what it holds, so nothing hides without a hint. */}
+            <Card className="divide-y divide-gray-100 px-6 dark:divide-white/[0.05]">
+              <Panel
+                title="Excerpt"
+                summary={draft.excerpt.trim() ? "Written" : "Automatic"}
+                open={Boolean(err("excerpt"))}
+              >
+                <Textarea
+                  aria-label="Excerpt"
+                  rows={4}
+                  disabled={!editable}
+                  value={draft.excerpt}
+                  placeholder={post?.excerpt_preview ?? ""}
+                  hasError={Boolean(err("excerpt"))}
+                  onChange={(e) => set({ excerpt: e.target.value })}
+                />
+                <FieldNote error={err("excerpt")}>
+                  Shown on the post&apos;s card and to search engines. Leave it
+                  empty to use the start of the post, as shown.
+                </FieldNote>
+              </Panel>
+              <Panel
+                title="Category"
+                summary={
+                  categories?.data.find((c) => c.id === draft.category_id)
+                    ?.name ?? "None"
+                }
+                open={Boolean(err("category_id"))}
+              >
+                <Select
+                  aria-label="Category"
+                  className="w-full"
+                  disabled={!editable}
+                  value={draft.category_id}
+                  onChange={(v) => set({ category_id: v })}
+                  options={[
+                    { value: "", label: "No category" },
+                    ...(categories?.data ?? []).map((c) => ({
+                      value: c.id,
+                      label: c.name,
+                    })),
+                  ]}
+                />
+                <FieldNote error={err("category_id")} />
+                {editable && (
+                  <button
+                    type="button"
+                    className="mt-2 text-xs font-medium text-brand-500 hover:text-brand-600"
+                    onClick={() => setManaging(true)}
+                  >
+                    Manage categories
+                  </button>
+                )}
+              </Panel>
+              <Panel
+                title="Tags"
+                summary={
+                  draft.tags.length
+                    ? `${draft.tags.length} tag${draft.tags.length === 1 ? "" : "s"}`
+                    : "None"
+                }
+                open={Boolean(err("tags"))}
+              >
+                <TagInput
                   id="tags"
-                  label="Tags"
-                  error={err("tags")}
-                  hint="Enter or a comma adds a tag. Up to 10."
-                >
-                  <TagInput
-                    id="tags"
-                    value={draft.tags}
-                    disabled={!editable}
-                    error={Boolean(err("tags"))}
-                    onChange={(tags) => set({ tags })}
-                  />
-                </Field>
-              </fieldset>
-            </Section>
+                  aria-label="Tags"
+                  value={draft.tags}
+                  disabled={!editable}
+                  error={Boolean(err("tags"))}
+                  onChange={(tags) => set({ tags })}
+                />
+                <FieldNote error={err("tags")}>
+                  Enter or a comma adds a tag. Up to 10.
+                </FieldNote>
+              </Panel>
+            </Card>
           </aside>
         </div>
       </div>
@@ -582,8 +613,10 @@ function CoverField({
 }
 
 /**
- * The linked products in order, and a search that lists active products as
- * you type (or the first ten when you click in); at most 12 (BR-134).
+ * Shop the guide (BR-134): the chosen products as numbered cards, and a
+ * search that lists active products as you type (the first ten when you
+ * click in). A chosen product shows a filled check and "Selected" in the
+ * list, so the choice never rests on colour alone; at most 12.
  */
 function ProductPicker({
   value,
@@ -608,96 +641,250 @@ function ProductPicker({
   const { data: results, error: searchError } = useResource<ProductPage>(
     open ? `/v1/products?${params}` : null,
   )
+  const full = value.length >= maxProducts
   const picked = new Set(value.map((p) => p.id))
+  const options: PickedProduct[] = (results?.data ?? []).map((p) => ({
+    id: p.id,
+    title: p.title,
+    cover_url: p.cover_url,
+  }))
 
   return (
-    <div className="flex flex-col gap-3">
-      {value.length > 0 ? (
-        <ol className="flex flex-col gap-2" aria-label="Linked products">
+    <div className="flex flex-col gap-4">
+      <p className="text-theme-sm text-gray-500 dark:text-gray-400">
+        {value.length
+          ? `${value.length} of ${maxProducts} products selected`
+          : "No products linked yet. Search to add the ones this post mentions; only active products can be added."}
+      </p>
+      {value.length > 0 && (
+        <ol
+          aria-label="Linked products"
+          className="flex flex-col gap-2 rounded-xl border border-brand-200 bg-brand-50/40 p-2 dark:border-brand-500/30 dark:bg-brand-500/[0.06]"
+        >
           {value.map((p, i) => (
             <li
               key={p.id}
-              className="flex items-center gap-3 rounded-lg border border-gray-200 px-3 py-2 dark:border-gray-800"
+              className="flex items-center gap-3 rounded-lg bg-white px-3 py-2 shadow-theme-xs dark:bg-gray-900"
             >
-              <span className="w-5 text-theme-xs text-gray-400">{i + 1}</span>
-              {p.cover_url ? (
-                // eslint-disable-next-line @next/next/no-img-element -- a 200 px thumbnail from the image domain
-                <img
-                  src={p.cover_url}
-                  alt=""
-                  className="size-9 rounded object-cover"
-                />
-              ) : (
-                <span className="size-9 rounded bg-gray-100 dark:bg-white/[0.05]" />
-              )}
-              <span className="flex-1 text-sm text-gray-800 dark:text-white/90">
+              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-brand-500 text-theme-xs font-semibold text-white">
+                {i + 1}
+              </span>
+              <Thumb url={p.cover_url} className="size-12" />
+              <span className="min-w-0 flex-1 text-sm font-medium text-gray-800 dark:text-white/90">
                 {p.title}
               </span>
               {canWrite && (
-                <button
-                  type="button"
+                <Button
+                  size="sm"
+                  variant="outline"
                   aria-label={`Remove ${p.title}`}
-                  className="text-gray-400 hover:text-error-500"
                   onClick={() => onChange(value.filter((x) => x.id !== p.id))}
                 >
-                  <X className="size-4" />
-                </button>
+                  <X className="size-4" aria-hidden />
+                  Remove
+                </Button>
               )}
             </li>
           ))}
         </ol>
-      ) : (
-        <p className="text-theme-sm text-gray-500 dark:text-gray-400">
-          No products linked yet. Search to add the ones this post mentions;
-          only active products can be added.
-        </p>
       )}
       {error && <p className="text-xs text-error-500">{error}</p>}
-      {canWrite && value.length < 12 && (
-        <>
-          <SearchInput
-            aria-label="Search products to add"
-            placeholder="Search active products"
-            className="w-full max-w-sm"
-            value={typed}
-            onFocus={() => setOpen(true)}
-            onChange={(e) => setTyped(e.target.value)}
-          />
-          <ErrorNotice
-            error={searchError}
-            title="Could not search the catalog"
-          />
-          {open && results?.data.length === 0 && (
-            <p className="text-theme-sm text-gray-500 dark:text-gray-400">
-              {q
-                ? "No active product matches."
-                : "No active products yet. Activate a product to add it here."}
-            </p>
-          )}
-          {open && results && results.data.length > 0 && (
-            <ul className="flex flex-col gap-1" aria-label="Search results">
-              {results.data.map((p) => (
-                <li key={p.id}>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    disabled={picked.has(p.id)}
-                    onClick={() =>
-                      onChange([
-                        ...value,
-                        { id: p.id, title: p.title, cover_url: p.cover_url },
-                      ])
-                    }
-                  >
-                    {picked.has(p.id) ? `${p.title} (added)` : `Add ${p.title}`}
-                  </Button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </>
+      {canWrite && (
+        <Combobox
+          multiple
+          immediate
+          by="id"
+          value={value}
+          onChange={(next: PickedProduct[]) =>
+            onChange(next.slice(0, maxProducts))
+          }
+          onClose={() => setTyped("")}
+        >
+          <div className="relative w-full max-w-md">
+            <Search
+              aria-hidden
+              className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-gray-400"
+            />
+            <ComboboxInput
+              aria-label="Search products to add"
+              placeholder="Search active products to add"
+              className={cx(fieldClasses(), "h-11 pl-10")}
+              value={typed}
+              onFocus={() => setOpen(true)}
+              onChange={(e) => {
+                setOpen(true)
+                setTyped(e.target.value)
+              }}
+            />
+          </div>
+          <ComboboxOptions
+            anchor="bottom start"
+            className="z-999999 w-[var(--input-width)] min-w-80 rounded-xl border border-gray-200 bg-white p-1 shadow-theme-lg [--anchor-gap:4px] [--anchor-max-height:22rem] focus:outline-none dark:border-gray-800 dark:bg-gray-dark"
+          >
+            <ErrorNotice
+              error={searchError}
+              title="Could not search the catalog"
+            />
+            {results && options.length === 0 && (
+              <p className="px-3 py-2 text-theme-sm text-gray-500 dark:text-gray-400">
+                {q
+                  ? "No active product matches."
+                  : "No active products yet. Activate a product to add it here."}
+              </p>
+            )}
+            {full && (
+              <p className="px-3 py-2 text-theme-xs text-gray-500 dark:text-gray-400">
+                {maxProducts} is the most a post can show; remove one to add
+                another.
+              </p>
+            )}
+            {options.map((p) => (
+              <ComboboxOption
+                key={p.id}
+                value={p}
+                disabled={full && !picked.has(p.id)}
+                className={cx(
+                  "group flex min-h-12 cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-700 dark:text-gray-300",
+                  "data-[focus]:bg-gray-100 data-[selected]:bg-brand-50 dark:data-[focus]:bg-white/5 dark:data-[selected]:bg-brand-500/10",
+                  "data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50",
+                )}
+              >
+                <span
+                  aria-hidden
+                  className="flex size-5 shrink-0 items-center justify-center rounded border border-gray-300 group-data-[selected]:border-brand-500 group-data-[selected]:bg-brand-500 dark:border-gray-700"
+                >
+                  <CheckLineIcon className="invisible size-3.5 text-white group-data-[selected]:visible" />
+                </span>
+                <Thumb url={p.cover_url} className="size-10" />
+                <span className="min-w-0 flex-1 truncate">{p.title}</span>
+                <span className="hidden text-theme-xs font-semibold text-brand-600 group-data-[selected]:inline dark:text-brand-400">
+                  Selected
+                </span>
+              </ComboboxOption>
+            ))}
+          </ComboboxOptions>
+        </Combobox>
       )}
     </div>
+  )
+}
+
+/** A product's cover thumbnail, or an empty tile when it has none yet. */
+function Thumb({ url, className }: { url: string | null; className: string }) {
+  return url ? (
+    // eslint-disable-next-line @next/next/no-img-element -- a 200 px thumbnail from the image domain
+    <img
+      src={url}
+      alt=""
+      className={cx("shrink-0 rounded object-cover", className)}
+    />
+  ) : (
+    <span
+      aria-hidden
+      className={cx(
+        "shrink-0 rounded bg-gray-100 dark:bg-white/[0.05]",
+        className,
+      )}
+    />
+  )
+}
+
+/**
+ * One line of the post summary, WordPress style: the label, and the value as
+ * a link that opens its editor underneath. Without children it is read-only.
+ * open forces it open, for a field the API refused.
+ */
+function SummaryRow({
+  label,
+  value,
+  open,
+  editable = false,
+  children,
+}: {
+  label: string
+  value: React.ReactNode
+  open?: boolean
+  editable?: boolean
+  children?: React.ReactNode
+}) {
+  const row =
+    "flex min-h-10 w-full items-center justify-between gap-4 py-2 text-sm"
+  const name = (
+    <span className="shrink-0 text-gray-500 dark:text-gray-400">{label}</span>
+  )
+  if (!children || !editable)
+    return (
+      <div className={row}>
+        {name}
+        <span className="min-w-0 truncate text-right font-medium text-gray-800 dark:text-white/90">
+          {value}
+        </span>
+      </div>
+    )
+  return (
+    <Disclosure key={open ? "open" : "closed"} defaultOpen={open}>
+      <DisclosureButton
+        className={cx(
+          row,
+          "-mx-2 w-[calc(100%+1rem)] rounded-lg px-2 text-left hover:bg-gray-50 dark:hover:bg-white/[0.03]",
+        )}
+      >
+        {name}
+        <span className="flex min-w-0 items-center gap-1.5 font-medium text-brand-500">
+          <span className="truncate">{value}</span>
+          <Pencil aria-hidden className="size-3.5 shrink-0" />
+        </span>
+      </DisclosureButton>
+      <DisclosurePanel className="pb-3 pt-1">{children}</DisclosurePanel>
+    </Disclosure>
+  )
+}
+
+/** A folded section of optional fields; its header summarises what is in it. */
+function Panel({
+  title,
+  summary,
+  open,
+  children,
+}: {
+  title: string
+  summary: string
+  open?: boolean
+  children: React.ReactNode
+}) {
+  return (
+    <Disclosure as="div" key={open ? "open" : "closed"} defaultOpen={open}>
+      <DisclosureButton className="group flex min-h-14 w-full items-center justify-between gap-3 py-3 text-left">
+        <span className="text-sm font-semibold text-gray-800 dark:text-white/90">
+          {title}
+        </span>
+        <span className="flex min-w-0 items-center gap-2 text-theme-xs text-gray-500 dark:text-gray-400">
+          <span className="truncate">{summary}</span>
+          <ChevronDown
+            aria-hidden
+            className="size-4 shrink-0 transition-transform duration-200 group-data-[open]:rotate-180"
+          />
+        </span>
+      </DisclosureButton>
+      <DisclosurePanel className="pb-4">{children}</DisclosurePanel>
+    </Disclosure>
+  )
+}
+
+/** A field's error, or its hint when there is none. */
+function FieldNote({
+  error,
+  children,
+}: {
+  error?: string
+  children?: React.ReactNode
+}) {
+  if (error) return <p className="mt-1.5 text-xs text-error-500">{error}</p>
+  if (!children) return null
+  return (
+    <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+      {children}
+    </p>
   )
 }
 
