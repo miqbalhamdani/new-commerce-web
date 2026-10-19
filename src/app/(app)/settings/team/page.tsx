@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/common/Listing"
 import { Dialog } from "@/components/ui/common/Dialog"
 import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
-import { Field } from "@/components/ui/common/Field"
+import { Field, Textarea } from "@/components/ui/common/Field"
 import { Select } from "@/components/ui/common/Select"
 import { SearchInput } from "@/components/ui/common/SearchInput"
 import { Empty, Loading, Page } from "@/components/ui/common/Page"
@@ -51,6 +51,7 @@ export default function TeamPage() {
   )
   const { data: roles } = useResource<Role[]>(canRead ? "/v1/roles" : null)
   const [inviting, setInviting] = useState(false)
+  const [bioFor, setBioFor] = useState<User | null>(null)
   const [rowError, setRowError] = useState<ApiError | null>(null)
   const api = useApi()
   // Only an owner can grant or change the owner role (BR-023).
@@ -144,6 +145,11 @@ export default function TeamPage() {
                     <div className="text-xs text-gray-500 dark:text-gray-400">
                       {u.email}
                     </div>
+                    {u.bio && (
+                      <div className="mt-1 max-w-xs truncate text-xs italic text-gray-500 dark:text-gray-400">
+                        {u.bio}
+                      </div>
+                    )}
                   </TableCell>
                   <TableCell className={td}>
                     <div className="text-center">
@@ -177,6 +183,16 @@ export default function TeamPage() {
                   </TableCell>
                   {canWrite && (
                     <TableCell className={cx(td, "text-center")}>
+                      {/* P1-608: the bio is public under their blog posts, not a
+                          change to their standing, so any writer edits it (BR-133). */}
+                      <Button
+                        size="sm"
+                        className="!py-1.5 mr-2"
+                        variant="outline"
+                        onClick={() => setBioFor(u)}
+                      >
+                        Bio
+                      </Button>
                       {editable && u.status === "invited" && (
                         <Button
                           size="sm"
@@ -240,7 +256,85 @@ export default function TeamPage() {
         onClose={() => setInviting(false)}
         onDone={reload}
       />
+      {bioFor && (
+        <BioDialog
+          key={bioFor.id}
+          user={bioFor}
+          onClose={() => setBioFor(null)}
+          onDone={reload}
+        />
+      )}
     </Page>
+  )
+}
+
+/** The line under someone's blog posts on the website (BR-133); empty clears it. */
+function BioDialog({
+  user,
+  onClose,
+  onDone,
+}: {
+  user: User
+  onClose: () => void
+  onDone: () => void
+}) {
+  const api = useApi()
+  const [bio, setBio] = useState(user.bio ?? "")
+  const [error, setError] = useState<ApiError | null>(null)
+  const [busy, setBusy] = useState(false)
+  async function save(e: React.FormEvent) {
+    e.preventDefault()
+    setBusy(true)
+    try {
+      await api(`/v1/users/${user.id}`, {
+        method: "PATCH",
+        body: { bio: bio.trim() === "" ? null : bio.trim() },
+      })
+      setError(null)
+      onClose()
+      onDone()
+    } catch (err) {
+      setError(asApiError(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <Dialog
+      open
+      onOpenChange={(o) => !o && onClose()}
+      title={`${user.name}'s bio`}
+      description="Shown on your website under the blog posts they write."
+    >
+      <form onSubmit={save} className="flex flex-col gap-3">
+        <Field
+          id="bio"
+          label="Bio"
+          error={fieldError(error, "bio")}
+          hint={`${bio.trim().length}/300`}
+        >
+          <Textarea
+            id="bio"
+            rows={3}
+            maxLength={300}
+            value={bio}
+            placeholder="Writes the Sleep Project Journal."
+            onChange={(e) => setBio(e.target.value)}
+          />
+        </Field>
+        {error && !fieldError(error, "bio") && (
+          <ErrorNotice error={error} title="Could not save the bio" />
+        )}
+        <div className="flex justify-end gap-2">
+          <Button size="sm" type="button" variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button size="sm" type="submit" isLoading={busy}>
+            Save
+          </Button>
+        </div>
+      </form>
+    </Dialog>
   )
 }
 
