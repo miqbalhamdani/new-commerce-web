@@ -686,8 +686,9 @@ export interface paths {
          * @description Bytes go straight from the browser to R2 with the returned URL; they never pass through
          *     the API (BR-051). `product_image`: JPEG, PNG or WebP up to 20 MB, `product_id` required,
          *     `media:write`. `product_import`: CSV up to 50 MB, no `product_id`, `products:write`; the
-         *     key carries the future job's id. The key contains the content hash (BR-053). The URL
-         *     lives 10 minutes.
+         *     key carries the future job's id. `blog_cover`: an image as `product_image`, `post_id`
+         *     required, `blog:write`; there is no confirm, the key is set on the post (BR-135). The key
+         *     contains the content hash (BR-053). The URL lives 10 minutes.
          */
         post: operations["presignMedia"];
         delete?: never;
@@ -854,8 +855,9 @@ export interface paths {
         options?: never;
         head?: never;
         /**
-         * Change a user's role, or disable or re-enable them
-         * @description No `If-Match` (BR-010). `status` is `active` (re-enable a disabled user) or `disabled`;
+         * Change a user's role or bio, or disable or re-enable them
+         * @description No `If-Match` (BR-010). `bio` is the public line under their blog posts; `null` or `""`
+         *     clears it (BR-133). `status` is `active` (re-enable a disabled user) or `disabled`;
          *     an invited user becomes active only by accepting. Disabling revokes their refresh
          *     tokens, so they are out within 15 minutes (BR-027). Only an owner can grant `owner` or
          *     change an owner (BR-023), else `403`. The last active owner cannot be demoted or
@@ -1397,6 +1399,121 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/blog/categories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Blog categories, by position
+         * @description Unpaginated, sorted by `position` then `name`. Archived categories are listed only with
+         *     `archived=true` (BR-012). Requires `blog:read`.
+         */
+        get: operations["listBlogCategories"];
+        put?: never;
+        /**
+         * Create a blog category
+         * @description `slug` defaults to `slugify(name)`; a clash, archived categories included, is `422` on
+         *     `slug` when sent, else on `name` (BR-130). Requires `blog:write`.
+         */
+        post: operations["createBlogCategory"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/blog/categories/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a blog category
+         * @description Soft delete: sets `archived_at`. Its posts keep it and show uncategorised on the storefront
+         *     (BR-012, BR-130). Requires `blog:write`.
+         */
+        delete: operations["archiveBlogCategory"];
+        options?: never;
+        head?: never;
+        /**
+         * Rename, re-slug or reorder a blog category
+         * @description A new `name` without `slug` re-derives the slug (BR-030, BR-130). No `If-Match` (BR-010).
+         *     Requires `blog:write`.
+         */
+        patch: operations["updateBlogCategory"];
+        trace?: never;
+    };
+    "/blog/posts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Blog posts, newest first
+         * @description Cursor-paginated, newest created first. `q` matches the title. Archived posts are listed
+         *     only with `archived=true` (BR-012). Requires `blog:read`.
+         */
+        get: operations["listBlogPosts"];
+        put?: never;
+        /**
+         * Create a blog post
+         * @description Starts as a draft unless `status` says otherwise. `slug` defaults to `slugify(title)`
+         *     (BR-131); `author_id` defaults to the signed-in user (BR-133). The cover is set by `PATCH`
+         *     once the post exists, since its key carries the post's id (BR-135). Requires `blog:write`.
+         */
+        post: operations["createBlogPost"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/blog/posts/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        /**
+         * One blog post
+         * @description With `excerpt_preview`, the excerpt the storefront shows (BR-132). Requires `blog:read`.
+         */
+        get: operations["getBlogPost"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a blog post
+         * @description Soft delete: sets `archived_at` and clears `is_featured` (BR-012, BR-131). Requires
+         *     `blog:write`.
+         */
+        delete: operations["archiveBlogPost"];
+        options?: never;
+        head?: never;
+        /**
+         * Edit, publish, schedule or feature a blog post
+         * @description Publishing without `published_at` sets it to now; a later `published_at` schedules the
+         *     post. `is_featured: true` clears the flag on the post that had it (BR-131). `product_ids`
+         *     replaces the list in its order (BR-134). `cover_r2_key` must be one of this post's keys
+         *     and exist (BR-135). No `If-Match` (BR-010). Requires `blog:write`.
+         */
+        patch: operations["updateBlogPost"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1769,9 +1886,14 @@ export interface components {
         };
         PresignRequest: {
             /** @enum {string} */
-            purpose: "product_image" | "product_import";
+            purpose: "product_image" | "product_import" | "blog_cover";
             /** Format: uuid */
             product_id?: string;
+            /**
+             * Format: uuid
+             * @description The blog post a `blog_cover` is for.
+             */
+            post_id?: string;
             mime_type: string;
             /** Format: int64 */
             bytes: number;
@@ -1922,6 +2044,8 @@ export interface components {
             role: "owner" | "admin" | "ops" | "viewer";
             /** @enum {string} */
             status: "invited" | "active" | "disabled";
+            /** @description Shown on the storefront under the user's blog posts (BR-133). */
+            bio: string | null;
             /** Format: date-time */
             last_login_at: string | null;
             /** Format: date-time */
@@ -1943,6 +2067,131 @@ export interface components {
             role?: "owner" | "admin" | "ops" | "viewer";
             /** @enum {string} */
             status?: "active" | "disabled";
+            bio?: string | null;
+        };
+        BlogCategory: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /**
+             * @description Defaults to `slugify(name)`; editable (BR-130).
+             * @example bedding-tips
+             */
+            slug: string;
+            /** @description Tab order, ascending (BR-130). */
+            position: number;
+            /** Format: date-time */
+            archived_at: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        BlogCategoryCreate: {
+            name: string;
+            /** @description Omitted means `slugify(name)` (BR-130). */
+            slug?: string;
+            /** @default 0 */
+            position: number;
+        };
+        BlogCategoryUpdate: {
+            name?: string;
+            slug?: string;
+            position?: number;
+        };
+        BlogCategoryList: {
+            data: components["schemas"]["BlogCategory"][];
+        };
+        /**
+         * @description A published post with a later `published_at` is scheduled (BR-131).
+         * @enum {string}
+         */
+        BlogPostStatus: "draft" | "published";
+        BlogPostProduct: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            /** @description The product's first image, its 200 px derivative once made. */
+            cover_url: string | null;
+        };
+        BlogPostListItem: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            slug: string;
+            status: components["schemas"]["BlogPostStatus"];
+            /** Format: date-time */
+            published_at: string | null;
+            is_featured: boolean;
+            category: components["schemas"]["Ref"] | null;
+            author: components["schemas"]["Ref"] | null;
+            cover_url: string | null;
+            /** Format: date-time */
+            archived_at: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        BlogPost: components["schemas"]["BlogPostListItem"] & {
+            /** @description As written; `null` when the editor left it empty (BR-132). */
+            excerpt: string | null;
+            /**
+             * @description The excerpt the storefront shows: `excerpt`, or the one worked out from `body`.
+             *     The editor shows it as the excerpt's placeholder (BR-132).
+             */
+            excerpt_preview: string;
+            /** @description Markdown (BR-135). */
+            body: string;
+            tags: string[];
+            cover_r2_key: string | null;
+            /** @description Linked products in their order, hidden ones included (BR-134). */
+            products: components["schemas"]["BlogPostProduct"][];
+        };
+        BlogPostCreate: {
+            title: string;
+            /** @description Omitted means `slugify(title)` (BR-131). */
+            slug?: string;
+            body?: string;
+            excerpt?: string;
+            /** Format: uuid */
+            category_id?: string;
+            /**
+             * Format: uuid
+             * @description Omitted means the signed-in user (BR-133).
+             */
+            author_id?: string;
+            tags?: string[];
+            status?: components["schemas"]["BlogPostStatus"];
+            /** Format: date-time */
+            published_at?: string;
+            is_featured?: boolean;
+            product_ids?: string[];
+        };
+        BlogPostUpdate: {
+            title?: string;
+            slug?: string;
+            body?: string;
+            excerpt?: string | null;
+            /** Format: uuid */
+            category_id?: string | null;
+            /** Format: uuid */
+            author_id?: string | null;
+            tags?: string[];
+            status?: components["schemas"]["BlogPostStatus"];
+            /**
+             * Format: date-time
+             * @description `null` only on a draft (BR-131).
+             */
+            published_at?: string | null;
+            is_featured?: boolean;
+            /** @description A key from `POST /media/presign` with `purpose: blog_cover` (BR-135). */
+            cover_r2_key?: string | null;
+            product_ids?: string[];
+        };
+        BlogPostPage: {
+            data: components["schemas"]["BlogPostListItem"][];
+            next_cursor: string | null;
         };
         Settings: {
             /** Format: uuid */
@@ -4625,6 +4874,252 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    listBlogCategories: {
+        parameters: {
+            query?: {
+                archived?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Every blog category. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BlogCategoryList"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    createBlogCategory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BlogCategoryCreate"];
+            };
+        };
+        responses: {
+            /** @description Created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BlogCategory"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    archiveBlogCategory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateBlogCategory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BlogCategoryUpdate"];
+            };
+        };
+        responses: {
+            /** @description The category. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BlogCategory"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    listBlogPosts: {
+        parameters: {
+            query?: {
+                q?: string;
+                status?: components["schemas"]["BlogPostStatus"];
+                category_id?: string;
+                archived?: boolean;
+                /** @description Page size. Pairs with `cursor`, or `page` on the product, order and customer lists. */
+                limit?: components["parameters"]["Limit"];
+                /**
+                 * @description Opaque cursor from the previous page. Cursor pagination is the rule — a deep `offset` on a
+                 *     large table is a sequential scan, so the parameter does not exist; the product, order and
+                 *     customer lists also take `page` (P1-231).
+                 */
+                cursor?: components["parameters"]["Cursor"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of posts. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BlogPostPage"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    createBlogPost: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BlogPostCreate"];
+            };
+        };
+        responses: {
+            /** @description Created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BlogPost"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    getBlogPost: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The post. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BlogPost"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    archiveBlogPost: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateBlogPost: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BlogPostUpdate"];
+            };
+        };
+        responses: {
+            /** @description The post. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BlogPost"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
         };
     };
 }
