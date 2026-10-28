@@ -3,10 +3,17 @@
 import Label from "@/components/form/Label"
 import Input from "@/components/form/input/InputField"
 import Button from "@/components/ui/button/Button"
+import { demoCredentials } from "@/lib/auth/demo"
 import { AuthError, useSession } from "@/lib/auth/session"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useActionState, useState } from "react"
+import {
+  startTransition,
+  useActionState,
+  useEffect,
+  useRef,
+  useState,
+} from "react"
 
 import { GoogleButton } from "../GoogleButton"
 import { PasswordInput } from "../PasswordInput"
@@ -14,7 +21,7 @@ import { AuthAlert, AuthHeading, Required, SwitchLine } from "../parts"
 
 /** P1-087: TailAdmin's sign-in, with Google when the API has a client ID. */
 export default function LoginPage() {
-  const { signIn, googleSignIn } = useSession()
+  const { signIn, googleSignIn, status } = useSession()
   const router = useRouter()
   const [googleError, setGoogleError] = useState<string | null>(null)
 
@@ -36,6 +43,25 @@ export default function LoginPage() {
     },
     null,
   )
+
+  // Demo links from belli.id (/login?u=…&p=…) sign straight into the demo
+  // shop. Waits for the mount refresh: a refresh that settles after sign-in
+  // would sign the new session out again.
+  const demoTried = useRef(false)
+  useEffect(() => {
+    if (status === "loading" || demoTried.current) return
+    demoTried.current = true
+    const search = window.location.search
+    // Never leave a password in the address bar or the history.
+    if (new URLSearchParams(search).has("p"))
+      window.history.replaceState(null, "", window.location.pathname)
+    const demo = demoCredentials(search)
+    if (!demo) return
+    const form = new FormData()
+    form.set("email", demo.email)
+    form.set("password", demo.password)
+    startTransition(() => submit(form))
+  }, [status, submit])
 
   async function withGoogle(idToken: string) {
     setGoogleError(null)
