@@ -32,12 +32,47 @@ function mockFetch(
 beforeEach(() => {
   vi.unstubAllGlobals()
   replace.mockReset()
+  window.history.replaceState(null, "", "/login")
 })
 afterEach(() => {
   delete window.google
 })
 
 describe("the sign-in screen (P1-087)", () => {
+  it("signs straight into the demo shop from a belli.id demo link", async () => {
+    window.history.replaceState(
+      null,
+      "",
+      "/login?u=viewer@demo.belli.id&p=demo-password",
+    )
+    const fetch = mockFetch(null, {
+      "/v1/auth/login": () => json(sessionFor(["products:read"])),
+    })
+    renderSignedIn(<LoginPage />)
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/"))
+    const call = fetch.mock.calls.find(([u]) =>
+      String(u).endsWith("/v1/auth/login"),
+    )!
+    expect(JSON.parse(String(call[1]!.body))).toEqual({
+      email: "viewer@demo.belli.id",
+      password: "demo-password",
+    })
+    expect(window.location.search).toBe("")
+  })
+
+  it("ignores ?u=&p= for an account outside the demo domain", async () => {
+    window.history.replaceState(null, "", "/login?u=ops@erigo.co.id&p=pw")
+    const fetch = mockFetch(null, {
+      "/v1/auth/login": () => json(sessionFor(["products:read"])),
+    })
+    renderSignedIn(<LoginPage />)
+    await waitFor(() => expect(window.location.search).toBe(""))
+    expect(
+      fetch.mock.calls.some(([u]) => String(u).endsWith("/v1/auth/login")),
+    ).toBe(false)
+    expect(replace).not.toHaveBeenCalled()
+  })
+
   it("signs in with email and password", async () => {
     const fetch = mockFetch(null, {
       "/v1/auth/login": () => json(sessionFor(["products:read"])),
