@@ -24,6 +24,12 @@ const settings = {
   midtrans_client_key: null,
   midtrans_server_key_set: true,
   midtrans_notification_url: "http://localhost:8080/v1/webhooks/midtrans/5b0e",
+  logo_r2_key: "t1/shop/abc.png",
+  logo_url: "http://img/t1/shop/abc.png",
+  whatsapp_number: null,
+  tagline: null,
+  brand_color: "#0a7d6e",
+  instagram: null,
   updated_at: "2026-10-06T16:15:00+07:00",
 }
 
@@ -165,6 +171,46 @@ describe("the storefront settings screen (P1-217)", () => {
     await waitFor(() => expect(patches()).toHaveLength(1))
     expect(JSON.parse(String(patches()[0]![1]!.body))).toEqual({
       bank_transfer_instructions: "Transfer to BCA 123",
+    })
+  })
+
+  it("edits the website's look, tidying what is typed, and removes the logo (P1-704, BR-142)", async () => {
+    const fetchSpy = mockApi(["settings:read", "settings:write"], (url, init) => {
+      if (url.endsWith("/v1/storefront-settings") && init?.method === "PATCH")
+        return json(settings)
+      if (url.endsWith("/v1/storefront-settings")) return json(settings)
+      return undefined
+    })
+    renderSignedIn(<StorefrontSettingsPage />)
+
+    expect(await screen.findByAltText("Logo")).toHaveAttribute(
+      "src",
+      settings.logo_url,
+    )
+    await userEvent.type(screen.getByLabelText("Tagline"), "Sprei katun lokal")
+    await userEvent.type(
+      screen.getByLabelText("WhatsApp number"),
+      "62 812-3456-7890",
+    )
+    await userEvent.type(screen.getByLabelText("Instagram"), "@tokoabc")
+    await userEvent.clear(screen.getByLabelText("Brand colour"))
+    await userEvent.type(screen.getByLabelText("Brand colour"), "#AA00FF")
+    await userEvent.click(screen.getByRole("button", { name: "Remove logo" }))
+    expect(screen.queryByAltText("Logo")).toBeNull()
+    await userEvent.click(screen.getByRole("button", { name: "Save" }))
+
+    await waitFor(() =>
+      expect(fetchSpy.mock.calls.some(([, i]) => i?.method === "PATCH")).toBe(
+        true,
+      ),
+    )
+    const patch = fetchSpy.mock.calls.find(([, i]) => i?.method === "PATCH")!
+    expect(JSON.parse(String(patch[1]!.body))).toEqual({
+      logo_r2_key: null,
+      tagline: "Sprei katun lokal",
+      whatsapp_number: "6281234567890",
+      instagram: "tokoabc",
+      brand_color: "#aa00ff",
     })
   })
 

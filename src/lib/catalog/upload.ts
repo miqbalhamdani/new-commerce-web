@@ -12,6 +12,7 @@ export type Put = (
 
 export const imageTypes = ["image/jpeg", "image/png", "image/webp"]
 export const maxImageBytes = 20 * 1024 * 1024
+export const maxLogoBytes = 2 * 1024 * 1024
 
 /** The file's SHA-256, hex: the key carries it, so the same image is one object (BR-053). */
 export async function sha256Hex(file: Blob): Promise<string> {
@@ -80,6 +81,23 @@ export async function uploadBodyImage(
   if (!presign.public_url) throw new Error("The upload has no public URL.")
   await put(presign.upload_url, file, () => {})
   return presign.public_url
+}
+
+/**
+ * Uploads the shop's logo: presign, PUT. There is no confirm; the returned
+ * key is saved as the storefront settings' logo_r2_key, and the URL is where
+ * it will show (BR-142).
+ */
+export async function uploadLogo(
+  api: Api,
+  file: File,
+  put: Put,
+  onProgress: (f: number) => void,
+): Promise<{ key: string; url: string }> {
+  if (file.size > maxLogoBytes) throw new Error(`${file.name} is over 2 MB.`)
+  const presign = await presignImage(api, file, { purpose: "shop_logo" })
+  await put(presign.upload_url, file, onProgress)
+  return { key: presign.r2_key, url: presign.public_url ?? "" }
 }
 
 /** Refuses what the store would refuse, before signing anything. */

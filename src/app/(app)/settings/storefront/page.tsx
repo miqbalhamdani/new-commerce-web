@@ -28,7 +28,7 @@ export default function StorefrontSettingsPage() {
       title="Storefront"
       description={
         canWrite
-          ? "Payments, shipping and sign-in for your website."
+          ? "Your website's look, payments, shipping and sign-in."
           : "Only the shop's owner can change these."
       }
     >

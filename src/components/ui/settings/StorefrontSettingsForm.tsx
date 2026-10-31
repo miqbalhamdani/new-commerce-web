@@ -2,17 +2,22 @@
 
 import { useState } from "react"
 
+import { ImagePlus } from "lucide-react"
+
 import Button from "@/components/ui/button/Button"
 import Input from "@/components/form/input/InputField"
 import { Card } from "@/components/ui/common/Page"
 import { CopyField } from "@/components/ui/common/CopyField"
+import { Dropzone } from "@/components/ui/common/Dropzone"
 import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
 import { Checkbox, Textarea } from "@/components/ui/common/Field"
+import { ProgressBar } from "@/components/ui/common/ProgressBar"
 import { Select } from "@/components/ui/common/Select"
 import { Toggle } from "@/components/ui/common/Toggle"
 import { ApiError } from "@/lib/api/client"
 import type { CourierCode, StorefrontSettings } from "@/lib/api/types"
 import { asApiError, fieldError, useApi } from "@/lib/api/use-api"
+import { uploadLogo, xhrPut } from "@/lib/catalog/upload"
 import { cx } from "@/lib/utils"
 
 /** The Biteship couriers a shop can offer (the contract's CourierCode). */
@@ -32,6 +37,11 @@ export const couriers: { code: CourierCode; label: string }[] = [
 ]
 
 type Form = {
+  logo_r2_key: string
+  whatsapp_number: string
+  tagline: string
+  brand_color: string
+  instagram: string
   contact_email: string
   google_client_id: string
   origin_postal_code: string
@@ -44,6 +54,11 @@ type Form = {
 }
 
 const nullable = [
+  "logo_r2_key",
+  "whatsapp_number",
+  "tagline",
+  "brand_color",
+  "instagram",
   "contact_email",
   "google_client_id",
   "origin_postal_code",
@@ -63,6 +78,11 @@ Put your order number in the transfer note. We confirm your order once the payme
 
 function formOf(s: StorefrontSettings): Form {
   return {
+    logo_r2_key: s.logo_r2_key ?? "",
+    whatsapp_number: s.whatsapp_number ?? "",
+    tagline: s.tagline ?? "",
+    brand_color: s.brand_color ?? "",
+    instagram: s.instagram ?? "",
     contact_email: s.contact_email ?? "",
     google_client_id: s.google_client_id ?? "",
     origin_postal_code: s.origin_postal_code ?? "",
@@ -77,9 +97,10 @@ function formOf(s: StorefrontSettings): Form {
 }
 
 /**
- * How the shop's website sells (04-api-spec.md §4; BR-120, BR-122, BR-127,
- * BR-129). The Midtrans server key is write-only: the screen shows whether
- * one is set and offers to replace it, and never has the key to show.
+ * How the shop's website looks and sells (04-api-spec.md §4; BR-120, BR-122,
+ * BR-127, BR-129, BR-142). The Midtrans server key is write-only: the screen
+ * shows whether one is set and offers to replace it, and never has the key
+ * to show. A new logo uploads at once and is saved with the rest.
  */
 export function StorefrontSettingsForm({
   settings,
@@ -98,6 +119,25 @@ export function StorefrontSettingsForm({
   const [error, setError] = useState<ApiError | null>(null)
   const [busy, setBusy] = useState(false)
   const [instructionsError, setInstructionsError] = useState<string>()
+  const [logoURL, setLogoURL] = useState(settings.logo_url)
+  const [logoProgress, setLogoProgress] = useState<number | null>(null)
+  const [logoError, setLogoError] = useState<string>()
+
+  async function pickLogo(files: File[]) {
+    const file = files[0]
+    if (!file) return
+    setLogoError(undefined)
+    setLogoProgress(0)
+    try {
+      const { key, url } = await uploadLogo(api, file, xhrPut, setLogoProgress)
+      setForm((f) => ({ ...f, logo_r2_key: key }))
+      setLogoURL(url)
+    } catch (e) {
+      setLogoError(e instanceof Error ? e.message : "Upload failed.")
+    } finally {
+      setLogoProgress(null)
+    }
+  }
 
   // Only what changed, with an emptied text field sent as null (BR-009).
   function changes(): Record<string, unknown> {
@@ -160,6 +200,138 @@ export function StorefrontSettingsForm({
   return (
     <form onSubmit={save} className="flex flex-col gap-7">
       <fieldset disabled={!canSave} className="flex flex-col gap-7">
+        <section>
+          <h3 className={sectionTitle}>Website look</h3>
+          <Card className={sectionCard}>
+            <Row
+              id="logo"
+              label="Logo"
+              hint="JPEG, PNG or WebP up to 2 MB. Without one, the website shows your shop name."
+              error={logoError ?? fieldError(error, "logo_r2_key")}
+              stacked
+            >
+              {form.logo_r2_key && logoURL ? (
+                <div className="flex items-center gap-4">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- the image domain is the shop's, not a Next loader's */}
+                  <img
+                    src={logoURL}
+                    alt="Logo"
+                    className="h-16 max-w-48 rounded-lg border border-gray-200 object-contain p-1 dark:border-gray-800"
+                  />
+                  {canSave && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      type="button"
+                      onClick={() => setForm({ ...form, logo_r2_key: "" })}
+                    >
+                      Remove logo
+                    </Button>
+                  )}
+                </div>
+              ) : canSave ? (
+                <Dropzone
+                  accept="image/jpeg,image/png,image/webp"
+                  onFiles={pickLogo}
+                >
+                  <ImagePlus className="size-6" aria-hidden />
+                  <p>Drop a logo, or</p>
+                </Dropzone>
+              ) : (
+                <p className="text-sm text-gray-500">No logo.</p>
+              )}
+              {logoProgress !== null && (
+                <ProgressBar
+                  value={logoProgress}
+                  max={1}
+                  label="Uploading the logo"
+                  className="mt-3"
+                />
+              )}
+            </Row>
+            <Row
+              id="tagline"
+              label="Tagline"
+              hint="Under your shop name on the website. Up to 160 characters."
+              error={fieldError(error, "tagline")}
+            >
+              <Input
+                id="tagline"
+                maxLength={160}
+                value={form.tagline}
+                onChange={(e) => setForm({ ...form, tagline: e.target.value })}
+              />
+            </Row>
+            <Row
+              id="whatsapp-number"
+              label="WhatsApp number"
+              hint="Where the order button sends shoppers. Starts with 62."
+              error={fieldError(error, "whatsapp_number")}
+            >
+              <Input
+                id="whatsapp-number"
+                inputMode="numeric"
+                placeholder="6281234567890"
+                value={form.whatsapp_number}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    whatsapp_number: e.target.value.replace(/\D/g, ""),
+                  })
+                }
+              />
+            </Row>
+            <Row
+              id="brand-color"
+              label="Brand colour"
+              hint="Buttons and links on the website."
+              error={fieldError(error, "brand_color")}
+            >
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  aria-label="Pick the brand colour"
+                  value={form.brand_color || "#465fff"}
+                  onChange={(e) =>
+                    setForm({ ...form, brand_color: e.target.value })
+                  }
+                  className="h-11 w-12 shrink-0 cursor-pointer rounded-lg border border-gray-300 bg-transparent p-1 dark:border-gray-700"
+                />
+                <Input
+                  id="brand-color"
+                  placeholder="#465fff"
+                  maxLength={7}
+                  value={form.brand_color}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      brand_color: e.target.value.trim().toLowerCase(),
+                    })
+                  }
+                />
+              </div>
+            </Row>
+            <Row
+              id="instagram"
+              label="Instagram"
+              hint="Your handle, linked in the website's footer."
+              error={fieldError(error, "instagram")}
+            >
+              <Input
+                id="instagram"
+                placeholder="tokoabc"
+                value={form.instagram}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    instagram: e.target.value.trim().replace(/^@/, ""),
+                  })
+                }
+              />
+            </Row>
+          </Card>
+        </section>
+
         <section>
           <h3 className={sectionTitle}>General</h3>
           <Card className={sectionCard}>

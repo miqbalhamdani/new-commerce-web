@@ -58,6 +58,33 @@ describe("SettingsForm (P1-068, P1-083)", () => {
     expect(JSON.parse(String(patch[1]!.body))).toEqual({ order_prefix: "ERX" })
   })
 
+  it("moves the website to a new address, saying the old one stops working (P1-704, BR-140)", async () => {
+    const fetch = mockApi(["settings:read", "settings:write"], (url, init) =>
+      url.endsWith("/v1/settings") && init?.method === "PATCH"
+        ? json({ ...settings, ...JSON.parse(String(init.body)) })
+        : undefined,
+    )
+    const onSaved = vi.fn()
+    renderSignedIn(
+      <SettingsForm settings={settings} canSave onSaved={onSaved} />,
+    )
+    expect(screen.getByRole("link", { name: /View website/ })).toHaveAttribute(
+      "href",
+      "https://erigo.belli.id",
+    )
+    const slug = screen.getByLabelText("Website address")
+    await userEvent.clear(slug)
+    await userEvent.type(slug, "Erigo-Apparel")
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "erigo-apparel.belli.id, and erigo.belli.id stops working",
+    )
+    await userEvent.click(screen.getByRole("button", { name: "Save" }))
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalled())
+    const patch = fetch.mock.calls.find(([, i]) => i?.method === "PATCH")!
+    expect(JSON.parse(String(patch[1]!.body))).toEqual({ slug: "erigo-apparel" })
+  })
+
   it("shows the values and no save control to anyone but the owner (BR-025)", () => {
     mockApi(["settings:read"], () => undefined, "admin")
     renderSignedIn(
