@@ -689,7 +689,9 @@ export interface paths {
          *     key carries the future job's id. `blog_cover`: an image as `product_image`, `post_id`
          *     required, `blog:write`; there is no confirm, the key is set on the post (BR-135).
          *     `blog_image`: the same, for an image in the post's body, which links it by the returned
-         *     `public_url`. The key contains the content hash (BR-053). The URL lives 10 minutes.
+         *     `public_url`. `shop_logo`: JPEG, PNG or WebP up to 2 MB, neither id, `settings:write`;
+         *     the key is set as the storefront settings' `logo_r2_key` (BR-142). The key contains the
+         *     content hash (BR-053). The URL lives 10 minutes.
          */
         post: operations["presignMedia"];
         delete?: never;
@@ -885,11 +887,13 @@ export interface paths {
         options?: never;
         head?: never;
         /**
-         * Change the shop's name, time zone or order prefix
+         * Change the shop's name, address, time zone or order prefix
          * @description Only the owner (`settings:write`, BR-029). `timezone` is an IANA name; it is for
          *     display only, the wire stays WIB (BR-007). `order_prefix` is 2–6 of `A-Z0-9` and applies
-         *     to new orders only (BR-077). `id`, `slug` and `status` are not writable (BR-008). No
-         *     `If-Match`: last save wins (BR-010). There is no currency setting (BR-029).
+         *     to new orders only (BR-077). `slug` is the hosted website's address, `{slug}.belli.id`:
+         *     3–40 of `a-z0-9-`, starting and ending with a letter or digit, not a reserved name, and
+         *     not another shop's, else `422` on `slug` (BR-140). `id` and `status` are not writable
+         *     (BR-008). No `If-Match`: last save wins (BR-010). There is no currency setting (BR-029).
          */
         patch: operations["updateSettings"];
         trace?: never;
@@ -920,7 +924,8 @@ export interface paths {
          *     envelope-encrypted (BR-129). Enabling Midtrans without its environment, client key and
          *     server key is `422`, and so is turning off both payment methods (BR-122).
          *     `origin_postal_code` is 5 digits and `shipping_couriers` are Biteship courier codes
-         *     (BR-120). No `If-Match` (BR-010).
+         *     (BR-120). The look is optional (BR-142); a `logo_r2_key` outside the shop's `shop/`
+         *     prefix, or never uploaded, is `422`. No `If-Match` (BR-010).
          */
         patch: operations["updateStorefrontSettings"];
         trace?: never;
@@ -1887,7 +1892,7 @@ export interface components {
         };
         PresignRequest: {
             /** @enum {string} */
-            purpose: "product_image" | "product_import" | "blog_cover" | "blog_image";
+            purpose: "product_image" | "product_import" | "blog_cover" | "blog_image" | "shop_logo";
             /** Format: uuid */
             product_id?: string;
             /**
@@ -1905,7 +1910,7 @@ export interface components {
             r2_key: string;
             /** @example 600 */
             expires_in: number;
-            /** @description Where the image is served once uploaded; set for `blog_cover` and `blog_image`, so a body image can be linked from the post's Markdown (BR-135). */
+            /** @description Where the image is served once uploaded; set for `blog_cover`, `blog_image` and `shop_logo`, so a body image can be linked from the post's Markdown (BR-135). */
             public_url?: string;
         };
         ConfirmMedia: {
@@ -2200,6 +2205,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             name: string;
+            /** @description The hosted website's address, `{slug}.belli.id` (BR-140). */
             slug: string;
             /** @example ERG */
             order_prefix: string;
@@ -2210,6 +2216,8 @@ export interface components {
         };
         SettingsUpdate: {
             name?: string;
+            /** @description Not a reserved name, and not another shop's (BR-140). */
+            slug?: string;
             timezone?: string;
             order_prefix?: string;
         };
@@ -2240,6 +2248,20 @@ export interface components {
              * @description Where Midtrans tells the API about payments; sent with every Snap transaction (BR-124).
              */
             midtrans_notification_url: string;
+            /** @description A key from `POST /media/presign` with `purpose: shop_logo` (BR-142). */
+            logo_r2_key: string | null;
+            /**
+             * Format: uri
+             * @description The logo on the image domain; read-only.
+             */
+            logo_url: string | null;
+            /** @example 6281234567890 */
+            whatsapp_number: string | null;
+            tagline: string | null;
+            /** @example #0a7d6e */
+            brand_color: string | null;
+            /** @description The handle, without `@`. */
+            instagram: string | null;
             /** Format: date-time */
             updated_at: string;
         };
@@ -2256,6 +2278,12 @@ export interface components {
             midtrans_client_key?: string | null;
             /** @description Write-only; `null` removes it (and so needs Midtrans off). */
             midtrans_server_key?: string | null;
+            /** @description A key from `POST /media/presign` with `purpose: shop_logo`, uploaded (BR-142). */
+            logo_r2_key?: string | null;
+            whatsapp_number?: string | null;
+            tagline?: string | null;
+            brand_color?: string | null;
+            instagram?: string | null;
         };
         ApiKey: {
             /** Format: uuid */
