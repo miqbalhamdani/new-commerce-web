@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest"
 
-import { uploadBodyImage, uploadCover, uploadImage } from "./upload"
+import { uploadBodyImage, uploadCover, uploadImage, uploadLogo } from "./upload"
 
 describe("uploadImage (P1-048)", () => {
   it("sends the bytes to the store and only their description to the API (BR-051)", async () => {
@@ -122,5 +122,39 @@ describe("uploadBodyImage (P1-607)", () => {
         }),
       },
     ])
+  })
+})
+
+describe("uploadLogo (P1-704)", () => {
+  it("presigns a shop_logo, puts the bytes, and returns its key and URL (BR-142)", async () => {
+    const file = new File([new Uint8Array([1, 2])], "logo.png", {
+      type: "image/png",
+    })
+    const api = vi.fn(async () => ({
+      upload_url: "http://store/put",
+      r2_key: "t/shop/abc.png",
+      expires_in: 600,
+      public_url: "http://img/t/shop/abc.png",
+    })) as never
+    const put = vi.fn(async () => undefined)
+
+    const logo = await uploadLogo(api, file, put, vi.fn())
+
+    expect(logo).toEqual({ key: "t/shop/abc.png", url: "http://img/t/shop/abc.png" })
+    expect(put).toHaveBeenCalledOnce()
+    expect(vi.mocked(api as (...a: unknown[]) => unknown).mock.calls[0]).toEqual([
+      "/v1/media/presign",
+      {
+        method: "POST",
+        body: expect.objectContaining({ purpose: "shop_logo", mime_type: "image/png", bytes: 2 }),
+      },
+    ])
+  })
+
+  it("refuses a logo over 2 MB before signing anything", async () => {
+    const api = vi.fn()
+    const big = new File([new Uint8Array(2 * 1024 * 1024 + 1)], "big.png", { type: "image/png" })
+    await expect(uploadLogo(api as never, big, vi.fn(), vi.fn())).rejects.toThrow(/over 2 MB/)
+    expect(api).not.toHaveBeenCalled()
   })
 })

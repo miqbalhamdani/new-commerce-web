@@ -13,6 +13,9 @@ import type { Settings } from "@/lib/api/types"
 import { asApiError, fieldError, useApi } from "@/lib/api/use-api"
 import { cx } from "@/lib/utils"
 
+/** Where every shop's website lives, as {slug}.belli.id (BR-140). */
+export const websiteDomain = "belli.id"
+
 /** Indonesia's three zones; the wire stays WIB whatever is chosen (BR-007). */
 export const timezones = [
   { value: "Asia/Jakarta", label: "WIB — Asia/Jakarta" },
@@ -21,7 +24,8 @@ export const timezones = [
 ]
 
 /**
- * The shop's name, display time zone and order prefix (BR-029, BR-077).
+ * The shop's name, website address, display time zone and order prefix
+ * (BR-029, BR-077, BR-140).
  * canSave is false for anyone but the owner, who then sees the values and
  * no save control (BR-025).
  */
@@ -39,6 +43,7 @@ export function SettingsForm({
   const api = useApi()
   const [form, setForm] = useState({
     name: settings.name,
+    slug: settings.slug,
     timezone: settings.timezone,
     order_prefix: settings.order_prefix,
   })
@@ -89,6 +94,44 @@ export function SettingsForm({
             onChange={(e) => setForm({ ...form, name: e.target.value })}
           />
         </Field>
+        <Field
+          id="slug"
+          label="Website address"
+          error={fieldError(error, "slug")}
+          hint="3 to 40 lower-case letters, digits or hyphens."
+        >
+          <div className="flex items-center gap-2">
+            <Input
+              id="slug"
+              required
+              maxLength={40}
+              value={form.slug}
+              onChange={(e) =>
+                setForm({ ...form, slug: e.target.value.toLowerCase() })
+              }
+            />
+            <span className="shrink-0 text-sm text-gray-500 dark:text-gray-400">
+              .{websiteDomain}
+            </span>
+          </div>
+          <a
+            href={`https://${settings.slug}.${websiteDomain}`}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-1.5 inline-block text-xs font-medium text-brand-500 hover:text-brand-600 dark:text-brand-400"
+          >
+            View website ↗
+          </a>
+        </Field>
+        {form.slug !== settings.slug && (
+          <p
+            role="status"
+            className="text-xs text-warning-600 dark:text-orange-400"
+          >
+            Your website moves to {form.slug}.{websiteDomain}, and{" "}
+            {settings.slug}.{websiteDomain} stops working.
+          </p>
+        )}
         <Field
           id="timezone"
           label="Time zone"
