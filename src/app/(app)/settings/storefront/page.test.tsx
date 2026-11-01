@@ -24,12 +24,19 @@ const settings = {
   midtrans_client_key: null,
   midtrans_server_key_set: true,
   midtrans_notification_url: "http://localhost:8080/v1/webhooks/midtrans/5b0e",
+  theme: "katalog",
+  brand_color: "#9a4e3a",
   logo_r2_key: "t1/shop/abc.png",
   logo_url: "http://img/t1/shop/abc.png",
+  hero_r2_key: null,
+  hero_url: null,
   whatsapp_number: null,
   tagline: null,
-  brand_color: "#0a7d6e",
   instagram: null,
+  address: null,
+  opening_hours: null,
+  shopee_url: null,
+  tokopedia_url: null,
   updated_at: "2026-10-06T16:15:00+07:00",
 }
 
@@ -193,8 +200,11 @@ describe("the storefront settings screen (P1-217)", () => {
       "62 812-3456-7890",
     )
     await userEvent.type(screen.getByLabelText("Instagram"), "@tokoabc")
-    await userEvent.clear(screen.getByLabelText("Brand colour"))
-    await userEvent.type(screen.getByLabelText("Brand colour"), "#AA00FF")
+    await userEvent.type(screen.getByLabelText("Address"), "Jl. Braga No. 10, Bandung")
+    await userEvent.type(
+      screen.getByLabelText("Shopee"),
+      " https://shopee.co.id/tokoabc ",
+    )
     await userEvent.click(screen.getByRole("button", { name: "Remove logo" }))
     expect(screen.queryByAltText("Logo")).toBeNull()
     await userEvent.click(screen.getByRole("button", { name: "Save" }))
@@ -210,7 +220,47 @@ describe("the storefront settings screen (P1-217)", () => {
       tagline: "Sprei katun lokal",
       whatsapp_number: "6281234567890",
       instagram: "tokoabc",
-      brand_color: "#aa00ff",
+      address: "Jl. Braga No. 10, Bandung",
+      shopee_url: "https://shopee.co.id/tokoabc",
+    })
+  })
+
+  it("picks a theme, which starts on its own first colour, then one of its four (P1-805, BR-143)", async () => {
+    const fetchSpy = mockApi(["settings:read", "settings:write"], (url, init) => {
+      if (url.endsWith("/v1/storefront-settings") && init?.method === "PATCH")
+        return json(settings)
+      if (url.endsWith("/v1/storefront-settings")) return json(settings)
+      return undefined
+    })
+    renderSignedIn(<StorefrontSettingsPage />)
+
+    const katalog = await screen.findByRole("radio", { name: /^Katalog, suits/ })
+    expect(katalog).toBeChecked()
+    expect(screen.getAllByRole("radio", { name: /, suits / })).toHaveLength(8)
+    expect(
+      screen.getByRole("radio", { name: /Colour 2, #9a4e3a/ }),
+    ).toBeChecked()
+    expect(
+      screen.getAllByRole("link", { name: "View demo ↗" })[0],
+    ).toHaveAttribute("href", "https://sahira.belli.id")
+
+    await userEvent.click(screen.getByRole("radio", { name: /^Furnitur Ceria, suits/ }))
+    expect(
+      screen.getByRole("radio", { name: /Colour 1, #0b55c4/ }),
+    ).toBeChecked()
+    expect(screen.queryByRole("radio", { name: /#9a4e3a/ })).toBeNull()
+    await userEvent.click(screen.getByRole("radio", { name: /Colour 3, #0e7c66/ }))
+    await userEvent.click(screen.getByRole("button", { name: "Save" }))
+
+    await waitFor(() =>
+      expect(fetchSpy.mock.calls.some(([, i]) => i?.method === "PATCH")).toBe(
+        true,
+      ),
+    )
+    const patch = fetchSpy.mock.calls.find(([, i]) => i?.method === "PATCH")!
+    expect(JSON.parse(String(patch[1]!.body))).toEqual({
+      theme: "furnitur-ceria",
+      brand_color: "#0e7c66",
     })
   })
 

@@ -690,8 +690,9 @@ export interface paths {
          *     required, `blog:write`; there is no confirm, the key is set on the post (BR-135).
          *     `blog_image`: the same, for an image in the post's body, which links it by the returned
          *     `public_url`. `shop_logo`: JPEG, PNG or WebP up to 2 MB, neither id, `settings:write`;
-         *     the key is set as the storefront settings' `logo_r2_key` (BR-142). The key contains the
-         *     content hash (BR-053). The URL lives 10 minutes.
+         *     the key is set as the storefront settings' `logo_r2_key` (BR-142). `shop_hero`: the same,
+         *     up to 5 MB, set as `hero_r2_key`. The key contains the content hash (BR-053). The URL
+         *     lives 10 minutes.
          */
         post: operations["presignMedia"];
         delete?: never;
@@ -1892,7 +1893,7 @@ export interface components {
         };
         PresignRequest: {
             /** @enum {string} */
-            purpose: "product_image" | "product_import" | "blog_cover" | "blog_image" | "shop_logo";
+            purpose: "product_image" | "product_import" | "blog_cover" | "blog_image" | "shop_logo" | "shop_hero";
             /** Format: uuid */
             product_id?: string;
             /**
@@ -1910,7 +1911,7 @@ export interface components {
             r2_key: string;
             /** @example 600 */
             expires_in: number;
-            /** @description Where the image is served once uploaded; set for `blog_cover`, `blog_image` and `shop_logo`, so a body image can be linked from the post's Markdown (BR-135). */
+            /** @description Where the image is served once uploaded; set for `blog_cover`, `blog_image`, `shop_logo` and `shop_hero`, so a body image can be linked from the post's Markdown (BR-135). */
             public_url?: string;
         };
         ConfirmMedia: {
@@ -2226,6 +2227,11 @@ export interface components {
          * @enum {string}
          */
         CourierCode: "jne" | "jnt" | "sicepat" | "anteraja" | "pos" | "tiki" | "ninja" | "lion" | "idexpress" | "sap" | "rpx" | "wahana";
+        /**
+         * @description The hosted website's theme (BR-143).
+         * @enum {string}
+         */
+        ShopTheme: "busana" | "clothing" | "woman" | "katalog" | "katalog-hangat" | "furnitur" | "furnitur-earthy" | "furnitur-ceria";
         StorefrontSettings: {
             /**
              * Format: email
@@ -2248,6 +2254,12 @@ export interface components {
              * @description Where Midtrans tells the API about payments; sent with every Snap transaction (BR-124).
              */
             midtrans_notification_url: string;
+            theme: components["schemas"]["ShopTheme"];
+            /**
+             * @description One of the theme's four colours; `null` means its first (BR-143).
+             * @example #9a4e3a
+             */
+            brand_color: string | null;
             /** @description A key from `POST /media/presign` with `purpose: shop_logo` (BR-142). */
             logo_r2_key: string | null;
             /**
@@ -2255,13 +2267,25 @@ export interface components {
              * @description The logo on the image domain; read-only.
              */
             logo_url: string | null;
+            /** @description A key from `POST /media/presign` with `purpose: shop_hero` (BR-142). */
+            hero_r2_key: string | null;
+            /**
+             * Format: uri
+             * @description The hero photo on the image domain; read-only.
+             */
+            hero_url: string | null;
             /** @example 6281234567890 */
             whatsapp_number: string | null;
             tagline: string | null;
-            /** @example #0a7d6e */
-            brand_color: string | null;
             /** @description The handle, without `@`. */
             instagram: string | null;
+            address: string | null;
+            /** @example Setiap hari 09.00–21.00 */
+            opening_hours: string | null;
+            /** Format: uri */
+            shopee_url: string | null;
+            /** Format: uri */
+            tokopedia_url: string | null;
             /** Format: date-time */
             updated_at: string;
         };
@@ -2278,12 +2302,20 @@ export interface components {
             midtrans_client_key?: string | null;
             /** @description Write-only; `null` removes it (and so needs Midtrans off). */
             midtrans_server_key?: string | null;
+            theme?: components["schemas"]["ShopTheme"];
+            /** @description One of the theme's four colours (BR-143). A change of `theme` without it clears it. */
+            brand_color?: string | null;
             /** @description A key from `POST /media/presign` with `purpose: shop_logo`, uploaded (BR-142). */
             logo_r2_key?: string | null;
+            /** @description A key from `POST /media/presign` with `purpose: shop_hero`, uploaded (BR-142). */
+            hero_r2_key?: string | null;
             whatsapp_number?: string | null;
             tagline?: string | null;
-            brand_color?: string | null;
             instagram?: string | null;
+            address?: string | null;
+            opening_hours?: string | null;
+            shopee_url?: string | null;
+            tokopedia_url?: string | null;
         };
         ApiKey: {
             /** Format: uuid */

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest"
 
-import { uploadBodyImage, uploadCover, uploadImage, uploadLogo } from "./upload"
+import { uploadBodyImage, uploadCover, uploadHero, uploadImage, uploadLogo } from "./upload"
 
 describe("uploadImage (P1-048)", () => {
   it("sends the bytes to the store and only their description to the API (BR-051)", async () => {
@@ -155,6 +155,30 @@ describe("uploadLogo (P1-704)", () => {
     const api = vi.fn()
     const big = new File([new Uint8Array(2 * 1024 * 1024 + 1)], "big.png", { type: "image/png" })
     await expect(uploadLogo(api as never, big, vi.fn(), vi.fn())).rejects.toThrow(/over 2 MB/)
+    expect(api).not.toHaveBeenCalled()
+  })
+})
+
+describe("uploadHero (P1-805)", () => {
+  it("presigns a shop_hero up to 5 MB and refuses more before signing (BR-142)", async () => {
+    const api = vi.fn(async () => ({
+      upload_url: "http://store/put",
+      r2_key: "t/shop/def.jpg",
+      expires_in: 600,
+      public_url: "http://img/t/shop/def.jpg",
+    }))
+    const fits = new File([new Uint8Array(5 * 1024 * 1024)], "hero.jpg", { type: "image/jpeg" })
+    expect(await uploadHero(api as never, fits, vi.fn(async () => undefined), vi.fn())).toEqual({
+      key: "t/shop/def.jpg",
+      url: "http://img/t/shop/def.jpg",
+    })
+    expect(vi.mocked(api as (...a: unknown[]) => unknown).mock.calls[0][1]).toMatchObject({
+      body: { purpose: "shop_hero" },
+    })
+
+    api.mockClear()
+    const big = new File([new Uint8Array(5 * 1024 * 1024 + 1)], "big.jpg", { type: "image/jpeg" })
+    await expect(uploadHero(api as never, big, vi.fn(), vi.fn())).rejects.toThrow(/over 5 MB/)
     expect(api).not.toHaveBeenCalled()
   })
 })

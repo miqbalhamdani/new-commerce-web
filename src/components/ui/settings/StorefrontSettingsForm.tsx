@@ -15,10 +15,12 @@ import { ProgressBar } from "@/components/ui/common/ProgressBar"
 import { Select } from "@/components/ui/common/Select"
 import { Toggle } from "@/components/ui/common/Toggle"
 import { ApiError } from "@/lib/api/client"
-import type { CourierCode, StorefrontSettings } from "@/lib/api/types"
+import type { CourierCode, ShopTheme, StorefrontSettings } from "@/lib/api/types"
 import { asApiError, fieldError, useApi } from "@/lib/api/use-api"
-import { uploadLogo, xhrPut } from "@/lib/catalog/upload"
+import { uploadHero, uploadLogo, xhrPut } from "@/lib/catalog/upload"
 import { cx } from "@/lib/utils"
+
+import { ColorPicker, ThemePicker } from "./ThemePicker"
 
 /** The Biteship couriers a shop can offer (the contract's CourierCode). */
 export const couriers: { code: CourierCode; label: string }[] = [
@@ -37,11 +39,17 @@ export const couriers: { code: CourierCode; label: string }[] = [
 ]
 
 type Form = {
+  theme: ShopTheme
+  brand_color: string
   logo_r2_key: string
+  hero_r2_key: string
   whatsapp_number: string
   tagline: string
-  brand_color: string
   instagram: string
+  address: string
+  opening_hours: string
+  shopee_url: string
+  tokopedia_url: string
   contact_email: string
   google_client_id: string
   origin_postal_code: string
@@ -54,11 +62,16 @@ type Form = {
 }
 
 const nullable = [
+  "brand_color",
   "logo_r2_key",
+  "hero_r2_key",
   "whatsapp_number",
   "tagline",
-  "brand_color",
   "instagram",
+  "address",
+  "opening_hours",
+  "shopee_url",
+  "tokopedia_url",
   "contact_email",
   "google_client_id",
   "origin_postal_code",
@@ -78,11 +91,17 @@ Put your order number in the transfer note. We confirm your order once the payme
 
 function formOf(s: StorefrontSettings): Form {
   return {
+    theme: s.theme,
+    brand_color: s.brand_color ?? "",
     logo_r2_key: s.logo_r2_key ?? "",
+    hero_r2_key: s.hero_r2_key ?? "",
     whatsapp_number: s.whatsapp_number ?? "",
     tagline: s.tagline ?? "",
-    brand_color: s.brand_color ?? "",
     instagram: s.instagram ?? "",
+    address: s.address ?? "",
+    opening_hours: s.opening_hours ?? "",
+    shopee_url: s.shopee_url ?? "",
+    tokopedia_url: s.tokopedia_url ?? "",
     contact_email: s.contact_email ?? "",
     google_client_id: s.google_client_id ?? "",
     origin_postal_code: s.origin_postal_code ?? "",
@@ -98,9 +117,10 @@ function formOf(s: StorefrontSettings): Form {
 
 /**
  * How the shop's website looks and sells (04-api-spec.md §4; BR-120, BR-122,
- * BR-127, BR-129, BR-142). The Midtrans server key is write-only: the screen
- * shows whether one is set and offers to replace it, and never has the key
- * to show. A new logo uploads at once and is saved with the rest.
+ * BR-127, BR-129, BR-142, BR-143). The Midtrans server key is write-only: the
+ * screen shows whether one is set and offers to replace it, and never has the
+ * key to show. A new logo or hero photo uploads at once and is saved with the
+ * rest. Another theme starts on its own first colour, as the API does.
  */
 export function StorefrontSettingsForm({
   settings,
@@ -119,25 +139,6 @@ export function StorefrontSettingsForm({
   const [error, setError] = useState<ApiError | null>(null)
   const [busy, setBusy] = useState(false)
   const [instructionsError, setInstructionsError] = useState<string>()
-  const [logoURL, setLogoURL] = useState(settings.logo_url)
-  const [logoProgress, setLogoProgress] = useState<number | null>(null)
-  const [logoError, setLogoError] = useState<string>()
-
-  async function pickLogo(files: File[]) {
-    const file = files[0]
-    if (!file) return
-    setLogoError(undefined)
-    setLogoProgress(0)
-    try {
-      const { key, url } = await uploadLogo(api, file, xhrPut, setLogoProgress)
-      setForm((f) => ({ ...f, logo_r2_key: key }))
-      setLogoURL(url)
-    } catch (e) {
-      setLogoError(e instanceof Error ? e.message : "Upload failed.")
-    } finally {
-      setLogoProgress(null)
-    }
-  }
 
   // Only what changed, with an emptied text field sent as null (BR-009).
   function changes(): Record<string, unknown> {
@@ -204,51 +205,58 @@ export function StorefrontSettingsForm({
           <h3 className={sectionTitle}>Website look</h3>
           <Card className={sectionCard}>
             <Row
-              id="logo"
-              label="Logo"
-              hint="JPEG, PNG or WebP up to 2 MB. Without one, the website shows your shop name."
-              error={logoError ?? fieldError(error, "logo_r2_key")}
+              id="theme"
+              label="Theme"
+              hint="How your website is laid out. Each is made for a kind of shop, but any shop can use any theme."
+              error={fieldError(error, "theme")}
               stacked
             >
-              {form.logo_r2_key && logoURL ? (
-                <div className="flex items-center gap-4">
-                  {/* eslint-disable-next-line @next/next/no-img-element -- the image domain is the shop's, not a Next loader's */}
-                  <img
-                    src={logoURL}
-                    alt="Logo"
-                    className="h-16 max-w-48 rounded-lg border border-gray-200 object-contain p-1 dark:border-gray-800"
-                  />
-                  {canSave && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      type="button"
-                      onClick={() => setForm({ ...form, logo_r2_key: "" })}
-                    >
-                      Remove logo
-                    </Button>
-                  )}
-                </div>
-              ) : canSave ? (
-                <Dropzone
-                  accept="image/jpeg,image/png,image/webp"
-                  onFiles={pickLogo}
-                >
-                  <ImagePlus className="size-6" aria-hidden />
-                  <p>Drop a logo, or</p>
-                </Dropzone>
-              ) : (
-                <p className="text-sm text-gray-500">No logo.</p>
-              )}
-              {logoProgress !== null && (
-                <ProgressBar
-                  value={logoProgress}
-                  max={1}
-                  label="Uploading the logo"
-                  className="mt-3"
-                />
-              )}
+              <ThemePicker
+                value={form.theme}
+                disabled={!canSave}
+                onChange={(theme) =>
+                  setForm({ ...form, theme, brand_color: "" })
+                }
+              />
             </Row>
+            <Row
+              id="brand-color"
+              label="Colour"
+              hint="Buttons, links and accents. Each theme has four, made for it."
+              error={fieldError(error, "brand_color")}
+              stacked
+            >
+              <ColorPicker
+                theme={form.theme}
+                value={form.brand_color}
+                disabled={!canSave}
+                onChange={(brand_color) => setForm({ ...form, brand_color })}
+              />
+            </Row>
+            <ShopImageRow
+              id="logo"
+              name="logo"
+              label="Logo"
+              hint="JPEG, PNG or WebP up to 2 MB. Without one, the website shows your shop name."
+              url={form.logo_r2_key ? settings.logo_url : null}
+              canSave={canSave}
+              error={fieldError(error, "logo_r2_key")}
+              upload={(file, onProgress) => uploadLogo(api, file, xhrPut, onProgress)}
+              onChange={(logo_r2_key) => setForm((f) => ({ ...f, logo_r2_key }))}
+              preview="h-16 max-w-48 object-contain p-1"
+            />
+            <ShopImageRow
+              id="hero"
+              name="hero photo"
+              label="Hero photo"
+              hint="The big photo at the top of your home page. JPEG, PNG or WebP up to 5 MB. Without one, the website uses your newest product's photo."
+              url={form.hero_r2_key ? settings.hero_url : null}
+              canSave={canSave}
+              error={fieldError(error, "hero_r2_key")}
+              upload={(file, onProgress) => uploadHero(api, file, xhrPut, onProgress)}
+              onChange={(hero_r2_key) => setForm((f) => ({ ...f, hero_r2_key }))}
+              preview="aspect-[16/9] w-64 object-cover"
+            />
             <Row
               id="tagline"
               label="Tagline"
@@ -282,36 +290,6 @@ export function StorefrontSettingsForm({
               />
             </Row>
             <Row
-              id="brand-color"
-              label="Brand colour"
-              hint="Buttons and links on the website."
-              error={fieldError(error, "brand_color")}
-            >
-              <div className="flex items-center gap-2">
-                <input
-                  type="color"
-                  aria-label="Pick the brand colour"
-                  value={form.brand_color || "#465fff"}
-                  onChange={(e) =>
-                    setForm({ ...form, brand_color: e.target.value })
-                  }
-                  className="h-11 w-12 shrink-0 cursor-pointer rounded-lg border border-gray-300 bg-transparent p-1 dark:border-gray-700"
-                />
-                <Input
-                  id="brand-color"
-                  placeholder="#465fff"
-                  maxLength={7}
-                  value={form.brand_color}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      brand_color: e.target.value.trim().toLowerCase(),
-                    })
-                  }
-                />
-              </div>
-            </Row>
-            <Row
               id="instagram"
               label="Instagram"
               hint="Your handle, linked in the website's footer."
@@ -326,6 +304,73 @@ export function StorefrontSettingsForm({
                     ...form,
                     instagram: e.target.value.trim().replace(/^@/, ""),
                   })
+                }
+              />
+            </Row>
+          </Card>
+        </section>
+
+        <section>
+          <h3 className={sectionTitle}>Where to find you</h3>
+          <Card className={sectionCard}>
+            <Row
+              id="address"
+              label="Address"
+              hint="Shown on your website with a map. Leave empty if you sell online only."
+              error={fieldError(error, "address")}
+            >
+              <Textarea
+                id="address"
+                rows={2}
+                maxLength={300}
+                value={form.address}
+                onChange={(e) => setForm({ ...form, address: e.target.value })}
+              />
+            </Row>
+            <Row
+              id="opening-hours"
+              label="Opening hours"
+              hint="When you reply or open the shop, such as Setiap hari 09.00–21.00."
+              error={fieldError(error, "opening_hours")}
+            >
+              <Input
+                id="opening-hours"
+                maxLength={120}
+                value={form.opening_hours}
+                onChange={(e) =>
+                  setForm({ ...form, opening_hours: e.target.value })
+                }
+              />
+            </Row>
+            <Row
+              id="shopee-url"
+              label="Shopee"
+              hint="Your shop's link, such as https://shopee.co.id/tokoabc."
+              error={fieldError(error, "shopee_url")}
+            >
+              <Input
+                id="shopee-url"
+                type="url"
+                placeholder="https://shopee.co.id/tokoabc"
+                value={form.shopee_url}
+                onChange={(e) =>
+                  setForm({ ...form, shopee_url: e.target.value.trim() })
+                }
+              />
+            </Row>
+            <Row
+              id="tokopedia-url"
+              label="Tokopedia"
+              hint="Your shop's link, such as https://www.tokopedia.com/tokoabc."
+              error={fieldError(error, "tokopedia_url")}
+            >
+              <Input
+                id="tokopedia-url"
+                type="url"
+                placeholder="https://www.tokopedia.com/tokoabc"
+                value={form.tokopedia_url}
+                onChange={(e) =>
+                  setForm({ ...form, tokopedia_url: e.target.value.trim() })
                 }
               />
             </Row>
@@ -652,5 +697,98 @@ function ToggleRow({
       </div>
       <Toggle label={label} checked={checked} disabled={disabled} onChange={onChange} />
     </div>
+  )
+}
+
+/** The logo or the hero photo: a preview with Remove, or a drop zone that
+    uploads at once (BR-142). The key is saved with the rest of the form. */
+function ShopImageRow({
+  id,
+  name,
+  label,
+  hint,
+  url,
+  canSave,
+  error,
+  upload,
+  onChange,
+  preview,
+}: {
+  id: string
+  name: string
+  label: string
+  hint: string
+  url: string | null
+  canSave: boolean
+  error?: string
+  upload: (
+    file: File,
+    onProgress: (f: number) => void,
+  ) => Promise<{ key: string; url: string }>
+  onChange: (key: string) => void
+  preview: string
+}) {
+  const [uploaded, setUploaded] = useState<string | null>(null)
+  const [progress, setProgress] = useState<number | null>(null)
+  const [uploadError, setUploadError] = useState<string>()
+  const shown = uploaded ?? url
+
+  async function pick(files: File[]) {
+    const file = files[0]
+    if (!file) return
+    setUploadError(undefined)
+    setProgress(0)
+    try {
+      const done = await upload(file, setProgress)
+      setUploaded(done.url)
+      onChange(done.key)
+    } catch (e) {
+      setUploadError(e instanceof Error ? e.message : "Upload failed.")
+    } finally {
+      setProgress(null)
+    }
+  }
+
+  return (
+    <Row id={id} label={label} hint={hint} error={uploadError ?? error} stacked>
+      {shown ? (
+        <div className="flex items-center gap-4">
+          {/* eslint-disable-next-line @next/next/no-img-element -- the image domain is the shop's, not a Next loader's */}
+          <img
+            src={shown}
+            alt={label}
+            className={cx("rounded-lg border border-gray-200 dark:border-gray-800", preview)}
+          />
+          {canSave && (
+            <Button
+              size="sm"
+              variant="outline"
+              type="button"
+              onClick={() => {
+                setUploaded(null)
+                onChange("")
+              }}
+            >
+              Remove {name}
+            </Button>
+          )}
+        </div>
+      ) : canSave ? (
+        <Dropzone accept="image/jpeg,image/png,image/webp" onFiles={pick}>
+          <ImagePlus className="size-6" aria-hidden />
+          <p>Drop a {name}, or</p>
+        </Dropzone>
+      ) : (
+        <p className="text-sm text-gray-500">No {name}.</p>
+      )}
+      {progress !== null && (
+        <ProgressBar
+          value={progress}
+          max={1}
+          label={`Uploading the ${name}`}
+          className="mt-3"
+        />
+      )}
+    </Row>
   )
 }
