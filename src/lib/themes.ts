@@ -25,7 +25,7 @@ export const themes: Theme[] = [
     name: "Clothing",
     suits: "Everyday clothing, t-shirts, unisex",
     colors: ["#2d5b8a", "#121212", "#4e5b31", "#a4472a"],
-    demo: "demo",
+    demo: "lantaidua",
   },
   {
     key: "woman",
