@@ -13,6 +13,7 @@ export type Put = (
 export const imageTypes = ["image/jpeg", "image/png", "image/webp"]
 export const maxImageBytes = 20 * 1024 * 1024
 export const maxLogoBytes = 2 * 1024 * 1024
+export const maxHeroBytes = 5 * 1024 * 1024
 
 /** The file's SHA-256, hex: the key carries it, so the same image is one object (BR-053). */
 export async function sha256Hex(file: Blob): Promise<string> {
@@ -88,14 +89,35 @@ export async function uploadBodyImage(
  * key is saved as the storefront settings' logo_r2_key, and the URL is where
  * it will show (BR-142).
  */
-export async function uploadLogo(
+export function uploadLogo(
   api: Api,
   file: File,
   put: Put,
   onProgress: (f: number) => void,
 ): Promise<{ key: string; url: string }> {
-  if (file.size > maxLogoBytes) throw new Error(`${file.name} is over 2 MB.`)
-  const presign = await presignImage(api, file, { purpose: "shop_logo" })
+  return uploadShopImage(api, file, put, onProgress, "shop_logo")
+}
+
+/** As uploadLogo, for the website's hero photo, up to 5 MB (BR-142). */
+export function uploadHero(
+  api: Api,
+  file: File,
+  put: Put,
+  onProgress: (f: number) => void,
+): Promise<{ key: string; url: string }> {
+  return uploadShopImage(api, file, put, onProgress, "shop_hero")
+}
+
+async function uploadShopImage(
+  api: Api,
+  file: File,
+  put: Put,
+  onProgress: (f: number) => void,
+  purpose: "shop_logo" | "shop_hero",
+): Promise<{ key: string; url: string }> {
+  const max = purpose === "shop_logo" ? maxLogoBytes : maxHeroBytes
+  if (file.size > max) throw new Error(`${file.name} is over ${max / 1024 / 1024} MB.`)
+  const presign = await presignImage(api, file, { purpose })
   await put(presign.upload_url, file, onProgress)
   return { key: presign.r2_key, url: presign.public_url ?? "" }
 }
