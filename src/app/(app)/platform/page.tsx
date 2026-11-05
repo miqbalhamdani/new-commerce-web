@@ -107,15 +107,18 @@ export default function PlatformPage() {
             />
           </div>
 
-          <Card className="p-5 sm:p-6">
-            <h2 className="text-theme-sm font-medium text-gray-800 dark:text-white/90">
-              Signup funnel
-            </h2>
-            <p className="mt-1 text-theme-xs text-gray-500 dark:text-gray-400">
-              Shops that signed up themselves; CLI and demo shops are not
-              counted.
-            </p>
-            <ol className="mt-4 space-y-3">
+          {/* One strip, not a stacked list, so the shops table stays in view. */}
+          <Card className="p-5">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+              <h2 className="text-theme-sm font-medium text-gray-800 dark:text-white/90">
+                Signup funnel
+              </h2>
+              <p className="text-theme-xs text-gray-500 dark:text-gray-400">
+                Shops that signed up themselves; CLI and demo shops are not
+                counted.
+              </p>
+            </div>
+            <ol className="mt-4 grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3 lg:grid-cols-5">
               {[
                 ["Signed up", sum.shops],
                 ["Verified email", sum.verified],
@@ -229,15 +232,18 @@ function FunnelStep({
   const pct = of > 0 ? Math.round((value / of) * 100) : 0
   return (
     <li>
-      <div className="flex justify-between text-theme-sm">
-        <span className="text-gray-700 dark:text-gray-300">{label}</span>
-        <span className="tabular-nums text-gray-500 dark:text-gray-400">
-          {value} · {pct}%
+      <p className="text-theme-xs text-gray-500 dark:text-gray-400">{label}</p>
+      <p className="mt-1 tabular-nums">
+        <span className="text-lg font-semibold text-gray-800 dark:text-white/90">
+          {value}
         </span>
-      </div>
-      <div className="mt-1.5 h-2 rounded-full bg-gray-100 dark:bg-gray-800">
+        <span className="ml-1.5 text-theme-xs text-gray-500 dark:text-gray-400">
+          {pct}%
+        </span>
+      </p>
+      <div className="mt-2 h-1.5 rounded-full bg-gray-100 dark:bg-gray-800">
         <div
-          className="h-2 rounded-full bg-brand-500"
+          className="h-1.5 rounded-full bg-brand-500"
           style={{ width: `${pct}%` }}
         />
       </div>
