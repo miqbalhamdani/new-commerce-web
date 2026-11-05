@@ -10,8 +10,9 @@ import { Card } from "@/components/ui/common/Page"
 import { CopyField } from "@/components/ui/common/CopyField"
 import { Dropzone } from "@/components/ui/common/Dropzone"
 import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
-import { Checkbox, Textarea } from "@/components/ui/common/Field"
+import { Checkbox, Field, Textarea } from "@/components/ui/common/Field"
 import { ProgressBar } from "@/components/ui/common/ProgressBar"
+import { SegmentedTabs } from "@/components/ui/common/SegmentedTabs"
 import { Select } from "@/components/ui/common/Select"
 import { Toggle } from "@/components/ui/common/Toggle"
 import { ApiError } from "@/lib/api/client"
@@ -37,6 +38,40 @@ export const couriers: { code: CourierCode; label: string }[] = [
   { code: "rpx", label: "RPX" },
   { code: "wahana", label: "Wahana" },
 ]
+
+const tabs = [
+  { value: "look", label: "Website look" },
+  { value: "contact", label: "Contact" },
+  { value: "checkout", label: "Checkout" },
+] as const
+type Tab = (typeof tabs)[number]["value"]
+
+// The fields on the first two tabs, so a refused save opens the tab holding
+// the first field the API named. Everything else is on Checkout.
+const lookFields = ["theme", "brand_color", "logo_r2_key", "hero_r2_key", "tagline"]
+const contactFields = [
+  "whatsapp_number",
+  "instagram",
+  "contact_email",
+  "opening_hours",
+  "address",
+  "shopee_url",
+  "tokopedia_url",
+]
+
+function tabOf(field: string): Tab {
+  if (lookFields.includes(field)) return "look"
+  if (contactFields.includes(field)) return "contact"
+  return "checkout"
+}
+
+/** The tab named in the URL's hash (#checkout): a link can open it, and it
+    survives the remount that follows a save. The form only renders once the
+    settings have loaded, so this never runs on the server. */
+function hashTab(): Tab {
+  const h = typeof window === "undefined" ? "" : window.location.hash.slice(1)
+  return tabs.find((t) => t.value === h)?.value ?? "look"
+}
 
 type Form = {
   theme: ShopTheme
@@ -139,6 +174,12 @@ export function StorefrontSettingsForm({
   const [error, setError] = useState<ApiError | null>(null)
   const [busy, setBusy] = useState(false)
   const [instructionsError, setInstructionsError] = useState<string>()
+  const [tab, setTabState] = useState<Tab>(hashTab)
+
+  function setTab(t: Tab) {
+    setTabState(t)
+    window.history.replaceState(null, "", `#${t}`)
+  }
 
   // Only what changed, with an emptied text field sent as null (BR-009).
   function changes(): Record<string, unknown> {
@@ -161,6 +202,7 @@ export function StorefrontSettingsForm({
     if (!Object.keys(body).length) return
     if (String(body.bank_transfer_instructions ?? "").includes("xxx")) {
       setInstructionsError("Replace the xxx parts with your bank details.")
+      setTab("checkout")
       return
     }
     setBusy(true)
@@ -172,7 +214,10 @@ export function StorefrontSettingsForm({
       setError(null)
       onSaved(s)
     } catch (err) {
-      setError(asApiError(err))
+      const e = asApiError(err)
+      setError(e)
+      const field = e.problem.errors?.[0]?.field
+      if (field) setTab(tabOf(field))
     } finally {
       setBusy(false)
     }
@@ -189,88 +234,126 @@ export function StorefrontSettingsForm({
     })
   }
 
-  // Reference-style sections: an uppercase label above a card whose rows are
-  // split by full-width dividers. A payment method's fields are extra rows
-  // under its toggle, tinted so they read as belonging to it.
+  // Tabbed so each tab fits about one window. Fields pair up two to
+  // a row with the hint under the control, so paired controls line up. A
+  // payment method's fields are a tinted block under its toggle.
+  const pad = "p-5 sm:p-6"
+  const pairs = "grid gap-5 sm:grid-cols-2"
   const sectionTitle = "mb-3 text-xs uppercase leading-5 text-gray-400"
   const sectionCard = "divide-y divide-gray-100 dark:divide-gray-800"
-  const subRow = "bg-gray-50/60 dark:bg-white/[0.02]"
+  const subRow = cx(pad, "bg-gray-50/60 dark:bg-white/[0.02]")
   // Sample keys in Midtrans' own shape; sandbox keys carry an SB- prefix.
   const keyPrefix = form.midtrans_environment === "production" ? "" : "SB-"
+  const dirty = canSave && Object.keys(changes()).length > 0
 
   return (
-    <form onSubmit={save} className="flex flex-col gap-7">
-      <fieldset disabled={!canSave} className="flex flex-col gap-7">
-        <section>
-          <h3 className={sectionTitle}>Website look</h3>
+    <form onSubmit={save} className="flex flex-col gap-6">
+      {/* Outside the fieldset, so a viewer can still look through every tab.
+          All three stay mounted: switching keeps what was typed or uploaded,
+          and one Save sends the lot. */}
+      <div className="border-b border-gray-200 dark:border-gray-800">
+        <SegmentedTabs
+          variant="underline"
+          label="Storefront settings"
+          options={tabs}
+          value={tab}
+          onChange={setTab}
+        />
+      </div>
+      <fieldset disabled={!canSave} className="min-w-0">
+        <div hidden={tab !== "look"}>
           <Card className={sectionCard}>
-            <Row
-              id="theme"
-              label="Theme"
-              hint="How your website is laid out. Each is made for a kind of shop, but any shop can use any theme."
-              error={fieldError(error, "theme")}
-              stacked
-            >
-              <ThemePicker
-                value={form.theme}
-                disabled={!canSave}
-                onChange={(theme) =>
-                  setForm({ ...form, theme, brand_color: "" })
-                }
-              />
-            </Row>
-            <Row
-              id="brand-color"
-              label="Colour"
-              hint="Buttons, links and accents. Each theme has four, made for it."
-              error={fieldError(error, "brand_color")}
-              stacked
-            >
-              <ColorPicker
-                theme={form.theme}
-                value={form.brand_color}
-                disabled={!canSave}
-                onChange={(brand_color) => setForm({ ...form, brand_color })}
-              />
-            </Row>
-            <ShopImageRow
-              id="logo"
-              name="logo"
-              label="Logo"
-              hint="JPEG, PNG or WebP up to 2 MB. Without one, the website shows your shop name."
-              url={form.logo_r2_key ? settings.logo_url : null}
-              canSave={canSave}
-              error={fieldError(error, "logo_r2_key")}
-              upload={(file, onProgress) => uploadLogo(api, file, xhrPut, onProgress)}
-              onChange={(logo_r2_key) => setForm((f) => ({ ...f, logo_r2_key }))}
-              preview="h-16 max-w-48 object-contain p-1"
-            />
-            <ShopImageRow
-              id="hero"
-              name="hero photo"
-              label="Hero photo"
-              hint="The big photo at the top of your home page. JPEG, PNG or WebP up to 5 MB. Without one, the website uses your newest product's photo."
-              url={form.hero_r2_key ? settings.hero_url : null}
-              canSave={canSave}
-              error={fieldError(error, "hero_r2_key")}
-              upload={(file, onProgress) => uploadHero(api, file, xhrPut, onProgress)}
-              onChange={(hero_r2_key) => setForm((f) => ({ ...f, hero_r2_key }))}
-              preview="aspect-[16/9] w-64 object-cover"
-            />
-            <Row
-              id="tagline"
-              label="Tagline"
-              hint="Under your shop name on the website. Up to 160 characters."
-              error={fieldError(error, "tagline")}
-            >
-              <Input
+            <div className={pad}>
+              <p className={labelText}>Theme</p>
+              <p className={hintText}>
+                How your website is laid out. Each is made for a kind of shop,
+                but any shop can use any theme.
+              </p>
+              <div className="mt-4">
+                <ThemePicker
+                  value={form.theme}
+                  disabled={!canSave}
+                  onChange={(theme) =>
+                    setForm({ ...form, theme, brand_color: "" })
+                  }
+                />
+              </div>
+              {fieldError(error, "theme") && (
+                <p className="mt-1.5 text-xs text-error-500">
+                  {fieldError(error, "theme")}
+                </p>
+              )}
+            </div>
+            <div className={cx(pad, pairs)}>
+              <Field
+                id="brand-color"
+                label="Colour"
+                hint="Buttons, links and accents. Each theme has four, made for it."
+                error={fieldError(error, "brand_color")}
+              >
+                <ColorPicker
+                  theme={form.theme}
+                  value={form.brand_color}
+                  disabled={!canSave}
+                  onChange={(brand_color) => setForm({ ...form, brand_color })}
+                />
+              </Field>
+              <Field
                 id="tagline"
-                maxLength={160}
-                value={form.tagline}
-                onChange={(e) => setForm({ ...form, tagline: e.target.value })}
+                label="Tagline"
+                hint="Under your shop name on the website. Up to 160 characters."
+                error={fieldError(error, "tagline")}
+              >
+                <Input
+                  id="tagline"
+                  maxLength={160}
+                  value={form.tagline}
+                  onChange={(e) =>
+                    setForm({ ...form, tagline: e.target.value })
+                  }
+                />
+              </Field>
+            </div>
+            <div className={cx(pad, pairs)}>
+              <ShopImage
+                id="logo"
+                name="logo"
+                label="Logo"
+                hint="JPEG, PNG or WebP up to 2 MB. Without one, the website shows your shop name."
+                url={form.logo_r2_key ? settings.logo_url : null}
+                canSave={canSave}
+                error={fieldError(error, "logo_r2_key")}
+                upload={(file, onProgress) =>
+                  uploadLogo(api, file, xhrPut, onProgress)
+                }
+                onChange={(logo_r2_key) =>
+                  setForm((f) => ({ ...f, logo_r2_key }))
+                }
+                preview="h-16 max-w-48 object-contain p-1"
               />
-            </Row>
-            <Row
+              <ShopImage
+                id="hero"
+                name="hero photo"
+                label="Hero photo"
+                hint="The big photo at the top of your home page. JPEG, PNG or WebP up to 5 MB. Without one, the website uses your newest product's photo."
+                url={form.hero_r2_key ? settings.hero_url : null}
+                canSave={canSave}
+                error={fieldError(error, "hero_r2_key")}
+                upload={(file, onProgress) =>
+                  uploadHero(api, file, xhrPut, onProgress)
+                }
+                onChange={(hero_r2_key) =>
+                  setForm((f) => ({ ...f, hero_r2_key }))
+                }
+                preview="aspect-[16/9] w-64 object-cover"
+              />
+            </div>
+          </Card>
+        </div>
+
+        <div hidden={tab !== "contact"}>
+          <Card className={cx(pad, pairs)}>
+            <Field
               id="whatsapp-number"
               label="WhatsApp number"
               hint="Where the order button sends shoppers. Starts with 62."
@@ -288,8 +371,8 @@ export function StorefrontSettingsForm({
                   })
                 }
               />
-            </Row>
-            <Row
+            </Field>
+            <Field
               id="instagram"
               label="Instagram"
               hint="Your handle, linked in the website's footer."
@@ -306,28 +389,23 @@ export function StorefrontSettingsForm({
                   })
                 }
               />
-            </Row>
-          </Card>
-        </section>
-
-        <section>
-          <h3 className={sectionTitle}>Where to find you</h3>
-          <Card className={sectionCard}>
-            <Row
-              id="address"
-              label="Address"
-              hint="Shown on your website with a map. Leave empty if you sell online only."
-              error={fieldError(error, "address")}
+            </Field>
+            <Field
+              id="contact-email"
+              label="Contact email"
+              hint="Where customer replies go."
+              error={fieldError(error, "contact_email")}
             >
-              <Textarea
-                id="address"
-                rows={2}
-                maxLength={300}
-                value={form.address}
-                onChange={(e) => setForm({ ...form, address: e.target.value })}
+              <Input
+                id="contact-email"
+                type="email"
+                value={form.contact_email}
+                onChange={(e) =>
+                  setForm({ ...form, contact_email: e.target.value })
+                }
               />
-            </Row>
-            <Row
+            </Field>
+            <Field
               id="opening-hours"
               label="Opening hours"
               hint="When you reply or open the shop, such as Setiap hari 09.00–21.00."
@@ -341,8 +419,26 @@ export function StorefrontSettingsForm({
                   setForm({ ...form, opening_hours: e.target.value })
                 }
               />
-            </Row>
-            <Row
+            </Field>
+            <div className="sm:col-span-2">
+              <Field
+                id="address"
+                label="Address"
+                hint="Shown on your website with a map. Leave empty if you sell online only."
+                error={fieldError(error, "address")}
+              >
+                <Textarea
+                  id="address"
+                  rows={2}
+                  maxLength={300}
+                  value={form.address}
+                  onChange={(e) =>
+                    setForm({ ...form, address: e.target.value })
+                  }
+                />
+              </Field>
+            </div>
+            <Field
               id="shopee-url"
               label="Shopee"
               hint="Your shop's link, such as https://shopee.co.id/tokoabc."
@@ -357,8 +453,8 @@ export function StorefrontSettingsForm({
                   setForm({ ...form, shopee_url: e.target.value.trim() })
                 }
               />
-            </Row>
-            <Row
+            </Field>
+            <Field
               id="tokopedia-url"
               label="Tokopedia"
               hint="Your shop's link, such as https://www.tokopedia.com/tokoabc."
@@ -373,244 +469,250 @@ export function StorefrontSettingsForm({
                   setForm({ ...form, tokopedia_url: e.target.value.trim() })
                 }
               />
-            </Row>
+            </Field>
           </Card>
-        </section>
+        </div>
 
-        <section>
-          <h3 className={sectionTitle}>General</h3>
-          <Card className={sectionCard}>
-            <Row
-              id="contact-email"
-              label="Contact email"
-              hint="Where customer replies go."
-              error={fieldError(error, "contact_email")}
-            >
-              <Input
-                id="contact-email"
-                type="email"
-                value={form.contact_email}
-                onChange={(e) =>
-                  setForm({ ...form, contact_email: e.target.value })
-                }
-              />
-            </Row>
-            <Row
-              id="google-client-id"
-              label="Google client ID"
-              hint="Leave empty to turn off Google sign-in."
-              error={fieldError(error, "google_client_id")}
-            >
-              <Input
-                id="google-client-id"
-                value={form.google_client_id}
-                onChange={(e) =>
-                  setForm({ ...form, google_client_id: e.target.value })
-                }
-              />
-            </Row>
-          </Card>
-        </section>
-
-        <section>
-          <h3 className={sectionTitle}>Shipping</h3>
-          <Card className={sectionCard}>
-            <Row
-              id="origin-postal-code"
-              label="Ships from (postal code)"
-              hint="Rates are quoted from here."
-              error={fieldError(error, "origin_postal_code")}
-            >
-              <Input
-                id="origin-postal-code"
-                inputMode="numeric"
-                maxLength={5}
-                value={form.origin_postal_code}
-                onChange={(e) =>
-                  setForm({ ...form, origin_postal_code: e.target.value })
-                }
-              />
-            </Row>
-            <fieldset className="px-5 py-4 sm:px-6">
-              <legend className="float-left text-sm font-medium text-gray-800 dark:text-white/90">
-                Couriers
-              </legend>
-              <p
-                className={cx(
-                  "clear-left mt-0.5 text-xs",
-                  fieldError(error, "shipping_couriers")
-                    ? "text-error-500"
-                    : "text-gray-500 dark:text-gray-400",
-                )}
-              >
-                {fieldError(error, "shipping_couriers") ??
-                  "Offered at checkout."}
-              </p>
-              <div className="mt-3 grid grid-cols-2 gap-2.5 sm:grid-cols-3">
-                {couriers.map((c) => (
-                  <label
-                    key={c.code}
-                    className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"
-                  >
-                    <Checkbox
-                      checked={form.shipping_couriers.includes(c.code)}
-                      onChange={(e) => toggleCourier(c.code, e.target.checked)}
-                    />
-                    {c.label}
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-          </Card>
-        </section>
-
-        <section>
-          <h3 className={sectionTitle}>Payments</h3>
-          <Card className={sectionCard}>
-            {/* A method's fields only show while it is on. Switching off
-                hides them without clearing, so a save sends only the
-                enabled flag (BR-009). */}
-            <ToggleRow
-              label="Bank transfer"
-              hint="Confirmed by your team."
-              checked={form.bank_transfer_enabled}
-              disabled={!canSave}
-              error={fieldError(error, "bank_transfer_enabled")}
-              onChange={(on) => setForm({ ...form, bank_transfer_enabled: on })}
-            />
-            {form.bank_transfer_enabled && (
-              <Row
-                id="bank-instructions"
-                label="Transfer instructions"
-                hint="Shown after checkout."
-                error={
-                  instructionsError ??
-                  fieldError(error, "bank_transfer_instructions")
-                }
-                className={subRow}
-                stacked
-              >
-                <Textarea
-                  id="bank-instructions"
-                  rows={6}
-                  hasError={!!instructionsError}
-                  value={form.bank_transfer_instructions}
-                  onChange={(e) => {
-                    setInstructionsError(undefined)
-                    setForm({
-                      ...form,
-                      bank_transfer_instructions: e.target.value,
-                    })
-                  }}
-                />
-              </Row>
-            )}
-
-            <ToggleRow
-              label="Midtrans"
-              hint="Online payments."
-              checked={form.midtrans_enabled}
-              disabled={!canSave}
-              error={fieldError(error, "midtrans_enabled")}
-              onChange={(on) => setForm({ ...form, midtrans_enabled: on })}
-            />
-            {form.midtrans_enabled && (
-              <>
-                <Row
-                  id="midtrans-environment"
-                  label="Environment"
-                  error={fieldError(error, "midtrans_environment")}
-                  className={subRow}
-                >
-                  <Select
-                    id="midtrans-environment"
-                    className="w-full"
-                    value={form.midtrans_environment}
-                    disabled={!canSave}
-                    onChange={(v) =>
-                      setForm({
-                        ...form,
-                        midtrans_environment: v as Form["midtrans_environment"],
-                      })
-                    }
-                    options={[
-                      { value: "", label: "Not set" },
-                      { value: "sandbox", label: "Sandbox (testing)" },
-                      { value: "production", label: "Production" },
-                    ]}
-                  />
-                </Row>
-                <Row
-                  id="midtrans-client-key"
-                  label="Client key"
-                  error={fieldError(error, "midtrans_client_key")}
-                  className={subRow}
+        <div hidden={tab !== "checkout"}>
+          <div className="flex flex-col gap-6">
+            <section>
+              <h3 className={sectionTitle}>Shipping</h3>
+              <Card className={cx(pad, "grid gap-5 sm:grid-cols-3")}>
+                <Field
+                  id="origin-postal-code"
+                  label="Ships from (postal code)"
+                  hint="Rates are quoted from here."
+                  error={fieldError(error, "origin_postal_code")}
                 >
                   <Input
-                    id="midtrans-client-key"
-                    placeholder={`${keyPrefix}Mid-client-xxxxxxxxxxxxxxxx`}
-                    value={form.midtrans_client_key}
+                    id="origin-postal-code"
+                    inputMode="numeric"
+                    maxLength={5}
+                    value={form.origin_postal_code}
                     onChange={(e) =>
-                      setForm({ ...form, midtrans_client_key: e.target.value })
+                      setForm({ ...form, origin_postal_code: e.target.value })
                     }
                   />
-                </Row>
-                <Row
-                  id="midtrans-server-key"
-                  label="Server key"
-                  hint="Encrypted, never shown again."
-                  error={fieldError(error, "midtrans_server_key")}
-                  className={subRow}
-                >
-                  {replacing ? (
-                    <Input
+                </Field>
+                <fieldset className="min-w-0 sm:col-span-2">
+                  <legend className="float-left mb-1.5 text-sm font-medium text-gray-700 dark:text-gray-400">
+                    Couriers
+                  </legend>
+                  <div className="clear-left grid grid-cols-2 gap-2.5 pt-1 sm:grid-cols-3">
+                    {couriers.map((c) => (
+                      <label
+                        key={c.code}
+                        className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"
+                      >
+                        <Checkbox
+                          checked={form.shipping_couriers.includes(c.code)}
+                          onChange={(e) =>
+                            toggleCourier(c.code, e.target.checked)
+                          }
+                        />
+                        {c.label}
+                      </label>
+                    ))}
+                  </div>
+                  <p
+                    className={cx(
+                      "mt-2.5 text-xs",
+                      fieldError(error, "shipping_couriers")
+                        ? "text-error-500"
+                        : "text-gray-500 dark:text-gray-400",
+                    )}
+                  >
+                    {fieldError(error, "shipping_couriers") ??
+                      "Offered at checkout."}
+                  </p>
+                </fieldset>
+              </Card>
+            </section>
+
+            <section>
+              <h3 className={sectionTitle}>Payments</h3>
+              <Card className={sectionCard}>
+                {/* A method's fields only show while it is on. Switching off
+                    hides them without clearing, so a save sends only the
+                    enabled flag (BR-009). */}
+                <ToggleRow
+                  label="Bank transfer"
+                  hint="Confirmed by your team."
+                  checked={form.bank_transfer_enabled}
+                  disabled={!canSave}
+                  error={fieldError(error, "bank_transfer_enabled")}
+                  onChange={(on) =>
+                    setForm({ ...form, bank_transfer_enabled: on })
+                  }
+                />
+                {form.bank_transfer_enabled && (
+                  <div className={subRow}>
+                    <Field
+                      id="bank-instructions"
+                      label="Transfer instructions"
+                      hint="Shown after checkout."
+                      error={
+                        instructionsError ??
+                        fieldError(error, "bank_transfer_instructions")
+                      }
+                    >
+                      <Textarea
+                        id="bank-instructions"
+                        rows={6}
+                        hasError={!!instructionsError}
+                        value={form.bank_transfer_instructions}
+                        onChange={(e) => {
+                          setInstructionsError(undefined)
+                          setForm({
+                            ...form,
+                            bank_transfer_instructions: e.target.value,
+                          })
+                        }}
+                      />
+                    </Field>
+                  </div>
+                )}
+
+                <ToggleRow
+                  label="Midtrans"
+                  hint="Online payments."
+                  checked={form.midtrans_enabled}
+                  disabled={!canSave}
+                  error={fieldError(error, "midtrans_enabled")}
+                  onChange={(on) => setForm({ ...form, midtrans_enabled: on })}
+                />
+                {form.midtrans_enabled && (
+                  <div className={cx(subRow, pairs)}>
+                    <Field
+                      id="midtrans-environment"
+                      label="Environment"
+                      error={fieldError(error, "midtrans_environment")}
+                    >
+                      <Select
+                        id="midtrans-environment"
+                        className="w-full"
+                        value={form.midtrans_environment}
+                        disabled={!canSave}
+                        onChange={(v) =>
+                          setForm({
+                            ...form,
+                            midtrans_environment:
+                              v as Form["midtrans_environment"],
+                          })
+                        }
+                        options={[
+                          { value: "", label: "Not set" },
+                          { value: "sandbox", label: "Sandbox (testing)" },
+                          { value: "production", label: "Production" },
+                        ]}
+                      />
+                    </Field>
+                    <Field
+                      id="midtrans-client-key"
+                      label="Client key"
+                      error={fieldError(error, "midtrans_client_key")}
+                    >
+                      <Input
+                        id="midtrans-client-key"
+                        placeholder={`${keyPrefix}Mid-client-xxxxxxxxxxxxxxxx`}
+                        value={form.midtrans_client_key}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            midtrans_client_key: e.target.value,
+                          })
+                        }
+                      />
+                    </Field>
+                    <Field
                       id="midtrans-server-key"
-                      type="password"
-                      autoComplete="off"
-                      placeholder={`${keyPrefix}Mid-server-xxxxxxxx…`}
-                      value={serverKey}
-                      onChange={(e) => setServerKey(e.target.value)}
-                    />
-                  ) : (
-                    <div className="flex items-center justify-between gap-3 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm dark:border-gray-700 dark:bg-gray-900">
-                      <span className="text-gray-800 dark:text-white/90">
-                        Set
-                      </span>
-                      {canSave && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          type="button"
-                          onClick={() => setReplacing(true)}
-                        >
-                          Replace
-                        </Button>
+                      label="Server key"
+                      hint="Encrypted, never shown again."
+                      error={fieldError(error, "midtrans_server_key")}
+                    >
+                      {replacing ? (
+                        <Input
+                          id="midtrans-server-key"
+                          type="password"
+                          autoComplete="off"
+                          placeholder={`${keyPrefix}Mid-server-xxxxxxxx…`}
+                          value={serverKey}
+                          onChange={(e) => setServerKey(e.target.value)}
+                        />
+                      ) : (
+                        <div className="flex items-center justify-between gap-3 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm dark:border-gray-700 dark:bg-gray-900">
+                          <span className="text-gray-800 dark:text-white/90">
+                            Set
+                          </span>
+                          {canSave && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              type="button"
+                              onClick={() => setReplacing(true)}
+                            >
+                              Replace
+                            </Button>
+                          )}
+                        </div>
                       )}
-                    </div>
-                  )}
-                </Row>
-                <Row
-                  id="notification-url"
-                  label="Notification URL"
-                  hint="Paste into Midtrans only if asked."
-                  className={subRow}
+                    </Field>
+                    <Field
+                      id="notification-url"
+                      label="Notification URL"
+                      hint="Paste into Midtrans only if asked."
+                    >
+                      <CopyField
+                        id="notification-url"
+                        label="Notification URL"
+                        value={settings.midtrans_notification_url}
+                      />
+                    </Field>
+                  </div>
+                )}
+              </Card>
+            </section>
+
+            <section>
+              <h3 className={sectionTitle}>Customer sign-in</h3>
+              <Card className={cx(pad, pairs)}>
+                <Field
+                  id="google-client-id"
+                  label="Google client ID"
+                  hint="Leave empty to turn off Google sign-in."
+                  error={fieldError(error, "google_client_id")}
                 >
-                  <CopyField
-                    id="notification-url"
-                    label="Notification URL"
-                    value={settings.midtrans_notification_url}
+                  <Input
+                    id="google-client-id"
+                    value={form.google_client_id}
+                    onChange={(e) =>
+                      setForm({ ...form, google_client_id: e.target.value })
+                    }
                   />
-                </Row>
-              </>
-            )}
-          </Card>
-        </section>
+                </Field>
+              </Card>
+            </section>
+          </div>
+        </div>
       </fieldset>
       {error && !error.problem.errors?.length && (
         <ErrorNotice error={error} title="Could not save" />
       )}
+      {/* Once something changed, Save floats at the foot of the window, in
+          reach whichever tab is open; until then it sits under the form. */}
       {canSave && (
-        <div className="flex justify-end">
+        <div
+          className={cx(
+            "flex items-center justify-end gap-4",
+            dirty &&
+              "sticky bottom-4 z-10 rounded-2xl border border-gray-200 bg-white/95 px-5 py-3 shadow-theme-md backdrop-blur dark:border-gray-800 dark:bg-gray-900/95",
+          )}
+        >
+          {dirty && (
+            <p className="text-theme-sm text-gray-500 dark:text-gray-400">
+              Unsaved changes
+            </p>
+          )}
           <Button size="sm" type="submit" isLoading={busy}>
             Save
           </Button>
@@ -624,55 +726,6 @@ const rowPad = "px-5 py-4 sm:px-6"
 const labelText = "text-sm font-medium text-gray-800 dark:text-white/90"
 const hintText = "mt-0.5 text-xs text-gray-500 dark:text-gray-400"
 
-/** One settings row: label and hint on the left, the control on the right
-    (stacked on mobile, or always with `stacked` for wide controls). An error
-    sits under the control, as in Field. */
-function Row({
-  id,
-  label,
-  hint,
-  error,
-  stacked,
-  className,
-  children,
-}: {
-  id: string
-  label: string
-  hint?: string
-  error?: string
-  stacked?: boolean
-  className?: string
-  children: React.ReactNode
-}) {
-  return (
-    <div
-      className={cx(
-        rowPad,
-        "grid gap-3",
-        !stacked && "sm:grid-cols-2 sm:items-center sm:gap-6",
-        className,
-      )}
-    >
-      <div>
-        <label htmlFor={id} className={labelText}>
-          {label}
-        </label>
-        {hint && <p className={hintText}>{hint}</p>}
-      </div>
-      <div>
-        {children}
-        {error && (
-          <p id={`${id}-error`} className="mt-1.5 text-xs text-error-500">
-            {error}
-          </p>
-        )}
-      </div>
-    </div>
-  )
-}
-
-/** A row that switches a payment method on or off. Headless UI's Switch is
-    not a native input, so the disabled fieldset does not reach it. */
 function ToggleRow({
   label,
   hint,
@@ -702,7 +755,7 @@ function ToggleRow({
 
 /** The logo or the hero photo: a preview with Remove, or a drop zone that
     uploads at once (BR-142). The key is saved with the rest of the form. */
-function ShopImageRow({
+function ShopImage({
   id,
   name,
   label,
@@ -750,7 +803,7 @@ function ShopImageRow({
   }
 
   return (
-    <Row id={id} label={label} hint={hint} error={uploadError ?? error} stacked>
+    <Field id={id} label={label} hint={hint} error={uploadError ?? error}>
       {shown ? (
         <div className="flex items-center gap-4">
           {/* eslint-disable-next-line @next/next/no-img-element -- the image domain is the shop's, not a Next loader's */}
@@ -774,7 +827,11 @@ function ShopImageRow({
           )}
         </div>
       ) : canSave ? (
-        <Dropzone accept="image/jpeg,image/png,image/webp" onFiles={pick}>
+        <Dropzone
+          accept="image/jpeg,image/png,image/webp"
+          onFiles={pick}
+          className="p-5"
+        >
           <ImagePlus className="size-6" aria-hidden />
           <p>Drop a {name}, or</p>
         </Dropzone>
@@ -789,6 +846,6 @@ function ShopImageRow({
           className="mt-3"
         />
       )}
-    </Row>
+    </Field>
   )
 }
