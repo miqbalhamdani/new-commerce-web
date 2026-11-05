@@ -1333,6 +1333,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/platform/shops": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every shop on Belli, for the platform admins
+         * @description BR-150's report: every shop, newest first, unpaginated, with its owner, source, website,
+         *     products, orders and last activity, and a summary of the shops that signed up themselves.
+         *     Each shop is read in its own tenant transaction; nothing is written. Only an `active` staff
+         *     user whose email is in `PLATFORM_ADMIN_EMAILS` may call it: anyone else, and everyone when
+         *     the setting is empty, gets `403`.
+         */
+        get: operations["getPlatformShops"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/customers": {
         parameters: {
             query?: never;
@@ -1564,6 +1588,11 @@ export interface components {
              *     does not have.
              */
             permissions: string[];
+            /**
+             * @description True when the user's email is in the server's `PLATFORM_ADMIN_EMAILS` (BR-150), so the
+             *     admin shows the platform page. Not a role; it grants nothing in the user's shop.
+             */
+            platform_admin: boolean;
         };
         SessionTenant: {
             /** Format: uuid */
@@ -1574,6 +1603,92 @@ export interface components {
              * @example Asia/Jakarta
              */
             timezone: string;
+        };
+        /** @description BR-150's report (04-api-spec.md §14). */
+        PlatformShops: {
+            /** Format: date-time */
+            generated_at: string;
+            summary: components["schemas"]["PlatformSummary"];
+            /** @description Newest first. */
+            shops: components["schemas"]["PlatformShop"][];
+        };
+        /**
+         * @description Counts over the shops whose source is `email` or `google`. Shops made with
+         *     `cmd/create-tenant` or `cmd/demo-seed` are listed but not counted.
+         */
+        PlatformSummary: {
+            shops: number;
+            /** @description Signed up in the last 7 days. */
+            new_7d: number;
+            /** @description Signed up in the last 30 days. */
+            new_30d: number;
+            /** @description The owner confirmed their email (owner `active`). */
+            verified: number;
+            website_set_up: number;
+            with_products: number;
+            with_orders: number;
+            /** @description A staff sign-in or audit-log entry in the last 7 days. */
+            active_7d: number;
+            /** @description Verified, with no activity in 14 days. */
+            sleeping: number;
+        };
+        PlatformShop: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** @description The website is `https://{slug}.belli.id` (BR-140). */
+            slug: string;
+            /** @enum {string} */
+            status: "active" | "suspended" | "closed";
+            /** Format: date-time */
+            created_at: string;
+            /**
+             * @description How the shop was opened: the signup form, Google, or `cmd/create-tenant` /
+             *     `cmd/demo-seed` (no `tenant.register` audit row).
+             * @enum {string}
+             */
+            source: "email" | "google" | "cli";
+            owner: components["schemas"]["PlatformShopOwner"] | null;
+            website: components["schemas"]["PlatformShopWebsite"];
+            products: components["schemas"]["PlatformShopProducts"];
+            orders: components["schemas"]["PlatformShopOrders"];
+            /** Format: date-time */
+            last_activity_at: string | null;
+        };
+        PlatformShopOwner: {
+            name: string;
+            /** Format: email */
+            email: string;
+            /**
+             * @description `invited` until the owner confirms their email.
+             * @enum {string}
+             */
+            status: "invited" | "active" | "disabled";
+            /** Format: date-time */
+            last_login_at: string | null;
+        };
+        PlatformShopWebsite: {
+            /** @description `null` until the shop first opens its storefront settings. */
+            theme: string | null;
+            logo: boolean;
+            whatsapp: boolean;
+            /** @description A logo, WhatsApp number or tagline is set. */
+            set_up: boolean;
+        };
+        PlatformShopProducts: {
+            active: number;
+            /** @description Not archived. */
+            total: number;
+            /** Format: date-time */
+            first_at: string | null;
+        };
+        PlatformShopOrders: {
+            total: number;
+            last_30d: number;
+            /** Format: date-time */
+            first_at: string | null;
+            /** Format: date-time */
+            last_at: string | null;
         };
         /** @description One of the four seeded roles and everything it grants. */
         Role: {
@@ -4848,6 +4963,28 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    getPlatformShops: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The report. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformShops"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
         };
     };
     listCustomers: {
