@@ -107,7 +107,7 @@ export default function PlatformPage() {
             />
           </div>
 
-          <Card>
+          <Card className="p-5 sm:p-6">
             <h2 className="text-theme-sm font-medium text-gray-800 dark:text-white/90">
               Signup funnel
             </h2>
