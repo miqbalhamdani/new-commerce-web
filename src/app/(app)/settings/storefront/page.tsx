@@ -39,14 +39,12 @@ export default function StorefrontSettingsPage() {
       {loading && !data ? (
         <Loading />
       ) : data ? (
-        <div className="max-w-2xl">
-          <StorefrontSettingsForm
-            key={JSON.stringify(data)}
-            settings={data}
-            canSave={canWrite}
-            onSaved={setData}
-          />
-        </div>
+        <StorefrontSettingsForm
+          key={JSON.stringify(data)}
+          settings={data}
+          canSave={canWrite}
+          onSaved={setData}
+        />
       ) : null}
     </Page>
   )

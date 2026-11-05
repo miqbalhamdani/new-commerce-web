@@ -24,7 +24,7 @@ export function ThemePicker({
     <div
       role="radiogroup"
       aria-label="Theme"
-      className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4"
+      className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4"
     >
       {themes.map((t) => {
         const on = t.key === value

@@ -10,7 +10,14 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
 }))
 
-beforeEach(() => vi.unstubAllGlobals())
+// The open tab lives in the URL's hash; each test starts on the first one.
+beforeEach(() => {
+  vi.unstubAllGlobals()
+  window.history.replaceState(null, "", "/settings/storefront")
+})
+
+const openTab = async (name: string) =>
+  userEvent.click(await screen.findByRole("button", { name }))
 
 const settings = {
   contact_email: null,
@@ -56,17 +63,22 @@ describe("the storefront settings screen (P1-217)", () => {
     renderSignedIn(<StorefrontSettingsPage />)
 
     // The key is never on screen: only that it is set, and the way to replace it.
-    expect(await screen.findByText("Set")).toBeInTheDocument()
+    await openTab("Checkout")
+    expect(await screen.findByText("Set")).toBeVisible()
     expect(screen.queryByLabelText("Server key")).toBeNull()
     expect(screen.getByLabelText("Notification URL")).toHaveValue(
       settings.midtrans_notification_url,
     )
 
+    // Changes on two tabs go out in one save.
+    await openTab("Contact")
     await userEvent.type(
       screen.getByLabelText("Contact email"),
       "halo@tokoabc.com",
     )
+    await openTab("Checkout")
     await userEvent.click(screen.getByLabelText("SiCepat"))
+    expect(screen.getByText("Unsaved changes")).toBeInTheDocument()
     await userEvent.click(screen.getByRole("button", { name: "Save" }))
 
     await waitFor(() =>
@@ -89,9 +101,8 @@ describe("the storefront settings screen (P1-217)", () => {
     })
     renderSignedIn(<StorefrontSettingsPage />)
 
-    await userEvent.click(
-      await screen.findByRole("button", { name: "Replace" }),
-    )
+    await openTab("Checkout")
+    await userEvent.click(screen.getByRole("button", { name: "Replace" }))
     await userEvent.type(screen.getByLabelText("Server key"), "Mid-server-new")
     await userEvent.clear(screen.getByLabelText("Transfer instructions"))
     await userEvent.click(screen.getByRole("button", { name: "Save" }))
@@ -134,7 +145,8 @@ describe("the storefront settings screen (P1-217)", () => {
     renderSignedIn(<StorefrontSettingsPage />)
 
     // A method's fields stay hidden until it is switched on.
-    const toggle = await screen.findByLabelText("Midtrans")
+    await openTab("Checkout")
+    const toggle = screen.getByLabelText("Midtrans")
     expect(screen.queryByLabelText("Client key")).toBeNull()
     await userEvent.click(toggle)
     expect(screen.getByLabelText("Client key")).toBeInTheDocument()
@@ -158,7 +170,8 @@ describe("the storefront settings screen (P1-217)", () => {
       fetchSpy.mock.calls.filter(([, i]) => i?.method === "PATCH")
     renderSignedIn(<StorefrontSettingsPage />)
 
-    const instructions = await screen.findByLabelText("Transfer instructions")
+    await openTab("Checkout")
+    const instructions = screen.getByLabelText("Transfer instructions")
     expect((instructions as HTMLTextAreaElement).value).toContain(
       "Account number: xxx",
     )
@@ -195,6 +208,7 @@ describe("the storefront settings screen (P1-217)", () => {
       settings.logo_url,
     )
     await userEvent.type(screen.getByLabelText("Tagline"), "Sprei katun lokal")
+    await openTab("Contact")
     await userEvent.type(
       screen.getByLabelText("WhatsApp number"),
       "62 812-3456-7890",
@@ -205,6 +219,7 @@ describe("the storefront settings screen (P1-217)", () => {
       screen.getByLabelText("Shopee"),
       " https://shopee.co.id/tokoabc ",
     )
+    await openTab("Website look")
     await userEvent.click(screen.getByRole("button", { name: "Remove logo" }))
     expect(screen.queryByAltText("Logo")).toBeNull()
     await userEvent.click(screen.getByRole("button", { name: "Save" }))
@@ -264,6 +279,39 @@ describe("the storefront settings screen (P1-217)", () => {
     })
   })
 
+  it("opens the tab holding the field the API refused, and keeps it in the hash", async () => {
+    mockApi(["settings:read", "settings:write"], (url, init) => {
+      if (url.endsWith("/v1/storefront-settings") && init?.method === "PATCH")
+        return json(
+          {
+            type: "https://docs.example.com/errors/validation_failed",
+            title: "Validation failed",
+            status: 422,
+            detail: "One field is invalid",
+            trace_id: "t1",
+            errors: [
+              { field: "whatsapp_number", detail: "Starts with 62." },
+            ],
+          },
+          422,
+        )
+      if (url.endsWith("/v1/storefront-settings")) return json(settings)
+      return undefined
+    })
+    renderSignedIn(<StorefrontSettingsPage />)
+
+    await userEvent.type(await screen.findByLabelText("Tagline"), "Halo")
+    expect(screen.getByLabelText("WhatsApp number")).not.toBeVisible()
+    await userEvent.click(screen.getByRole("button", { name: "Save" }))
+
+    expect(await screen.findByText("Starts with 62.")).toBeVisible()
+    expect(screen.getByRole("button", { name: "Contact" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    )
+    expect(window.location.hash).toBe("#contact")
+  })
+
   it("shows a viewer the settings with no way to save (BR-025)", async () => {
     mockApi(["settings:read"], (url) => {
       if (url.endsWith("/v1/storefront-settings")) return json(settings)
@@ -271,9 +319,12 @@ describe("the storefront settings screen (P1-217)", () => {
     })
     renderSignedIn(<StorefrontSettingsPage />)
 
-    expect(
-      await screen.findByLabelText("Ships from (postal code)"),
-    ).toHaveValue("40115")
+    // The tabs sit outside the disabled form, so a viewer can still switch.
+    await openTab("Checkout")
+    expect(screen.getByLabelText("Ships from (postal code)")).toBeVisible()
+    expect(screen.getByLabelText("Ships from (postal code)")).toHaveValue(
+      "40115",
+    )
     expect(screen.queryByRole("button", { name: "Save" })).toBeNull()
     expect(screen.queryByRole("button", { name: "Replace" })).toBeNull()
   })
