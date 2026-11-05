@@ -416,23 +416,40 @@ redrawn within a minute; belli.id links to eight demo shops, one per theme.
 | P1-802 | Themes and the rest of the look | BE | 801 | Migration `000030_storefront_themes` matches `03-erd.md` §3.5; storefront settings read and write the theme, colour (one of the theme's four, else `422`; a theme change without a colour clears it), hero photo, address, opening hours and marketplace links as §4; `shop_hero` presign as §8 (5 MB, `settings:write`); `/config` returns the theme and always a colour (BR-142, BR-143) | review | Iqbal Hamdani |
 | P1-803 | Card fields in the product list | BE | 801 | `/v1/storefront/products` items carry `on_sale`, `regular_price_min` and `options` as §11.4 (BR-046, BR-143) | review | Iqbal Hamdani |
 | P1-804 | A demo shop per theme | BE | 802, 803 | `demo-seed -theme {key}` seeds a shop drawn in that theme: catalog, collections, photos, articles and look; the fashion catalog stays the default (BR-143) | review | Iqbal Hamdani |
-| P1-805 | Theme picker in the admin | FE | 802 | Storefront settings shows the eight themes, each with what it suits and a link to its demo shop, then the chosen theme's four colours; uploads a hero photo and edits address, opening hours and marketplace links (BR-142, BR-143) | wip | Iqbal Hamdani |
-| P1-806 | Themes in the hosted website | SF | 802, 803 | The website draws each shop in the theme and colour from `/config`, an unknown theme as `katalog`; catalog filters, variant prices, the WhatsApp message and the mobile order bar are shared by every theme (BR-142, BR-143) | wip | Iqbal Hamdani |
-| P1-807 | Theme `busana` | SF | 806 | Busana: home, catalog, product page, articles and article follow `Belli Store.dc.html` in Claude Design at 360 px and 1280 px, in each of its four colours (BR-143) | wip | Iqbal Hamdani |
-| P1-808 | Theme `clothing` | SF | 806 | Clothing: home, catalog, product page, articles and article follow `Belli Store Clothing.dc.html` in Claude Design at 360 px and 1280 px, in each of its four colours (BR-143) | wip | Iqbal Hamdani |
-| P1-809 | Theme `woman` | SF | 806 | Woman: home, catalog, product page, articles and article follow `Belli Store Woman.dc.html` in Claude Design at 360 px and 1280 px, in each of its four colours (BR-143) | wip | Iqbal Hamdani |
-| P1-810 | Theme `katalog` | SF | 806 | Katalog: home, catalog, product page, articles and article follow `Belli Katalog.dc.html` in Claude Design at 360 px and 1280 px, in each of its four colours (BR-143) | wip | Iqbal Hamdani |
-| P1-811 | Theme `katalog-hangat` | SF | 806 | Katalog Hangat: home, catalog, product page, articles and article follow `Belli Katalog Tema 2.dc.html` in Claude Design at 360 px and 1280 px, in each of its four colours (BR-143) | wip | Iqbal Hamdani |
-| P1-812 | Theme `furnitur` | SF | 806 | Furnitur Klasik: home, catalog, product page, articles and article follow `Belli Katalog Furnitur.dc.html` in Claude Design at 360 px and 1280 px, in each of its four colours (BR-143) | wip | Iqbal Hamdani |
-| P1-813 | Theme `furnitur-earthy` | SF | 806 | Furnitur Earthy: home, catalog, product page, articles and article follow `Belli Katalog Furnitur Tema 2.dc.html` in Claude Design at 360 px and 1280 px, in each of its four colours (BR-143) | wip | Iqbal Hamdani |
-| P1-814 | Theme `furnitur-ceria` | SF | 806 | Furnitur Ceria: home, catalog, product page, articles and article follow `Belli Katalog Furnitur Tema 3.dc.html` in Claude Design at 360 px and 1280 px, in each of its four colours (BR-143) | wip | Iqbal Hamdani |
-| P1-815 | Demo shops on belli.id | LP | 804, 807–814 | The landing page's examples show the eight demo shops with screenshots and live links; ACL Cosm and Sleep Project are gone | wip | Iqbal Hamdani |
+| P1-805 | Theme picker in the admin | FE | 802 | Storefront settings shows the eight themes, each with what it suits and a link to its demo shop, then the chosen theme's four colours; uploads a hero photo and edits address, opening hours and marketplace links (BR-142, BR-143) | review | Iqbal Hamdani |
+| P1-806 | Themes in the hosted website | SF | 802, 803 | The website draws each shop in the theme and colour from `/config`, an unknown theme as `katalog`; catalog filters, variant prices, the WhatsApp message and the mobile order bar are shared by every theme (BR-142, BR-143) | review | Iqbal Hamdani |
+| P1-807 | Theme `busana` | SF | 806 | Busana: home, catalog, product page, articles and article follow `Belli Store.dc.html` in Claude Design at 360 px and 1280 px, in each of its four colours (BR-143) | review | Iqbal Hamdani |
+| P1-808 | Theme `clothing` | SF | 806 | Clothing: home, catalog, product page, articles and article follow `Belli Store Clothing.dc.html` in Claude Design at 360 px and 1280 px, in each of its four colours (BR-143) | review | Iqbal Hamdani |
+| P1-809 | Theme `woman` | SF | 806 | Woman: home, catalog, product page, articles and article follow `Belli Store Woman.dc.html` in Claude Design at 360 px and 1280 px, in each of its four colours (BR-143) | review | Iqbal Hamdani |
+| P1-810 | Theme `katalog` | SF | 806 | Katalog: home, catalog, product page, articles and article follow `Belli Katalog.dc.html` in Claude Design at 360 px and 1280 px, in each of its four colours (BR-143) | review | Iqbal Hamdani |
+| P1-811 | Theme `katalog-hangat` | SF | 806 | Katalog Hangat: home, catalog, product page, articles and article follow `Belli Katalog Tema 2.dc.html` in Claude Design at 360 px and 1280 px, in each of its four colours (BR-143) | review | Iqbal Hamdani |
+| P1-812 | Theme `furnitur` | SF | 806 | Furnitur Klasik: home, catalog, product page, articles and article follow `Belli Katalog Furnitur.dc.html` in Claude Design at 360 px and 1280 px, in each of its four colours (BR-143) | review | Iqbal Hamdani |
+| P1-813 | Theme `furnitur-earthy` | SF | 806 | Furnitur Earthy: home, catalog, product page, articles and article follow `Belli Katalog Furnitur Tema 2.dc.html` in Claude Design at 360 px and 1280 px, in each of its four colours (BR-143) | review | Iqbal Hamdani |
+| P1-814 | Theme `furnitur-ceria` | SF | 806 | Furnitur Ceria: home, catalog, product page, articles and article follow `Belli Katalog Furnitur Tema 3.dc.html` in Claude Design at 360 px and 1280 px, in each of its four colours (BR-143) | review | Iqbal Hamdani |
+| P1-815 | Demo shops on belli.id | LP | 804, 807–814 | The landing page's examples show the eight demo shops with screenshots and live links; ACL Cosm and Sleep Project are gone | review | Iqbal Hamdani |
 
 > **Production steps for `P1-804`:** after the API, admin and website are deployed, run `demo-seed`
 > once per new theme on the box (`deploy/README.md`), then set the existing `demo` shop's theme to
 > `clothing` in the admin.
 
 ---
+
+## Phase 10 · Platform admin
+
+Added in v2.25 so Belli's founder sees every shop on one page: who signed up, how far each got, and
+who went quiet (BR-150).
+
+**Exit:** signed in with an email in `PLATFORM_ADMIN_EMAILS`, the admin shows Platform with every
+shop and the signup funnel; anyone else sees no such page and gets `403` from the route.
+
+| ID | Item | Repo | Depends | Acceptance | Status | Owner |
+|---|---|---|---|---|---|---|
+| P1-901 | Platform admin contracts | CT | — | v2.25.0: BR-150 and BR-003's one exception; `GET /v1/platform/shops` and `SessionUser.platform_admin` in `04-api-spec.md` §14 and `openapi.yaml` | review | Iqbal Hamdani |
+| P1-902 | The platform report | BE | 901 | `GET /v1/platform/shops` answers §14 for an `active` staff user whose email is in `PLATFORM_ADMIN_EMAILS` and `403` for anyone else, or for everyone when it is empty; each shop is read in its own tenant transaction and nothing is written; login and refresh carry `platform_admin` (BR-150) | review | Iqbal Hamdani |
+| P1-903 | Platform page in the admin | FE | 902 | A Platform item in the sidebar only for `platform_admin`; the page shows the summary, then every shop with its owner, source, website, products, orders and last activity, searchable and filtered by not verified and sleeping, CLI and demo shops hidden by default (BR-150) | review | Iqbal Hamdani |
+
+> **Production step for `P1-902`:** set `PLATFORM_ADMIN_EMAILS` in the box's `.env` (the founder's
+> email, never a `@demo.belli.id` one: their password is public), then `./deploy.sh main`.
 
 ## Dropped in v2
 

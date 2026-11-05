@@ -122,6 +122,26 @@ describe("navigation by role (BR-025)", () => {
     expect(screen.queryByRole("link", { name: "Blog" })).toBeNull()
   })
 
+  it("Platform only for a platform admin, whatever the role (P1-903, BR-150)", async () => {
+    mockApi(perms.owner, () => undefined, "owner")
+    const { unmount } = renderSignedIn(
+      <SidebarProvider>
+        <AppSidebar />
+      </SidebarProvider>,
+    )
+    await screen.findByRole("link", { name: "Products" })
+    expect(screen.queryByRole("link", { name: "Platform" })).toBeNull()
+    unmount()
+
+    mockApi(perms.viewer, () => undefined, "viewer", true)
+    renderSignedIn(
+      <SidebarProvider>
+        <AppSidebar />
+      </SidebarProvider>,
+    )
+    expect(await screen.findByRole("link", { name: "Platform" })).toBeTruthy()
+  })
+
   it("four groups: the dashboard on its own, then Sales, Catalog and Settings", async () => {
     mockApi([...perms.owner, "orders:read", "customers:read"], () => undefined, "owner")
     renderSignedIn(

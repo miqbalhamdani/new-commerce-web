@@ -4,11 +4,21 @@ import { vi } from "vitest"
 import { SessionProvider } from "@/lib/auth/session"
 
 /** A signed-in session as the refresh call returns it. */
-export function sessionFor(permissions: string[], role = "admin") {
+export function sessionFor(
+  permissions: string[],
+  role = "admin",
+  platformAdmin = false,
+) {
   return {
     access_token: "test-token",
     expires_in: 900,
-    user: { id: "u1", name: "Budi", role, permissions },
+    user: {
+      id: "u1",
+      name: "Budi",
+      role,
+      permissions,
+      platform_admin: platformAdmin,
+    },
     tenant: { id: "t1", name: "Erigo", timezone: "Asia/Jakarta" },
   }
 }
@@ -27,11 +37,12 @@ export function mockApi(
   permissions: string[],
   handler: (url: string, init?: RequestInit) => Response | undefined,
   role = "admin",
+  platformAdmin = false,
 ) {
   const spy = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input)
     if (url.endsWith("/v1/auth/refresh"))
-      return json(sessionFor(permissions, role))
+      return json(sessionFor(permissions, role, platformAdmin))
     return (
       handler(url, init) ??
       json(

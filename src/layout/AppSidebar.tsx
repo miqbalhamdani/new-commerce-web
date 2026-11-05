@@ -12,6 +12,7 @@ import { useSidebar } from "@/context/SidebarContext"
 import { HorizontaLDots } from "@/icons"
 import { useSession } from "@/lib/auth/session"
 import {
+  Building2,
   Contact,
   KeyRound,
   ShoppingCart,
@@ -40,6 +41,9 @@ import { Logo } from "../../public/Logo"
  * visible hides its title too, so ops never sees an empty "Settings". The
  * Dashboard group has no title: it sits above the rest on its own.
  */
+/** The sentinel "permission" of the platform page, held by no role. */
+const PLATFORM_ADMIN = "platform_admin"
+
 const groups = [
   {
     title: "",
@@ -108,6 +112,14 @@ const groups = [
       },
     ],
   },
+  {
+    // P1-903: Belli's own page (BR-150). Not a role's permission: the session's
+    // platform_admin flag, from the server's PLATFORM_ADMIN_EMAILS.
+    title: "Belli",
+    items: [
+      { name: "Platform", href: "/platform", icon: Building2, permission: PLATFORM_ADMIN },
+    ],
+  },
 ]
 
 const navigation = groups.flatMap((group) => group.items)
@@ -129,7 +141,9 @@ export default function AppSidebar() {
     .map((group) => ({
       title: group.title,
       items: group.items.filter((item) =>
-        user?.permissions.includes(item.permission),
+        item.permission === PLATFORM_ADMIN
+          ? user?.platform_admin === true
+          : user?.permissions.includes(item.permission),
       ),
     }))
     .filter((group) => group.items.length > 0)
