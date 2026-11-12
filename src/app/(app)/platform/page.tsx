@@ -1,6 +1,7 @@
 "use client"
 
 import { Globe, MessageCircle, Image as ImageIcon } from "lucide-react"
+import { useRouter } from "next/navigation"
 import { useMemo, useState } from "react"
 
 import Badge from "@/components/ui/badge/Badge"
@@ -53,7 +54,8 @@ const filters = [
 ] as const
 
 export default function PlatformPage() {
-  const { user, tenant } = useSession()
+  const { user, tenant, impersonate } = useSession()
+  const router = useRouter()
   const allowed = user?.platform_admin === true
   const { data, error, loading, reload } = useResource<PlatformShops>(
     allowed ? "/v1/platform/shops" : null,
@@ -76,8 +78,21 @@ export default function PlatformPage() {
     }
   }
 
+  // P1-917: the shop's own admin, as its owner, until Back to Platform.
+  async function openAsOwner(shop: PlatformShop) {
+    setActionError(null)
+    try {
+      await impersonate(shop.id)
+      router.push("/")
+    } catch (err) {
+      setActionError(asApiError(err))
+    }
+  }
+
   function actionsFor(shop: PlatformShop): RowAction[] {
-    const out: RowAction[] = []
+    const out: RowAction[] = [
+      { label: "Open as owner", onSelect: () => openAsOwner(shop) },
+    ]
     if (shop.owner?.status === "invited") {
       out.push(
         { label: "Send invite", onSelect: () => sendInvite(shop) },
@@ -143,7 +158,7 @@ export default function PlatformPage() {
       }
     >
       <ErrorNotice error={error} title="Could not load the shops" />
-      <ErrorNotice error={actionError} title="Could not send the invite" />
+      <ErrorNotice error={actionError} title="That didn't work" />
       {notice && (
         <p role="status" className="text-theme-sm text-success-600">
           {notice}

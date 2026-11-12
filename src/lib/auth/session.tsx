@@ -9,6 +9,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { apiFetch } from "@/lib/api/client";
 import type { components } from "@/lib/api/schema";
 
 type Session = components["schemas"]["Session"];
@@ -53,6 +54,17 @@ interface SessionState {
   /** Opens a shop with a Google ID token and signs its owner in (BR-020). */
   googleRegister(idToken: string, shopName: string): Promise<void>;
   signOut(): Promise<void>;
+  /**
+   * Opens a shop as its owner, for a platform admin (BR-152): the shop's
+   * one-hour session replaces this one in memory. Throws ApiError.
+   */
+  impersonate(shopId: string): Promise<void>;
+  /**
+   * Back to the platform admin's own session. The impersonation never
+   * touched the refresh cookie, so this is a refresh; so is its expiry (the
+   * 401 retry) and a reload.
+   */
+  stopImpersonating(): Promise<void>;
   /** Reads the current access token. A function, not a value -- see below. */
   getAccessToken(): string | null;
   /** Exchanges the cookie for a new access token. Returns null when there is no session. */
@@ -262,6 +274,22 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     forget();
   }, [forget]);
 
+  const impersonate = useCallback(
+    async (shopId: string) => {
+      const session = await apiFetch<Session>(
+        `/v1/platform/shops/${shopId}/impersonate`,
+        { getAccessToken: () => accessToken.current, refresh },
+        { method: "POST" },
+      );
+      adopt(session);
+    },
+    [adopt, refresh],
+  );
+
+  const stopImpersonating = useCallback(async () => {
+    await refresh();
+  }, [refresh]);
+
   // One refresh on mount. This is what makes a reload keep you signed in: the
   // access token is gone, the cookie is not.
   //
@@ -291,6 +319,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       googleSignIn,
       googleRegister,
       signOut,
+      impersonate,
+      stopImpersonating,
       refresh,
       getAccessToken: () => accessToken.current,
     }),
@@ -309,6 +339,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       googleSignIn,
       googleRegister,
       signOut,
+      impersonate,
+      stopImpersonating,
       refresh,
     ],
   );

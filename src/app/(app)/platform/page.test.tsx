@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import PlatformPage from "@/app/(app)/platform/page"
-import { json, mockApi, renderSignedIn } from "@/test/api"
+import { json, mockApi, renderSignedIn, sessionFor } from "@/test/api"
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/platform",
@@ -252,6 +252,29 @@ describe("the platform shop actions (P1-916, BR-151)", () => {
           ),
         ),
       ).toEqual({ email: "owner@kirana.id", name: "Rina" }),
+    )
+  })
+
+  it("opens a shop as its owner (P1-917, BR-152)", async () => {
+    const spy = platformApi((url, init) =>
+      url.endsWith("/v1/platform/shops/lelap/impersonate") &&
+      init?.method === "POST"
+        ? json({
+            ...sessionFor(["products:read"], "owner"),
+            tenant: { id: "lelap", name: "Lelap", timezone: "Asia/Jakarta" },
+          })
+        : undefined,
+    )
+    renderSignedIn(<PlatformPage />)
+    const user = userEvent.setup()
+    await user.click(
+      await screen.findByRole("button", { name: "Actions for Lelap" }),
+    )
+    await user.click(screen.getByRole("menuitem", { name: "Open as owner" }))
+    await waitFor(() =>
+      expect(
+        sent(spy, "/v1/platform/shops/lelap/impersonate", "POST"),
+      ).toBeTruthy(),
     )
   })
 

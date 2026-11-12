@@ -188,7 +188,14 @@ effect, StrictMode's double effect, `apiFetch`'s 401 retry) awaits the same prom
 signs nobody in), `verifyCode`, `resendCode`, `requestPasswordReset`, `resetPassword` (signs
 in), `googleClientId`, `googleSignIn`, `googleRegister`,
 `signOut` (best-effort
-logout, always clears locally), `getAccessToken()` (a getter, never a value) and `refresh()`.
+logout, always clears locally), `impersonate(shopId)` / `stopImpersonating()` (BR-152), `getAccessToken()`
+(a getter, never a value) and `refresh()`.
+
+**Impersonation** (P1-917): a platform admin's "Open as owner" adopts the shop's one-hour session
+in memory (`user.impersonating`); `ImpersonationBanner` in the app shell names the shop with Back to
+Platform. It has no refresh token and leaves the admin's cookie alone, so anything that refreshes --
+Back to Platform, the 401 retry when the hour is up, a reload -- returns the admin to their own
+session. Never keep the impersonation token anywhere but the ref.
 Auth failures throw `AuthError` carrying the API's deliberately vague `detail`. `useCan(perm)`
 lives in the same file.
 

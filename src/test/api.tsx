@@ -18,6 +18,7 @@ export function sessionFor(
       role,
       permissions,
       platform_admin: platformAdmin,
+      impersonating: false,
     },
     tenant: { id: "t1", name: "Erigo", timezone: "Asia/Jakarta" },
   }

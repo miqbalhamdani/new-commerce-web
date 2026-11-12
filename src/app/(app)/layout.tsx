@@ -1,6 +1,7 @@
 "use client"
 
 import { SidebarProvider, useSidebar } from "@/context/SidebarContext"
+import { ImpersonationBanner } from "@/components/ui/common/ImpersonationBanner"
 import AppHeader from "@/layout/AppHeader"
 import AppSidebar from "@/layout/AppSidebar"
 import Backdrop from "@/layout/Backdrop"
@@ -61,6 +62,7 @@ function Shell({ children }: { children: React.ReactNode }) {
           isExpanded || isHovered ? "lg:ml-[290px]" : "lg:ml-[90px]"
         } ${isMobileOpen ? "ml-0" : ""}`}
       >
+        <ImpersonationBanner />
         <AppHeader />
         <main className="mx-auto max-w-screen-2xl p-4 md:p-6">{children}</main>
       </div>
