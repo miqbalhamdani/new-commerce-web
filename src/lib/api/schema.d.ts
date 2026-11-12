@@ -1350,7 +1350,109 @@ export interface paths {
          */
         get: operations["getPlatformShops"];
         put?: never;
+        /**
+         * Open a shop for someone, held until it is handed over
+         * @description BR-151: a new shop whose owner is `invited`, its source `platform`. No email is sent unless
+         *     `send_invite` is true; the owner can be handed over later with `…/owner` and `…/invite`. An
+         *     email already used in any shop is `422` on `owner_email` (BR-020). Platform admins only,
+         *     as `GET`.
+         */
+        post: operations["createPlatformShop"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform/shops/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Suspend, close or reopen a shop
+         * @description BR-151. `suspended` and `closed` sign every staff user of the shop out (their refresh tokens
+         *     are revoked), refuse their sign-ins, and take the website and storefront API offline
+         *     (`404`, BR-140). `active` undoes either. Platform admins only.
+         */
+        patch: operations["updatePlatformShop"];
+        trace?: never;
+    };
+    "/platform/shops/{id}/owner": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change the email or name of a shop's owner before they confirm it
+         * @description BR-151's hand-over: only while the owner is `invited`; an owner who has confirmed is `422`.
+         *     An email already used in any shop is `422` on `email` (BR-020). Sends nothing; follow with
+         *     `…/invite`. Platform admins only.
+         */
+        patch: operations["updatePlatformShopOwner"];
+        trace?: never;
+    };
+    "/platform/shops/{id}/invite": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Email the owner their signup code and link
+         * @description BR-151: the same email as a signup (BR-026, BR-128), to the owner's current address. Only
+         *     while the owner is `invited`; otherwise `422`. Platform admins only.
+         */
+        post: operations["sendPlatformShopInvite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform/shops/{id}/impersonate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Open the shop's admin as its owner
+         * @description BR-152: a session in that shop with the owner's role, for one hour, with no refresh token.
+         *     `user` is the platform admin, `impersonating` is true, and every write in it is audited
+         *     with the platform admin as the actor. Platform admins only; any shop status.
+         */
+        post: operations["impersonatePlatformShop"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1591,8 +1693,14 @@ export interface components {
             /**
              * @description True when the user's email is in the server's `PLATFORM_ADMIN_EMAILS` (BR-150), so the
              *     admin shows the platform page. Not a role; it grants nothing in the user's shop.
+             *     False in an impersonation session.
              */
             platform_admin: boolean;
+            /**
+             * @description True only in a session from `POST /platform/shops/{id}/impersonate` (BR-152): a platform
+             *     admin working in someone else's shop. The admin shows a banner and a way back.
+             */
+            impersonating: boolean;
         };
         SessionTenant: {
             /** Format: uuid */
@@ -1614,7 +1722,7 @@ export interface components {
         };
         /**
          * @description Counts over the shops whose source is `email` or `google`. Shops made with
-         *     `cmd/create-tenant` or `cmd/demo-seed` are listed but not counted.
+         *     `cmd/create-tenant`, `cmd/demo-seed` or by a platform admin are listed but not counted.
          */
         PlatformSummary: {
             shops: number;
@@ -1643,17 +1751,34 @@ export interface components {
             /** Format: date-time */
             created_at: string;
             /**
-             * @description How the shop was opened: the signup form, Google, or `cmd/create-tenant` /
-             *     `cmd/demo-seed` (no `tenant.register` audit row).
+             * @description How the shop was opened: the signup form, Google, `cmd/create-tenant` /
+             *     `cmd/demo-seed` (no `tenant.register` audit row), or a platform admin (BR-151).
              * @enum {string}
              */
-            source: "email" | "google" | "cli";
+            source: "email" | "google" | "cli" | "platform";
             owner: components["schemas"]["PlatformShopOwner"] | null;
             website: components["schemas"]["PlatformShopWebsite"];
             products: components["schemas"]["PlatformShopProducts"];
             orders: components["schemas"]["PlatformShopOrders"];
             /** Format: date-time */
             last_activity_at: string | null;
+        };
+        PlatformShopCreate: {
+            shop_name: string;
+            owner_name: string;
+            /** Format: email */
+            owner_email: string;
+            /** @description Email the owner their signup code and link now. False holds the shop. */
+            send_invite: boolean;
+        };
+        PlatformShopUpdate: {
+            /** @enum {string} */
+            status: "active" | "suspended" | "closed";
+        };
+        PlatformShopOwnerUpdate: {
+            /** Format: email */
+            email?: string;
+            name?: string;
         };
         PlatformShopOwner: {
             name: string;
@@ -4985,6 +5110,142 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+        };
+    };
+    createPlatformShop: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlatformShopCreate"];
+            };
+        };
+        responses: {
+            /** @description The new shop, as the report shows it. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformShop"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    updatePlatformShop: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlatformShopUpdate"];
+            };
+        };
+        responses: {
+            /** @description The shop, as the report shows it. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformShop"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    updatePlatformShopOwner: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlatformShopOwnerUpdate"];
+            };
+        };
+        responses: {
+            /** @description The shop, as the report shows it. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformShop"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    sendPlatformShopInvite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Queued. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    impersonatePlatformShop: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The impersonation session. No cookie is set. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Session"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     listCustomers: {

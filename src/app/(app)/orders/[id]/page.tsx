@@ -471,7 +471,7 @@ function HistoryItem({
             {title}
           </p>
           <p className="text-theme-sm text-gray-500 dark:text-gray-400">
-            {h.actor?.name ?? "System"}
+            {h.actor ? h.actor.name || "Belli" : "System"}
           </p>
         </div>
         <div

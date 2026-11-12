@@ -121,7 +121,10 @@ export default function AuditLogPage() {
                   {formatDateTime(e.created_at, tenant?.timezone)}
                 </TableCell>
                 <TableCell className={`${td} text-gray-800 dark:text-white/90`}>
-                  {e.actor?.name ?? (
+                  {e.actor ? (
+                    // A platform admin is no user of the shop (BR-152).
+                    e.actor.name || "Belli"
+                  ) : (
                     <span className="text-gray-500">System</span>
                   )}
                 </TableCell>
