@@ -4,6 +4,7 @@ import { Globe, MessageCircle, Image as ImageIcon } from "lucide-react"
 import { useMemo, useState } from "react"
 
 import Badge from "@/components/ui/badge/Badge"
+import Button from "@/components/ui/button/Button"
 import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
 import {
   bodyRows,
@@ -13,6 +14,7 @@ import {
   th,
 } from "@/components/ui/common/Listing"
 import { Card, Empty, Loading, Page } from "@/components/ui/common/Page"
+import { RowMenu, type RowAction } from "@/components/ui/common/RowMenu"
 import { SearchInput } from "@/components/ui/common/SearchInput"
 import { SegmentedTabs } from "@/components/ui/common/SegmentedTabs"
 import { Toggle } from "@/components/ui/common/Toggle"
@@ -23,15 +25,24 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { ApiError } from "@/lib/api/client"
 import type { PlatformShop, PlatformShops } from "@/lib/api/types"
-import { useResource } from "@/lib/api/use-api"
+import { asApiError, useApi, useResource } from "@/lib/api/use-api"
 import { useSession } from "@/lib/auth/session"
 import { formatDateTime, formatRelative } from "@/lib/format"
 import { isSleeping } from "@/lib/platform"
 
+import {
+  NewShopDialog,
+  OwnerDialog,
+  StatusDialog,
+  type StatusChange,
+} from "./dialogs"
+
 // P1-903: Belli's own page, every shop on the platform (BR-150, 04-api-spec.md
 // §14). Shown only for the session's platform_admin; the route checks the
-// email again and answers 403 to anyone else.
+// email again and answers 403 to anyone else. P1-916 adds the shop actions
+// (BR-151, §14.1).
 
 type Filter = "all" | "unverified" | "sleeping"
 
@@ -44,9 +55,56 @@ const filters = [
 export default function PlatformPage() {
   const { user, tenant } = useSession()
   const allowed = user?.platform_admin === true
-  const { data, error, loading } = useResource<PlatformShops>(
+  const { data, error, loading, reload } = useResource<PlatformShops>(
     allowed ? "/v1/platform/shops" : null,
   )
+  const api = useApi()
+  const [creating, setCreating] = useState(false)
+  const [owner, setOwner] = useState<PlatformShop | null>(null)
+  const [change, setChange] = useState<StatusChange | null>(null)
+  const [actionError, setActionError] = useState<ApiError | null>(null)
+  const [notice, setNotice] = useState("")
+
+  async function sendInvite(shop: PlatformShop) {
+    setActionError(null)
+    setNotice("")
+    try {
+      await api(`/v1/platform/shops/${shop.id}/invite`, { method: "POST" })
+      setNotice(`Invite sent to ${shop.owner?.email}.`)
+    } catch (err) {
+      setActionError(asApiError(err))
+    }
+  }
+
+  function actionsFor(shop: PlatformShop): RowAction[] {
+    const out: RowAction[] = []
+    if (shop.owner?.status === "invited") {
+      out.push(
+        { label: "Send invite", onSelect: () => sendInvite(shop) },
+        { label: "Change owner", onSelect: () => setOwner(shop) },
+      )
+    }
+    if (shop.status === "active") {
+      out.push(
+        {
+          label: "Suspend",
+          destructive: true,
+          onSelect: () => setChange({ shop, status: "suspended" }),
+        },
+        {
+          label: "Close",
+          destructive: true,
+          onSelect: () => setChange({ shop, status: "closed" }),
+        },
+      )
+    } else {
+      out.push({
+        label: "Reactivate",
+        onSelect: () => setChange({ shop, status: "active" }),
+      })
+    }
+    return out
+  }
   const [q, setQ] = useState("")
   const [filter, setFilter] = useState<Filter>("all")
   const [showCli, setShowCli] = useState(false)
@@ -78,8 +136,34 @@ export default function PlatformPage() {
       wide
       title="Platform"
       description="Every shop on Belli: who signed up, how far each got, and who went quiet."
+      actions={
+        <Button size="sm" onClick={() => setCreating(true)}>
+          New shop
+        </Button>
+      }
     >
       <ErrorNotice error={error} title="Could not load the shops" />
+      <ErrorNotice error={actionError} title="Could not send the invite" />
+      {notice && (
+        <p role="status" className="text-theme-sm text-success-600">
+          {notice}
+        </p>
+      )}
+      <NewShopDialog
+        open={creating}
+        onClose={() => setCreating(false)}
+        onDone={reload}
+      />
+      <OwnerDialog
+        shop={owner}
+        onClose={() => setOwner(null)}
+        onDone={reload}
+      />
+      <StatusDialog
+        change={change}
+        onClose={() => setChange(null)}
+        onDone={reload}
+      />
       {loading && !data ? (
         <Loading />
       ) : data && sum ? (
@@ -175,6 +259,7 @@ export default function PlatformPage() {
                     "Products",
                     "Orders",
                     "Last active",
+                    "",
                   ].map((h) => (
                     <TableCell key={h} isHeader className={th}>
                       {h}
@@ -184,7 +269,12 @@ export default function PlatformPage() {
               </TableHeader>
               <TableBody className={bodyRows}>
                 {shops.map((s) => (
-                  <ShopRow key={s.id} shop={s} timeZone={tenant?.timezone} />
+                  <ShopRow
+                    key={s.id}
+                    shop={s}
+                    timeZone={tenant?.timezone}
+                    actions={actionsFor(s)}
+                  />
                 ))}
               </TableBody>
             </ListTable>
@@ -251,14 +341,21 @@ function FunnelStep({
   )
 }
 
-const sourceLabel = { email: "Email", google: "Google", cli: "CLI" } as const
+const sourceLabel = {
+  email: "Email",
+  google: "Google",
+  cli: "CLI",
+  platform: "Platform",
+} as const
 
 function ShopRow({
   shop: s,
   timeZone,
+  actions,
 }: {
   shop: PlatformShop
   timeZone?: string
+  actions: RowAction[]
 }) {
   const muted = `${td} text-gray-500 dark:text-gray-400`
   return (
@@ -327,6 +424,9 @@ function ShopRow({
         <span title={formatDateTime(s.last_activity_at, timeZone)}>
           {formatRelative(s.last_activity_at)}
         </span>
+      </TableCell>
+      <TableCell className={td}>
+        <RowMenu label={`Actions for ${s.name}`} actions={actions} />
       </TableCell>
     </TableRow>
   )

@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react"
+import { screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
@@ -133,5 +133,152 @@ describe("the platform page (P1-903, BR-150)", () => {
     await user.clear(screen.getByLabelText("Search shops"))
     await user.click(screen.getByRole("switch", { name: "CLI and demo shops" }))
     expect(rows()).toHaveLength(4)
+  })
+})
+
+describe("the platform shop actions (P1-916, BR-151)", () => {
+  const sent = (
+    spy: ReturnType<typeof mockApi>,
+    path: string,
+    method: string,
+  ) =>
+    spy.mock.calls.find(
+      ([u, i]) => String(u).endsWith(path) && i?.method === method,
+    )
+
+  function platformApi(
+    over: (url: string, init?: RequestInit) => Response | undefined,
+  ) {
+    return mockApi(
+      [],
+      (url, init) =>
+        over(url, init) ??
+        (url.endsWith("/v1/platform/shops") ? json(report) : undefined),
+      "owner",
+      true,
+    )
+  }
+
+  it("opens a held shop, and shows a taken email on its field", async () => {
+    let calls = 0
+    const spy = platformApi((url, init) => {
+      if (!url.endsWith("/v1/platform/shops") || init?.method !== "POST")
+        return undefined
+      calls++
+      return calls === 1
+        ? json(
+            {
+              type: "about:blank",
+              title: "Validation failed",
+              status: 422,
+              detail: "taken",
+              errors: [
+                {
+                  field: "owner_email",
+                  detail: "This email already has an account in a shop.",
+                },
+              ],
+              trace_id: "t",
+            },
+            422,
+          )
+        : json(shop("baru", "Toko Baru", { source: "platform" }), 201)
+    })
+    renderSignedIn(<PlatformPage />)
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole("button", { name: "New shop" }))
+    const dialog = screen.getByRole("dialog")
+    await user.type(within(dialog).getByLabelText("Shop name"), "Toko Baru")
+    await user.type(within(dialog).getByLabelText("Owner's name"), "Rina")
+    await user.type(
+      within(dialog).getByLabelText("Owner's email"),
+      "rina@lelap.id",
+    )
+    await user.click(within(dialog).getByRole("button", { name: "Open shop" }))
+    expect(
+      await within(dialog).findByText(
+        "This email already has an account in a shop.",
+      ),
+    ).toBeTruthy()
+
+    await user.click(within(dialog).getByRole("button", { name: "Open shop" }))
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
+    expect(
+      JSON.parse(String(sent(spy, "/v1/platform/shops", "POST")?.[1]?.body)),
+    ).toEqual({
+      shop_name: "Toko Baru",
+      owner_name: "Rina",
+      owner_email: "rina@lelap.id",
+      send_invite: false,
+    })
+  })
+
+  it("sends the invite and changes the owner only while invited", async () => {
+    const spy = platformApi((url, init) => {
+      if (url.endsWith("/kirana/invite"))
+        return new Response(null, { status: 204 })
+      if (url.endsWith("/kirana/owner") && init?.method === "PATCH")
+        return json(shop("kirana", "Kirana"))
+      return undefined
+    })
+    renderSignedIn(<PlatformPage />)
+    const user = userEvent.setup()
+
+    await user.click(
+      await screen.findByRole("button", { name: "Actions for Lelap" }),
+    )
+    expect(screen.queryByRole("menuitem", { name: "Send invite" })).toBeNull()
+    await user.keyboard("{Escape}")
+
+    await user.click(screen.getByRole("button", { name: "Actions for Kirana" }))
+    await user.click(screen.getByRole("menuitem", { name: "Send invite" }))
+    expect(
+      await screen.findByText("Invite sent to rina@kirana.id."),
+    ).toBeTruthy()
+    expect(sent(spy, "/v1/platform/shops/kirana/invite", "POST")).toBeTruthy()
+
+    await user.click(screen.getByRole("button", { name: "Actions for Kirana" }))
+    await user.click(screen.getByRole("menuitem", { name: "Change owner" }))
+    const email = within(screen.getByRole("dialog")).getByLabelText("Email")
+    expect((email as HTMLInputElement).value).toBe("rina@kirana.id")
+    await user.clear(email)
+    await user.type(email, "owner@kirana.id")
+    await user.click(screen.getByRole("button", { name: "Save" }))
+    await waitFor(() =>
+      expect(
+        JSON.parse(
+          String(
+            sent(spy, "/v1/platform/shops/kirana/owner", "PATCH")?.[1]?.body,
+          ),
+        ),
+      ).toEqual({ email: "owner@kirana.id", name: "Rina" }),
+    )
+  })
+
+  it("suspends a shop behind a confirmation", async () => {
+    const spy = platformApi((url, init) =>
+      url.endsWith("/v1/platform/shops/lelap") && init?.method === "PATCH"
+        ? json(shop("lelap", "Lelap", { status: "suspended" }))
+        : undefined,
+    )
+    renderSignedIn(<PlatformPage />)
+    const user = userEvent.setup()
+    await user.click(
+      await screen.findByRole("button", { name: "Actions for Lelap" }),
+    )
+    await user.click(screen.getByRole("menuitem", { name: "Suspend" }))
+    expect(sent(spy, "/v1/platform/shops/lelap", "PATCH")).toBeUndefined()
+    await user.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: "Suspend",
+      }),
+    )
+    await waitFor(() =>
+      expect(
+        JSON.parse(
+          String(sent(spy, "/v1/platform/shops/lelap", "PATCH")?.[1]?.body),
+        ),
+      ).toEqual({ status: "suspended" }),
+    )
   })
 })
