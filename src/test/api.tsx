@@ -9,6 +9,7 @@ export function sessionFor(
   role = "admin",
   platformAdmin = false,
   plan = "jualan",
+  businessType = "retail",
 ) {
   return {
     access_token: "test-token",
@@ -21,7 +22,13 @@ export function sessionFor(
       platform_admin: platformAdmin,
       impersonating: false,
     },
-    tenant: { id: "t1", name: "Erigo", timezone: "Asia/Jakarta", plan },
+    tenant: {
+      id: "t1",
+      name: "Erigo",
+      timezone: "Asia/Jakarta",
+      plan,
+      business_type: businessType,
+    },
   }
 }
 
@@ -41,11 +48,12 @@ export function mockApi(
   role = "admin",
   platformAdmin = false,
   plan = "jualan",
+  businessType = "retail",
 ) {
   const spy = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input)
     if (url.endsWith("/v1/auth/refresh"))
-      return json(sessionFor(permissions, role, platformAdmin, plan))
+      return json(sessionFor(permissions, role, platformAdmin, plan, businessType))
     return (
       handler(url, init) ??
       json(
