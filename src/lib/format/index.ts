@@ -36,6 +36,26 @@ export function parseMoney(input: string): number | null {
   return Number(clean) * 100
 }
 
+const usd = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 })
+
+/** US cents as text: 1850000 -> "US$18,500" (BR-171, display only). */
+export function formatUSD(cents: number | null | undefined): string {
+  if (cents === null || cents === undefined) return "—"
+  return `US$${usd.format(cents / 100)}`
+}
+
+/** A typed dollar amount, "18,500" or "18500.50", in cents; null when it is not one. */
+export function parseUSD(input: string): number | null {
+  const clean = input.replace(/usd|us|[$\s,]/gi, "")
+  if (!/^\d+(\.\d{1,2})?$/.test(clean)) return null
+  return Math.round(Number(clean) * 100)
+}
+
+/** US cents as a price input shows them: 1850000 -> "18,500". */
+export function usdInput(cents: number | null | undefined): string {
+  return cents === null || cents === undefined ? "" : usd.format(cents / 100)
+}
+
 /** Minor units as a price input shows them: 19900000 -> "199,000". */
 export function moneyInput(minor: number | null | undefined): string {
   return minor === null || minor === undefined

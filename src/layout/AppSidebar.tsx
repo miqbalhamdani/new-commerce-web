@@ -208,7 +208,15 @@ export default function AppSidebar() {
                             active ? "menu-item-icon-active" : "menu-item-icon-inactive"
                           }`}
                         />
-                        {showLabels && <span>{item.name}</span>}
+                        {showLabels && (
+                          <span>
+                            {/* An umrah shop's products are packages (BR-170). */}
+                            {item.href === "/products" &&
+                            tenant?.business_type === "umrah"
+                              ? "Packages"
+                              : item.name}
+                          </span>
+                        )}
                       </Link>
                     </li>
                   )

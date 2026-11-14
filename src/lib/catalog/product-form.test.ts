@@ -14,6 +14,7 @@ const base: ProductDraft = {
   brand_id: "b1",
   category_ids: ["c1", "c2"],
   attributes: [["material", "Cotton"]],
+  package: null,
 }
 
 describe("patchOf", () => {

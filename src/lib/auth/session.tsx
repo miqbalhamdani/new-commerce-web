@@ -371,3 +371,8 @@ export function useCan(permission: string) {
   const { user } = useSession();
   return user?.permissions.includes(permission) ?? false;
 }
+
+/** Whether the shop is an umrah travel agency, whose products are packages (BR-170). */
+export function useUmrah() {
+  return useSession().tenant?.business_type === "umrah";
+}

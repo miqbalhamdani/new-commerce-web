@@ -6,6 +6,7 @@ import {
   carry,
   combos,
   emptyRow,
+  columnsFor,
   fillDown,
   gridOf,
   key,
@@ -42,12 +43,14 @@ describe("matrix", () => {
       regular_price: "199.000",
       sale_price: "",
       weight_grams: "200",
+      price_usd: "",
     })
     expect(out[2]).toEqual({
       sku: "TS-2",
       regular_price: "199000",
       sale_price: "149000",
       weight_grams: "210",
+      price_usd: "",
     })
     expect(out[0]).toEqual(emptyRow)
   })
@@ -72,8 +75,15 @@ describe("matrix", () => {
       regular_price: "199.000",
       sale_price: "",
       weight_grams: "200",
+      price_usd: "",
     }
-    r[1] = { sku: "", regular_price: "abc", sale_price: "", weight_grams: "" }
+    r[1] = {
+      sku: "",
+      regular_price: "abc",
+      sale_price: "",
+      weight_grams: "",
+      price_usd: "",
+    }
     const { body, errors } = toRequest(axes, r)
     expect(body.rows).toHaveLength(10)
     expect(body.rows[0]).toEqual({
@@ -181,5 +191,18 @@ describe("matrix", () => {
     )
     expect(body.option_names).toEqual(["Colour"])
     expect(body.rows[0]).toMatchObject({ option_values: ["Red"] })
+  })
+
+  it("sends an umrah shop's USD price and no weight (BR-171)", () => {
+    const r = rows()
+    r[0] = { ...r[0], regular_price: "", price_usd: "18,500", weight_grams: "9" }
+    r[1] = { ...r[1], price_usd: "abc" }
+    const { body, errors } = toRequest(axes, r, new Set(), true)
+    expect(body.rows[0]).toMatchObject({ price_usd: 1850000 })
+    expect(body.rows[0]).not.toHaveProperty("weight_grams")
+    expect(body.rows[2]).toMatchObject({ price_usd: null })
+    expect(errors.get(1)).toBe("USD price is not an amount")
+    expect(columnsFor(true)).toContain("price_usd")
+    expect(columnsFor(false)).toContain("weight_grams")
   })
 })

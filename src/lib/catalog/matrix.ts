@@ -1,5 +1,5 @@
 import type { Variant } from "@/lib/api/types"
-import { moneyInput, parseMoney } from "@/lib/format"
+import { moneyInput, parseMoney, parseUSD, usdInput } from "@/lib/format"
 
 // The variant matrix (P1-046, 04-api-spec.md §7.3): option axes across the
 // top, every combination down the side, SKU / regular price / sale price /
@@ -17,14 +17,30 @@ export const columns = [
   "sale_price",
   "weight_grams",
 ] as const
-export type Column = (typeof columns)[number]
+
+/**
+ * An umrah shop's grid (BR-171, BR-172): a USD price in place of the weight,
+ * which packages do not have.
+ */
+export const umrahColumns = [
+  "sku",
+  "regular_price",
+  "sale_price",
+  "price_usd",
+] as const
+
+export type Column = (typeof columns)[number] | "price_usd"
 export type Row = Record<Column, string>
+
+export const columnsFor = (umrah: boolean): readonly Column[] =>
+  umrah ? umrahColumns : columns
 
 export const emptyRow: Row = {
   sku: "",
   regular_price: "",
   sale_price: "",
   weight_grams: "",
+  price_usd: "",
 }
 
 /** The options that have values yet: only these make combinations or columns. */
@@ -71,6 +87,7 @@ export function gridOf(
       regular_price: moneyInput(v.regular_price),
       sale_price: moneyInput(v.sale_price),
       weight_grams: v.weight_grams ? String(v.weight_grams) : "",
+      price_usd: usdInput(v.price_usd),
     })
   }
   // A product with no variants yet has nothing removed: its rows are new.
@@ -149,6 +166,7 @@ export function paste(
   startRow: number,
   startCol: number,
   text: string,
+  cols: readonly Column[] = columns,
 ): Row[] {
   const lines = text.replace(/\r/g, "").replace(/\n$/, "").split("\n")
   const out = rows.map((r) => ({ ...r }))
@@ -156,7 +174,7 @@ export function paste(
     const row = out[startRow + i]
     if (!row) return
     line.split("\t").forEach((value, j) => {
-      const col = columns[startCol + j]
+      const col = cols[startCol + j]
       if (col) row[col] = value.trim()
     })
   })
@@ -180,12 +198,14 @@ export const visible = (axes: Axis[], removed: Set<string>) =>
  * The PUT body for the grid as it stands, or the rows whose input is not a
  * number. A blank SKU or sale price is null; a blank price or weight is
  * left as it is on the variant. Removed combinations are not sent, so
- * archive_missing archives them.
+ * archive_missing archives them. An umrah shop's grid sends its USD price,
+ * blank being null, and no weight.
  */
 export function toRequest(
   axes: Axis[],
   rows: Row[],
   removed: Set<string> = new Set(),
+  umrah = false,
 ) {
   const errors: CellErrors = new Map()
   const body = visible(axes, removed).map((option_values, i) => {
@@ -206,7 +226,14 @@ export function toRequest(
     } else {
       row.sale_price = null
     }
-    if (r.weight_grams.trim()) {
+    if (umrah) {
+      if (!r.price_usd.trim()) row.price_usd = null
+      else {
+        const n = parseUSD(r.price_usd)
+        if (n === null || n <= 0) errors.set(i, "USD price is not an amount")
+        else row.price_usd = n
+      }
+    } else if (r.weight_grams.trim()) {
       const n = Number(r.weight_grams.replace(/[.,\s]/g, ""))
       if (!Number.isInteger(n) || n < 0) errors.set(i, "Weight is whole grams")
       else row.weight_grams = n
