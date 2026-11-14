@@ -9,13 +9,16 @@ import { cx } from "@/lib/utils"
  */
 export function Page({
   title,
+  titleAddon,
   description,
   actions,
   children,
   wide,
 }: {
   title: string
-  description?: string
+  /** Beside the title, such as a record's status badges. */
+  titleAddon?: React.ReactNode
+  description?: React.ReactNode
   actions?: React.ReactNode
   children: React.ReactNode
   wide?: boolean
@@ -23,10 +26,11 @@ export function Page({
   return (
     <div className={cx("mx-auto", wide ? "max-w-full" : "max-w-5xl")}>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-3">
+        <div className="flex min-w-0 flex-wrap items-center gap-3">
           <h1 className="text-xl font-semibold text-gray-800 dark:text-white/90">
             {title}
           </h1>
+          {titleAddon}
         </div>
         <Breadcrumbs />
       </div>
