@@ -34,34 +34,44 @@ export const businessTypeOptions: readonly { value: BusinessType; label: string 
   { value: "umrah", label: "Umrah travel" },
 ]
 
+/** The statuses a shop can show, worst first, for the list's filter. */
+export const statusOptions = [
+  { value: "suspended", label: "Suspended" },
+  { value: "closed", label: "Closed" },
+  { value: "unverified", label: "Not verified" },
+  { value: "ending", label: "Plan ending" },
+  { value: "sleeping", label: "Sleeping" },
+  { value: "active", label: "Active" },
+] as const
+
+export type ShopStatusKey = (typeof statusOptions)[number]["value"]
+
 /**
  * One reason a shop is in the state it is, worst first: off (suspended or
  * closed), never verified, a paid period ending, asleep, or fine.
  */
 export function statusOf(shop: PlatformShop, now = Date.now()) {
-  if (shop.status !== "active")
-    return {
-      label: shop.status === "suspended" ? "Suspended" : "Closed",
-      color: "error",
-    } as const
-  if (shop.owner?.status === "invited")
-    return { label: "Not verified", color: "warning" } as const
-  if (endsSoon(shop, now)) return { label: "Plan ending", color: "warning" } as const
-  if (isSleeping(shop, now)) return { label: "Sleeping", color: "light" } as const
-  return { label: "Active", color: "success" } as const
+  const key: ShopStatusKey =
+    shop.status !== "active"
+      ? shop.status
+      : shop.owner?.status === "invited"
+        ? "unverified"
+        : endsSoon(shop, now)
+          ? "ending"
+          : isSleeping(shop, now)
+            ? "sleeping"
+            : "active"
+  const color = {
+    suspended: "error",
+    closed: "error",
+    unverified: "warning",
+    ending: "warning",
+    sleeping: "light",
+    active: "success",
+  } as const
+  const label = statusOptions.find((o) => o.value === key)!.label
+  return { key, label, color: color[key] }
 }
-
-/** A shop the founder should look at: not verified, asleep, or its paid period ending. */
-export function needsAttention(shop: PlatformShop, now = Date.now()) {
-  return (
-    shop.status === "active" &&
-    (shop.owner?.status === "invited" || isSleeping(shop, now) || endsSoon(shop, now))
-  )
-}
-
-/** On a plan above Mulai (BR-160). */
-export const isPaying = (shop: PlatformShop) =>
-  shop.plan === "katalog" || shop.plan === "jualan"
 
 /** CLI and demo-seed shops, kept out of the counts and the main list. */
 export const isDemo = (shop: PlatformShop) => shop.source === "cli"

@@ -1,6 +1,6 @@
 "use client"
 
-import { ChevronDown, ChevronRight } from "lucide-react"
+import { ChevronRight } from "lucide-react"
 import Link from "next/link"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { Suspense, useMemo, useState } from "react"
@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/common/Listing"
 import { Card, Empty, Loading, Page } from "@/components/ui/common/Page"
 import { SearchInput } from "@/components/ui/common/SearchInput"
-import { SegmentedTabs } from "@/components/ui/common/SegmentedTabs"
+import { Select } from "@/components/ui/common/Select"
 import {
   TableBody,
   TableCell,
@@ -31,10 +31,10 @@ import { formatDate, formatDateTime, formatRelative } from "@/lib/format"
 import {
   endsSoon,
   isDemo,
-  isPaying,
-  needsAttention,
   planLabel,
   planOptions,
+  statusOf,
+  statusOptions,
 } from "@/lib/platform"
 
 import { StatusBadge } from "./badges"
@@ -42,12 +42,10 @@ import { NewShopDialog } from "./dialogs"
 
 // P1-903: Belli's own page, every shop on the platform (BR-150, 04-api-spec.md
 // §14), for the session's platform_admin only; the route checks the email
-// again. Four numbers and the shops; the funnel and per-plan counts fold into
-// Insights, and each shop's details and actions are on its own page
-// (/platform/{id}).
+// again. Insights, then the shops, filtered by status, plan and real or demo;
+// each shop's details and actions are on its own page (/platform/{id}).
 
-type Show = "all" | "attention" | "paying" | "demo"
-const shows: readonly Show[] = ["all", "attention", "paying", "demo"]
+type Filters = { q: string; status: string; plan: string; demo: boolean }
 
 export default function PlatformPage() {
   return (
@@ -67,41 +65,41 @@ function PlatformList() {
     allowed ? "/v1/platform/shops" : null,
   )
   const [creating, setCreating] = useState(false)
-  // The search and tab live in the URL too, so Back from a shop restores them.
-  const [q, setQ] = useState(params.get("q") ?? "")
-  const [show, setShow] = useState<Show>(() => {
-    const s = params.get("show") as Show | null
-    return s && shows.includes(s) ? s : "all"
-  })
-  function remember(next: { q?: string; show?: Show }) {
+  // The filters live in the URL too, so Back from a shop restores them.
+  const [filters, setFilters] = useState<Filters>(() => ({
+    q: params.get("q") ?? "",
+    status: params.get("status") ?? "",
+    plan: params.get("plan") ?? "",
+    demo: params.get("demo") === "1",
+  }))
+  function filter(next: Partial<Filters>) {
+    const f = { ...filters, ...next }
+    setFilters(f)
     const query = new URLSearchParams()
-    const nq = next.q ?? q
-    const ns = next.show ?? show
-    if (nq) query.set("q", nq)
-    if (ns !== "all") query.set("show", ns)
+    if (f.q) query.set("q", f.q)
+    if (f.status) query.set("status", f.status)
+    if (f.plan) query.set("plan", f.plan)
+    if (f.demo) query.set("demo", "1")
     router.replace(query.size ? `${pathname}?${query}` : pathname)
   }
 
-  const all = useMemo(() => data?.shops ?? [], [data])
-  const groups = useMemo(() => {
-    const real = all.filter((s) => !isDemo(s))
-    return {
-      all: real,
-      attention: real.filter((s) => needsAttention(s)),
-      paying: real.filter(isPaying),
-      demo: all.filter(isDemo),
-    }
-  }, [all])
+  const real = useMemo(
+    () => (data?.shops ?? []).filter((s) => !isDemo(s)),
+    [data],
+  )
   const shops = useMemo(() => {
-    const needle = q.trim().toLowerCase()
-    return groups[show].filter(
+    const needle = filters.q.trim().toLowerCase()
+    return (data?.shops ?? []).filter(
       (s) =>
-        !needle ||
-        [s.name, s.slug, s.owner?.name, s.owner?.email].some((v) =>
-          v?.toLowerCase().includes(needle),
-        ),
+        isDemo(s) === filters.demo &&
+        (!filters.status || statusOf(s).key === filters.status) &&
+        (!filters.plan || s.plan === filters.plan) &&
+        (!needle ||
+          [s.name, s.slug, s.owner?.name, s.owner?.email].some((v) =>
+            v?.toLowerCase().includes(needle),
+          )),
     )
-  }, [groups, show, q])
+  }, [data, filters])
 
   if (!allowed) {
     return (
@@ -116,7 +114,7 @@ function PlatformList() {
     <Page
       wide
       title="Platform"
-      description="Every shop on Belli, and the ones that need you."
+      description="Every shop on Belli: how signups go, and each shop's state."
       actions={
         <Button size="sm" onClick={() => setCreating(true)}>
           New shop
@@ -133,58 +131,39 @@ function PlatformList() {
         <Loading />
       ) : data && sum ? (
         <div className="space-y-6">
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <Figure
-              label="Shops"
-              value={sum.shops}
-              hint={`+${sum.new_7d} this week`}
-            />
-            <Figure
-              label="Active this week"
-              value={sum.active_7d}
-              hint="Signed in or changed something"
-            />
-            <Figure
-              label="Need attention"
-              value={groups.attention.length}
-              hint="Unverified, asleep or plan ending"
-            />
-            <Figure
-              label="Paying"
-              value={groups.paying.length}
-              hint="On Katalog or Jualan"
-            />
-          </div>
-
-          <Insights shops={groups.all} summary={sum} />
+          <Insights shops={real} summary={sum} />
 
           <div className="flex flex-wrap items-center gap-3">
-            <SegmentedTabs
-              label="Show"
+            <Select
+              aria-label="Status"
+              className="w-full sm:w-44"
+              value={filters.status}
+              onChange={(status) => filter({ status })}
+              options={[{ value: "", label: "All statuses" }, ...statusOptions]}
+            />
+            <Select
+              aria-label="Plan"
+              className="w-full sm:w-40"
+              value={filters.plan}
+              onChange={(plan) => filter({ plan })}
+              options={[{ value: "", label: "All plans" }, ...planOptions]}
+            />
+            <Select
+              aria-label="Shops"
+              className="w-full sm:w-40"
+              value={filters.demo ? "demo" : ""}
+              onChange={(v) => filter({ demo: v === "demo" })}
               options={[
-                { value: "all", label: `All ${groups.all.length}` },
-                {
-                  value: "attention",
-                  label: `Need attention ${groups.attention.length}`,
-                },
-                { value: "paying", label: `Paying ${groups.paying.length}` },
-                { value: "demo", label: `Demo ${groups.demo.length}` },
+                { value: "", label: "Real shops" },
+                { value: "demo", label: "Demo shops" },
               ]}
-              value={show}
-              onChange={(s) => {
-                setShow(s)
-                remember({ show: s })
-              }}
             />
             <SearchInput
               aria-label="Search shops"
               placeholder="Shop, owner or email"
               className="w-full sm:ml-auto sm:w-64"
-              value={q}
-              onChange={(e) => {
-                setQ(e.target.value)
-                remember({ q: e.target.value })
-              }}
+              value={filters.q}
+              onChange={(e) => filter({ q: e.target.value })}
             />
           </div>
 
@@ -222,31 +201,9 @@ function PlatformList() {
   )
 }
 
-function Figure({
-  label,
-  value,
-  hint,
-}: {
-  label: string
-  value: number
-  hint: string
-}) {
-  return (
-    <Card className="p-5">
-      <p className="text-theme-sm text-gray-500 dark:text-gray-400">{label}</p>
-      <p className="mt-2 text-title-sm font-bold tabular-nums text-gray-800 dark:text-white/90">
-        {value}
-      </p>
-      <p className="mt-1 text-theme-xs text-gray-500 dark:text-gray-400">
-        {hint}
-      </p>
-    </Card>
-  )
-}
-
 /**
- * The signup funnel and the shops per plan, folded away until wanted. The
- * funnel counts shops that signed up themselves, as the summary does.
+ * The signup funnel and the shops per plan. The funnel counts shops that
+ * signed up themselves, as the report's summary does.
  */
 function Insights({
   shops,
@@ -256,45 +213,37 @@ function Insights({
   summary: PlatformShops["summary"]
 }) {
   return (
-    <details className="group rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-2xl px-5 py-4 text-theme-sm font-medium text-gray-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-white/90 [&::-webkit-details-marker]:hidden">
-        <span>
-          Insights
-          <span className="ml-2 font-normal text-gray-500 dark:text-gray-400">
-            Signup funnel and shops per plan
-          </span>
+    <Card className="p-5">
+      <h2 className="text-theme-sm font-medium text-gray-800 dark:text-white/90">
+        Insights
+        <span className="ml-2 font-normal text-gray-500 dark:text-gray-400">
+          Signup funnel and shops per plan
         </span>
-        <ChevronDown
-          aria-hidden
-          className="size-4 text-gray-500 transition-transform group-open:rotate-180"
-        />
-      </summary>
-      <div className="space-y-5 border-t border-gray-100 px-5 py-5 dark:border-white/[0.05]">
-        <ol className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3 lg:grid-cols-5">
-          {(
-            [
-              ["Signed up", sum.shops],
-              ["Verified email", sum.verified],
-              ["Set up the website", sum.website_set_up],
-              ["Added a product", sum.with_products],
-              ["Got an order", sum.with_orders],
-            ] as const
-          ).map(([label, n]) => (
-            <FunnelStep key={label} label={label} value={n} of={sum.shops} />
-          ))}
-        </ol>
-        <p className="text-theme-sm text-gray-600 dark:text-gray-400">
-          {planOptions
-            .map(
-              (p) =>
-                `${p.label} ${shops.filter((s) => s.plan === p.value).length}`,
-            )
-            .join(" · ")}
-          {" · "}
-          Plan ending within 7 days {shops.filter((s) => endsSoon(s)).length}
-        </p>
-      </div>
-    </details>
+      </h2>
+      <ol className="mt-4 grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3 lg:grid-cols-5">
+        {(
+          [
+            ["Signed up", sum.shops],
+            ["Verified email", sum.verified],
+            ["Set up the website", sum.website_set_up],
+            ["Added a product", sum.with_products],
+            ["Got an order", sum.with_orders],
+          ] as const
+        ).map(([label, n]) => (
+          <FunnelStep key={label} label={label} value={n} of={sum.shops} />
+        ))}
+      </ol>
+      <p className="mt-5 text-theme-sm text-gray-600 dark:text-gray-400">
+        {planOptions
+          .map(
+            (p) =>
+              `${p.label} ${shops.filter((s) => s.plan === p.value).length}`,
+          )
+          .join(" · ")}
+        {" · "}
+        Plan ending within 7 days {shops.filter((s) => endsSoon(s)).length}
+      </p>
+    </Card>
   )
 }
 
