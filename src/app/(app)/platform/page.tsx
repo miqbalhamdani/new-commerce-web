@@ -34,6 +34,7 @@ import { formatDate, formatDateTime, formatRelative } from "@/lib/format"
 import { endsSoon, isSleeping, planLabel, planOptions } from "@/lib/platform"
 
 import {
+  BusinessTypeDialog,
   NewShopDialog,
   OwnerDialog,
   PlanDialog,
@@ -65,6 +66,7 @@ export default function PlatformPage() {
   const [creating, setCreating] = useState(false)
   const [owner, setOwner] = useState<PlatformShop | null>(null)
   const [planFor, setPlanFor] = useState<PlatformShop | null>(null)
+  const [typeFor, setTypeFor] = useState<PlatformShop | null>(null)
   const [change, setChange] = useState<StatusChange | null>(null)
   const [actionError, setActionError] = useState<ApiError | null>(null)
   const [notice, setNotice] = useState("")
@@ -95,6 +97,7 @@ export default function PlatformPage() {
     const out: RowAction[] = [
       { label: "Open as owner", onSelect: () => openAsOwner(shop) },
       { label: "Change plan", onSelect: () => setPlanFor(shop) },
+      { label: "Change business type", onSelect: () => setTypeFor(shop) },
     ]
     if (shop.owner?.status === "invited") {
       out.push(
@@ -192,6 +195,11 @@ export default function PlatformPage() {
       <PlanDialog
         shop={planFor}
         onClose={() => setPlanFor(null)}
+        onDone={reload}
+      />
+      <BusinessTypeDialog
+        shop={typeFor}
+        onClose={() => setTypeFor(null)}
         onDone={reload}
       />
       <StatusDialog
@@ -459,6 +467,11 @@ function ShopRow({
         <Badge size="sm" color={s.plan === "jualan" ? "primary" : "light"}>
           {planLabel(s.plan)}
         </Badge>
+        {s.business_type === "umrah" && (
+          <Badge size="sm" color="info">
+            Umrah
+          </Badge>
+        )}
         {s.plan_until && (
           <p
             className={`mt-1 text-theme-xs ${

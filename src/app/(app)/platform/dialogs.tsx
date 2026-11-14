@@ -11,9 +11,9 @@ import { DatePicker } from "@/components/ui/common/DatePicker"
 import { Field } from "@/components/ui/common/Field"
 import { Select } from "@/components/ui/common/Select"
 import { ApiError } from "@/lib/api/client"
-import type { PlatformShop, ShopPlan } from "@/lib/api/types"
+import type { BusinessType, PlatformShop, ShopPlan } from "@/lib/api/types"
 import { asApiError, fieldError, useApi } from "@/lib/api/use-api"
-import { planOptions } from "@/lib/platform"
+import { businessTypeOptions, planOptions } from "@/lib/platform"
 
 // P1-916: the platform admin's shop actions (BR-151, 04-api-spec.md §14.1).
 
@@ -32,6 +32,7 @@ export function NewShopDialog({
   const [form, setForm] = useState(empty)
   const [sendInvite, setSendInvite] = useState(false)
   const [plan, setPlan] = useState<ShopPlan>("mulai")
+  const [businessType, setBusinessType] = useState<BusinessType>("retail")
   const [error, setError] = useState<ApiError | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -41,11 +42,17 @@ export function NewShopDialog({
     try {
       await api("/v1/platform/shops", {
         method: "POST",
-        body: { ...form, send_invite: sendInvite, plan },
+        body: {
+          ...form,
+          send_invite: sendInvite,
+          plan,
+          business_type: businessType,
+        },
       })
       setForm(empty)
       setSendInvite(false)
       setPlan("mulai")
+      setBusinessType("retail")
       setError(null)
       onClose()
       onDone()
@@ -107,6 +114,19 @@ export function NewShopDialog({
             value={plan}
             onChange={(v) => setPlan(v as ShopPlan)}
             options={planOptions}
+          />
+        </Field>
+        <Field
+          id="new-shop-business-type"
+          label="Business type"
+          hint="An umrah travel agency's products are packages, and its website takes no orders."
+          error={fieldError(error, "business_type")}
+        >
+          <Select
+            id="new-shop-business-type"
+            value={businessType}
+            onChange={(v) => setBusinessType(v as BusinessType)}
+            options={businessTypeOptions}
           />
         </Field>
         <Checkbox
@@ -405,5 +425,86 @@ export function StatusDialog({
     >
       <ErrorNotice error={error} />
     </Dialog>
+  )
+}
+
+/** Sets a shop's business type (BR-170). */
+export function BusinessTypeDialog({
+  shop,
+  onClose,
+  onDone,
+}: {
+  shop: PlatformShop | null
+  onClose: () => void
+  onDone: () => void
+}) {
+  return (
+    <Dialog
+      open={shop !== null}
+      onOpenChange={(o) => !o && onClose()}
+      title={`Business type for ${shop?.name ?? ""}`}
+      description="An umrah shop's products are packages with departures, hotels, seats and USD prices, and its website takes no orders. Nothing is deleted when this changes. Staff see it when they next reload, within 15 minutes."
+    >
+      {shop && (
+        <BusinessTypeForm key={shop.id} shop={shop} onClose={onClose} onDone={onDone} />
+      )}
+    </Dialog>
+  )
+}
+
+function BusinessTypeForm({
+  shop,
+  onClose,
+  onDone,
+}: {
+  shop: PlatformShop
+  onClose: () => void
+  onDone: () => void
+}) {
+  const api = useApi()
+  const [businessType, setBusinessType] = useState<BusinessType>(shop.business_type)
+  const [error, setError] = useState<ApiError | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    setBusy(true)
+    try {
+      await api(`/v1/platform/shops/${shop.id}/business-type`, {
+        method: "PATCH",
+        body: { business_type: businessType },
+      })
+      setError(null)
+      onClose()
+      onDone()
+    } catch (err) {
+      setError(asApiError(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <form onSubmit={submit} className="flex flex-col gap-3">
+      <Field id="business-type" label="Business type" error={fieldError(error, "business_type")}>
+        <Select
+          id="business-type"
+          value={businessType}
+          onChange={(v) => setBusinessType(v as BusinessType)}
+          options={businessTypeOptions}
+        />
+      </Field>
+      {error && !error.problem.errors?.length && (
+        <ErrorNotice error={error} title="Could not change the business type" />
+      )}
+      <div className="flex justify-end gap-2">
+        <Button size="sm" type="button" variant="outline" onClick={onClose}>
+          Cancel
+        </Button>
+        <Button size="sm" type="submit" isLoading={busy}>
+          Save
+        </Button>
+      </div>
+    </form>
   )
 }

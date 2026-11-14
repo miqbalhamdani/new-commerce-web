@@ -89,3 +89,47 @@ describe("ProductEditor (new product)", () => {
     })
   })
 })
+
+describe("ProductEditor (an umrah shop, BR-170)", () => {
+  it("edits a package: schedule, hotels, itinerary, and saves it whole", async () => {
+    const fetch = mockApi(
+      ["products:write", "variants:write", "media:write"],
+      (url, init) => {
+        if (url.includes("/v1/brands")) return json({ data: [], next_cursor: null })
+        if (url.endsWith("/v1/categories")) return json({ data: [] })
+        if (url.endsWith("/v1/products") && init?.method === "POST")
+          return json({ id: "p9", title: "Umrah Desember" }, 201)
+      },
+      "owner",
+      false,
+      "katalog",
+      "umrah",
+    )
+    renderSignedIn(<ProductEditor product={null} onSaved={vi.fn()} />)
+    const user = userEvent.setup()
+
+    for (const name of ["Package info", "Schedule and seats", "Hotels", "Itinerary", "Prices"])
+      expect(await screen.findByRole("heading", { name })).toBeInTheDocument()
+    await user.type(screen.getByLabelText("Title"), "Umrah Desember")
+    await user.type(screen.getByLabelText("Or departure month"), "Desember 2026")
+    await user.type(screen.getByLabelText("Seats left"), "12")
+    await user.click(screen.getByRole("button", { name: "Add day" }))
+    await user.type(screen.getByLabelText("Day 1 title"), "Jakarta – Madinah")
+    await user.click(screen.getByRole("button", { name: "Create package" }))
+
+    await waitFor(() =>
+      expect(
+        fetch.mock.calls.some(([u, i]) => String(u).endsWith("/v1/products") && i?.method === "POST"),
+      ).toBe(true),
+    )
+    const [, init] = fetch.mock.calls.find(
+      ([u, i]) => String(u).endsWith("/v1/products") && i?.method === "POST",
+    )!
+    expect(JSON.parse(String(init?.body)).package).toMatchObject({
+      departure_text: "Desember 2026",
+      seats_left: 12,
+      itinerary: [{ title: "Jakarta – Madinah", text: null }],
+    })
+  })
+})
+
