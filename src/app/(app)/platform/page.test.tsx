@@ -213,6 +213,7 @@ describe("the platform shop actions (P1-916, BR-151)", () => {
       owner_email: "rina@lelap.id",
       send_invite: false,
       plan: "mulai",
+      business_type: "retail",
     })
   })
 

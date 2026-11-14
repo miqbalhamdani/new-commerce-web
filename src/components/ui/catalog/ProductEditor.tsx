@@ -1,10 +1,12 @@
 "use client"
 
+import { useRouter } from "next/navigation"
 import { useState } from "react"
 
 import Button from "@/components/ui/button/Button"
 import { BulkPriceAdjust } from "@/components/ui/catalog/BulkPriceAdjust"
 import { MediaManager } from "@/components/ui/catalog/MediaManager"
+import { PackageFields } from "@/components/ui/catalog/PackageFields"
 import {
   AttributesFields,
   OrganizationFields,
@@ -15,7 +17,10 @@ import {
 import { PublishBar } from "@/components/ui/catalog/PublishBar"
 import { VariantMatrix } from "@/components/ui/catalog/VariantMatrix"
 import { Page, Section } from "@/components/ui/common/Page"
+import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
+import type { ApiError } from "@/lib/api/client"
 import type { Product } from "@/lib/api/types"
+import { asApiError, useApi } from "@/lib/api/use-api"
 import { useCan } from "@/lib/auth/session"
 import { cx } from "@/lib/utils"
 import type { Failure } from "@/lib/catalog/publish"
@@ -63,11 +68,14 @@ export function ProductEditor({
   const archived = product?.status === "archived"
   const editable = canWrite && !archived
   const status = product?.status ?? "draft"
+  // An umrah shop's products are packages (BR-170).
+  const thing = form.umrah ? "package" : "product"
+  const duplicate = useDuplicate(product)
 
   return (
     <Page
       wide
-      title={product ? product.title : "New product"}
+      title={product ? product.title : `New ${thing}`}
       description={
         product
           ? `Version ${product.version} · ${product.variant_count} live variant${product.variant_count === 1 ? "" : "s"}`
@@ -76,11 +84,14 @@ export function ProductEditor({
     >
       <div className="flex flex-col gap-6">
         <SaveError form={form} />
+        {duplicate.error && (
+          <ErrorNotice error={duplicate.error} title="Could not duplicate" />
+        )}
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1.55fr)_minmax(320px,0.78fr)]">
           <div className="flex min-w-0 flex-col gap-6">
             <Section
               id="details"
-              title="Product info"
+              title={form.umrah ? "Package info" : "Product info"}
               description="What customers see first: the name, its web address and the story."
             >
               {/* Only this card is the <form>, so Enter in a field saves;
@@ -90,6 +101,7 @@ export function ProductEditor({
                 <ProductInfoFields form={form} canWrite={editable} />
               </form>
             </Section>
+            <PackageFields form={form} canWrite={editable} />
             <Section
               id="images"
               title="Images"
@@ -102,13 +114,17 @@ export function ProductEditor({
                   onChanged={() => onReload?.()}
                 />
               ) : (
-                <NotYet>Create the product to add images.</NotYet>
+                <NotYet>Create the {thing} to add images.</NotYet>
               )}
             </Section>
             <Section
               id="variants"
-              title="Variants"
-              description="Each combination of options is a variant with its own SKU, price and weight."
+              title={form.umrah ? "Prices" : "Variants"}
+              description={
+                form.umrah
+                  ? "One row per room type or package choice, priced in rupiah or US dollars. SKUs are given when you publish."
+                  : "Each combination of options is a variant with its own SKU, price and weight."
+              }
             >
               {product ? (
                 <VariantMatrix
@@ -129,7 +145,9 @@ export function ProductEditor({
                   }
                 </VariantMatrix>
               ) : (
-                <NotYet>Create the product to add variants.</NotYet>
+                <NotYet>
+                  Create the {thing} to add {form.umrah ? "prices" : "variants"}.
+                </NotYet>
               )}
             </Section>
           </div>
@@ -167,6 +185,17 @@ export function ProductEditor({
                   />
                 )}
               </div>
+              {product && canWrite && canVariants && canMedia && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="mt-3 w-full"
+                  isLoading={duplicate.busy}
+                  onClick={duplicate.run}
+                >
+                  Duplicate {thing}
+                </Button>
+              )}
               {editable && (
                 <div className="mt-5 grid grid-cols-2 gap-3 border-t border-gray-100 pt-5 dark:border-white/[0.05]">
                   <Button
@@ -184,7 +213,7 @@ export function ProductEditor({
                     isLoading={form.saving}
                     disabled={!form.canSave}
                   >
-                    {product ? "Save" : "Create product"}
+                    {product ? "Save" : `Create ${thing}`}
                   </Button>
                 </div>
               )}
@@ -196,8 +225,12 @@ export function ProductEditor({
               <OrganizationFields form={form} canWrite={editable} />
             </Section>
             <Section
-              title="Attributes"
-              description="Free-form details such as material, fit or care."
+              title={form.umrah ? "Other details" : "Attributes"}
+              description={
+                form.umrah
+                  ? "Anything the sections above do not cover."
+                  : "Free-form details such as material, fit or care."
+              }
             >
               <AttributesFields form={form} canWrite={editable} />
             </Section>
@@ -206,6 +239,33 @@ export function ProductEditor({
       </div>
     </Page>
   )
+}
+
+/**
+ * Copies the product into a new draft and opens it (P1-942, BR-047). Needs
+ * products, variants and media write, as the route does.
+ */
+function useDuplicate(product: Product | null) {
+  const api = useApi()
+  const router = useRouter()
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<ApiError | null>(null)
+  async function run() {
+    if (!product) return
+    setBusy(true)
+    try {
+      const copy = await api<Product>(`/v1/products/${product.id}/duplicate`, {
+        method: "POST",
+      })
+      setError(null)
+      router.push(`/products/${copy.id}`)
+    } catch (err) {
+      setError(asApiError(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+  return { busy, error, run }
 }
 
 function NotYet({ children }: { children: React.ReactNode }) {

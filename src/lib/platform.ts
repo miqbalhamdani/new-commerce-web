@@ -1,4 +1,4 @@
-import type { PlatformShop, ShopPlan } from "@/lib/api/types"
+import type { BusinessType, PlatformShop, ShopPlan } from "@/lib/api/types"
 
 /** BR-150: a verified shop with no activity in 14 days. */
 const SLEEPS_AFTER_MS = 14 * 24 * 60 * 60 * 1000
@@ -27,3 +27,9 @@ export function endsSoon(shop: PlatformShop, now = Date.now()) {
   const end = new Date(`${shop.plan_until}T23:59:59+07:00`).getTime()
   return end - now <= ENDS_SOON_MS
 }
+
+/** BR-170's business types. */
+export const businessTypeOptions: readonly { value: BusinessType; label: string }[] = [
+  { value: "retail", label: "Retail shop" },
+  { value: "umrah", label: "Umrah travel" },
+]

@@ -22,7 +22,9 @@ import {
 } from "@/components/ui/common/Listing"
 import { PencilIcon } from "@/icons"
 import type { ProductListItem } from "@/lib/api/types"
+import { useUmrah } from "@/lib/auth/session"
 import { formatMoney } from "@/lib/format"
+import { departureOf, seatsOf } from "@/lib/catalog/package"
 
 const statusBadge = {
   draft: "light",
@@ -53,6 +55,8 @@ export function ProductTable({
   onArchive?: (p: ProductListItem) => void
 }) {
   const router = useRouter()
+  // An umrah shop's list shows each package's departure and seats (BR-171).
+  const umrah = useUmrah()
   // Clicks on the checkbox, the title link and the menu stay theirs.
   const stop = (e: React.MouseEvent) => e.stopPropagation()
   return (
@@ -71,13 +75,13 @@ export function ProductTable({
             Category
           </TableCell>
           <TableCell isHeader className={headerCell}>
-            Brand
+            {umrah ? "Departure" : "Brand"}
           </TableCell>
           <TableCell isHeader className={headerCell}>
             Status
           </TableCell>
           <TableCell isHeader className={`${headerCell} text-right`}>
-            Variants
+            {umrah ? "Seats" : "Variants"}
           </TableCell>
           <TableCell isHeader className={`${headerCell} text-right`}>
             Price
@@ -147,7 +151,7 @@ export function ProductTable({
             <TableCell
               className={`${bodyCell} text-gray-500 dark:text-gray-400`}
             >
-              {p.brand?.name ?? "—"}
+              {umrah ? departureOf(p.package) : (p.brand?.name ?? "—")}
             </TableCell>
             <TableCell className={bodyCell}>
               <Badge size="sm" color={statusBadge[p.status]}>
@@ -157,7 +161,7 @@ export function ProductTable({
             <TableCell
               className={`${bodyCell} text-right tabular-nums text-gray-500 dark:text-gray-400`}
             >
-              {p.variant_count}
+              {umrah ? seatsOf(p.package) : p.variant_count}
             </TableCell>
             <TableCell
               className={`${bodyCell} text-right tabular-nums text-gray-500 dark:text-gray-400`}

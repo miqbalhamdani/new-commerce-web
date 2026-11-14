@@ -548,11 +548,38 @@ export interface paths {
          * @description `If-Match` is required (BR-010). `null` clears `description` or `brand_id`;
          *     `category_ids` and `attributes` replace the whole value. `slug` must be lower-case
          *     `a-z0-9-` and unique in the tenant. `option_names` changes only through the variant
-         *     matrix and is `422` here. `status: "active"` runs the publish check (`422
-         *     publish_check_failed`, BR-038); `"draft"` unpublishes; archiving is `DELETE`.
-         *     Requires `products:write`.
+         *     matrix and is `422` here. `package` replaces the object in an `umrah` shop and is `422`
+         *     in any other (BR-171). `status: "active"` gives each live variant without a SKU one,
+         *     then runs the publish check (`422 publish_check_failed`, BR-038, BR-172); `"draft"`
+         *     unpublishes; archiving is `DELETE`. Requires `products:write`.
          */
         patch: operations["updateProduct"];
+        trace?: never;
+    };
+    "/products/{id}/duplicate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Copy a product into a new draft
+         * @description BR-047: a new `draft` with ` (copy)` after the title, a slug derived from it, the same
+         *     description, brand, categories, attributes, package and option names, each live variant
+         *     without its SKU and barcode, and every image, sharing its files with the original's.
+         *     Archived products can be copied. Requires `products:write`, `variants:write` and
+         *     `media:write`.
+         */
+        post: operations["duplicateProduct"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/products/{id}/variants": {
@@ -1440,6 +1467,30 @@ export interface paths {
         patch: operations["updatePlatformShopPlan"];
         trace?: never;
     };
+    "/platform/shops/{id}/business-type": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Set a shop's business type
+         * @description BR-170: `retail` or `umrah`, audited `tenant.business_type` in the shop. Nothing is
+         *     deleted. The shop's staff get it at their next sign-in or refresh, within 15 minutes, and
+         *     the storefront API within 60 seconds. Platform admins only.
+         */
+        patch: operations["updatePlatformShopBusinessType"];
+        trace?: never;
+    };
     "/platform/shops/{id}/invite": {
         parameters: {
             query?: never;
@@ -1740,7 +1791,14 @@ export interface components {
              */
             timezone: string;
             plan: components["schemas"]["ShopPlan"];
+            business_type: components["schemas"]["BusinessType"];
         };
+        /**
+         * @description BR-170: an `umrah` shop's products are travel packages, with package details and USD
+         *     prices and without weights, and its website takes no orders.
+         * @enum {string}
+         */
+        BusinessType: "retail" | "umrah";
         /**
          * @description BR-160: the shop's plan, a ceiling on every role. `permissions` already leave out what it
          *     does not include; the admin reads it only for what no permission covers, such as the
@@ -1790,6 +1848,7 @@ export interface components {
              * @description When the paid period is expected to end. Display only (BR-160).
              */
             plan_until: string | null;
+            business_type: components["schemas"]["BusinessType"];
             /** Format: date-time */
             created_at: string;
             /**
@@ -1814,6 +1873,8 @@ export interface components {
             send_invite: boolean;
             /** @description The shop's plan; `mulai` when left out (BR-160). */
             plan?: components["schemas"]["ShopPlan"];
+            /** @description `retail` when left out (BR-170). */
+            business_type?: components["schemas"]["BusinessType"];
         };
         PlatformShopUpdate: {
             /** @enum {string} */
@@ -1826,6 +1887,9 @@ export interface components {
              * @description When the paid period is expected to end, or `null`. Display only (BR-160).
              */
             plan_until: string | null;
+        };
+        PlatformShopBusinessTypeUpdate: {
+            business_type: components["schemas"]["BusinessType"];
         };
         PlatformShopOwnerUpdate: {
             /** Format: email */
@@ -2005,6 +2069,8 @@ export interface components {
                 [key: string]: unknown;
             };
             option_names: string[];
+            /** @description An umrah shop's package details (BR-171); `null` for every other product. */
+            package: components["schemas"]["Package"] | null;
             /** @description Live variants. */
             variant_count: number;
             media: components["schemas"]["Media"][];
@@ -2024,6 +2090,8 @@ export interface components {
             attributes?: {
                 [key: string]: unknown;
             };
+            /** @description Only in an `umrah` shop, else `422` (BR-171). */
+            package?: components["schemas"]["Package"];
         };
         ProductUpdate: {
             title?: string;
@@ -2035,6 +2103,8 @@ export interface components {
             attributes?: {
                 [key: string]: unknown;
             };
+            /** @description Replaces the object; `null` clears it. Only in an `umrah` shop, else `422` (BR-171). */
+            package?: components["schemas"]["Package"] | null;
             /** @enum {string} */
             status?: "draft" | "active";
         };
@@ -2057,6 +2127,11 @@ export interface components {
             /** @description Read-only. True while the sale's schedule is running (BR-046). */
             on_sale: boolean;
             weight_grams: number;
+            /**
+             * Format: int64
+             * @description US cents an umrah shop shows in place of rupiah; never charged (BR-171).
+             */
+            price_usd: number | null;
             /** Format: date-time */
             archived_at: string | null;
             /** Format: date-time */
@@ -2078,6 +2153,11 @@ export interface components {
             /** Format: date-time */
             sale_ends_at?: string;
             weight_grams?: number;
+            /**
+             * Format: int64
+             * @description US cents; only in an `umrah` shop, else `422` (BR-171).
+             */
+            price_usd?: number;
         };
         VariantUpdate: {
             sku?: string | null;
@@ -2089,6 +2169,11 @@ export interface components {
             /** Format: date-time */
             sale_ends_at?: string | null;
             weight_grams?: number;
+            /**
+             * Format: int64
+             * @description US cents; only in an `umrah` shop, else `422`. `null` clears it (BR-171).
+             */
+            price_usd?: number | null;
         };
         CategoryBrief: {
             /** Format: uuid */
@@ -2111,8 +2196,64 @@ export interface components {
             price_max: components["schemas"]["Money"] | null;
             /** @description The first image's 200 px derivative, once made (BR-052). */
             cover_url: string | null;
+            /** @description The package's departure and seats (BR-171); `null` without package details. */
+            package: components["schemas"]["PackageBrief"] | null;
             /** Format: date-time */
             updated_at: string;
+        };
+        PackageBrief: {
+            /** Format: date */
+            departure_date: string | null;
+            departure_text: string | null;
+            seats_left: number | null;
+            seats_total: number | null;
+        };
+        /**
+         * @description BR-171. A read has every field, `null` (`[]` for a list) when unset. A write may leave
+         *     any out, which unsets it, since the object is replaced whole. A field not listed here,
+         *     or one that breaks its rule, is `422` on `package.{field}`.
+         */
+        Package: {
+            /** Format: date */
+            departure_date: string | null;
+            /**
+             * Format: date
+             * @description Not before `departure_date`.
+             */
+            return_date: string | null;
+            /**
+             * @description A departure not yet fixed to a day, such as `Desember 2026`.
+             * @example Desember 2026
+             */
+            departure_text: string | null;
+            duration_days: number | null;
+            airline: string | null;
+            route: string | null;
+            hotels: components["schemas"]["PackageHotel"][];
+            /** @description What the owner types; nothing counts it down (BR-017). Not above `seats_total`. */
+            seats_left: number | null;
+            seats_total: number | null;
+            /** @description The days in order; day N is the Nth entry. */
+            itinerary: components["schemas"]["PackageDay"][];
+            includes: string[];
+            excludes: string[];
+            bonus: string[];
+            price_note: string | null;
+            /** @description For this package, in place of the shop's (BR-142). */
+            cancellation_policy: string | null;
+        };
+        PackageHotel: {
+            /** @example Makkah */
+            city: string;
+            name: string;
+            stars: number | null;
+            nights: number | null;
+            /** @description The option value (such as `Promo`) whose choice uses this hotel; `null` for every choice. */
+            variant: string | null;
+        };
+        PackageDay: {
+            title: string;
+            text: string | null;
         };
         ProductPage: {
             data: components["schemas"]["ProductListItem"][];
@@ -2156,6 +2297,11 @@ export interface components {
             /** Format: date-time */
             sale_ends_at?: string | null;
             weight_grams?: number;
+            /**
+             * Format: int64
+             * @description US cents; only in an `umrah` shop, else the request is `422` (BR-171).
+             */
+            price_usd?: number | null;
         };
         VariantMatrix: {
             /** @description Ordered axes; Colour at position 0 when present (BR-040). */
@@ -2578,6 +2724,19 @@ export interface components {
             shopee_url: string | null;
             /** Format: uri */
             tokopedia_url: string | null;
+            /** @example PPIU No. U.133 Tahun 2020 */
+            license: string | null;
+            cancellation_policy: string | null;
+            document_requirements: string | null;
+            /** @description A static website's deploy hook (BR-098); shown here and nowhere else. */
+            rebuild_hook_url: string | null;
+            /**
+             * Format: date-time
+             * @description When the hook was last called; `null` before the first call (BR-098).
+             */
+            rebuild_last_at: string | null;
+            /** @description The HTTP status the hook answered; `null` when it did not answer (BR-098). */
+            rebuild_last_status: number | null;
             /** Format: date-time */
             updated_at: string;
         };
@@ -2608,6 +2767,11 @@ export interface components {
             opening_hours?: string | null;
             shopee_url?: string | null;
             tokopedia_url?: string | null;
+            license?: string | null;
+            cancellation_policy?: string | null;
+            document_requirements?: string | null;
+            /** @description An `https://` URL on `api.vercel.com`, `api.cloudflare.com` or `api.netlify.com`, else `422`; `null` turns rebuilds off (BR-098). */
+            rebuild_hook_url?: string | null;
         };
         ApiKey: {
             /** Format: uuid */
@@ -4019,6 +4183,31 @@ export interface operations {
             422: components["responses"]["UnprocessableEntity"];
         };
     };
+    duplicateProduct: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The new product. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Product"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     listVariants: {
         parameters: {
             query?: {
@@ -5263,6 +5452,36 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["PlatformShopPlanUpdate"];
+            };
+        };
+        responses: {
+            /** @description The shop, as the report shows it. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformShop"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    updatePlatformShopBusinessType: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlatformShopBusinessTypeUpdate"];
             };
         };
         responses: {

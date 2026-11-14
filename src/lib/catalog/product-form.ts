@@ -1,4 +1,9 @@
 import type { Product } from "@/lib/api/types"
+import {
+  packageBodyOf,
+  packageDraftOf,
+  type PackageDraft,
+} from "@/lib/catalog/package"
 
 /** What the editor holds while someone types. */
 export interface ProductDraft {
@@ -8,9 +13,11 @@ export interface ProductDraft {
   brand_id: string
   category_ids: string[]
   attributes: [string, string][]
+  /** An umrah shop's package details (BR-171); null in a retail shop. */
+  package: PackageDraft | null
 }
 
-export function draftOf(p: Product): ProductDraft {
+export function draftOf(p: Product, umrah = false): ProductDraft {
   return {
     title: p.title,
     slug: p.slug,
@@ -21,11 +28,12 @@ export function draftOf(p: Product): ProductDraft {
       k,
       String(v),
     ]),
+    package: umrah ? packageDraftOf(p.package) : null,
   }
 }
 
 /** A new product's form, before anything is typed. */
-export function emptyDraft(): ProductDraft {
+export function emptyDraft(umrah = false): ProductDraft {
   return {
     title: "",
     slug: "",
@@ -33,6 +41,7 @@ export function emptyDraft(): ProductDraft {
     brand_id: "",
     category_ids: [],
     attributes: [],
+    package: umrah ? packageDraftOf(null) : null,
   }
 }
 
@@ -48,6 +57,7 @@ export function createBodyOf(draft: ProductDraft): Record<string, unknown> {
   if (draft.category_ids.length) body.category_ids = draft.category_ids
   const attrs = attributesOf(draft)
   if (Object.keys(attrs).length) body.attributes = attrs
+  if (draft.package) body.package = packageBodyOf(draft.package)
   return body
 }
 
@@ -60,7 +70,8 @@ const attributesOf = (d: ProductDraft) =>
 
 /**
  * The PATCH body: only what changed (BR-009). An emptied description or brand
- * is sent as null, which clears it; categories and attributes go whole.
+ * is sent as null, which clears it; categories, attributes and the package go
+ * whole.
  */
 export function patchOf(
   original: ProductDraft,
@@ -84,5 +95,12 @@ export function patchOf(
     JSON.stringify(Object.fromEntries(original.attributes))
   )
     body.attributes = attrs
+  if (
+    draft.package &&
+    original.package &&
+    JSON.stringify(packageBodyOf(draft.package)) !==
+      JSON.stringify(packageBodyOf(original.package))
+  )
+    body.package = packageBodyOf(draft.package)
   return body
 }

@@ -20,6 +20,7 @@ import type { CourierCode, ShopTheme, StorefrontSettings } from "@/lib/api/types
 import { asApiError, fieldError, useApi } from "@/lib/api/use-api"
 import { useSession } from "@/lib/auth/session"
 import { uploadHero, uploadLogo, xhrPut } from "@/lib/catalog/upload"
+import { formatDateTime } from "@/lib/format"
 import { cx } from "@/lib/utils"
 
 import { ColorPicker, ThemePicker } from "./ThemePicker"
@@ -58,6 +59,10 @@ const contactFields = [
   "address",
   "shopee_url",
   "tokopedia_url",
+  "license",
+  "cancellation_policy",
+  "document_requirements",
+  "rebuild_hook_url",
 ]
 
 function tabOf(field: string): Tab {
@@ -86,6 +91,10 @@ type Form = {
   opening_hours: string
   shopee_url: string
   tokopedia_url: string
+  license: string
+  cancellation_policy: string
+  document_requirements: string
+  rebuild_hook_url: string
   contact_email: string
   google_client_id: string
   origin_postal_code: string
@@ -108,6 +117,10 @@ const nullable = [
   "opening_hours",
   "shopee_url",
   "tokopedia_url",
+  "license",
+  "cancellation_policy",
+  "document_requirements",
+  "rebuild_hook_url",
   "contact_email",
   "google_client_id",
   "origin_postal_code",
@@ -138,6 +151,10 @@ function formOf(s: StorefrontSettings): Form {
     opening_hours: s.opening_hours ?? "",
     shopee_url: s.shopee_url ?? "",
     tokopedia_url: s.tokopedia_url ?? "",
+    license: s.license ?? "",
+    cancellation_policy: s.cancellation_policy ?? "",
+    document_requirements: s.document_requirements ?? "",
+    rebuild_hook_url: s.rebuild_hook_url ?? "",
     contact_email: s.contact_email ?? "",
     google_client_id: s.google_client_id ?? "",
     origin_postal_code: s.origin_postal_code ?? "",
@@ -171,6 +188,8 @@ export function StorefrontSettingsForm({
   // Only a shop on jualan takes orders on its website, so only it sees the
   // checkout settings (BR-160, BR-161).
   const sells = useSession().tenant?.plan === "jualan"
+  // An umrah shop shows its policies on every package (BR-142, BR-171).
+  const umrah = useSession().tenant?.business_type === "umrah"
   const shown = sells ? tabs : tabs.filter((t) => t.value !== "checkout")
   const initial = formOf(settings)
   const [form, setForm] = useState(initial)
@@ -476,6 +495,82 @@ export function StorefrontSettingsForm({
                 }
               />
             </Field>
+            <Field
+              id="license"
+              label="Business licence"
+              hint="Shown on your website, such as PPIU No. U.133 Tahun 2020."
+              error={fieldError(error, "license")}
+            >
+              <Input
+                id="license"
+                maxLength={120}
+                value={form.license}
+                onChange={(e) => setForm({ ...form, license: e.target.value })}
+              />
+            </Field>
+            <Field
+              id="rebuild-hook-url"
+              label="Rebuild hook"
+              hint={
+                settings.rebuild_last_at
+                  ? `Last called ${formatDateTime(settings.rebuild_last_at)}${settings.rebuild_last_status ? ` (HTTP ${settings.rebuild_last_status})` : ", no answer"}.`
+                  : "For a website built ahead of time: paste its Vercel, Cloudflare Pages or Netlify deploy hook, and it is rebuilt about a minute after you change something."
+              }
+              error={fieldError(error, "rebuild_hook_url")}
+            >
+              <Input
+                id="rebuild-hook-url"
+                type="url"
+                placeholder="https://api.vercel.com/v1/integrations/deploy/…"
+                value={form.rebuild_hook_url}
+                onChange={(e) =>
+                  setForm({ ...form, rebuild_hook_url: e.target.value.trim() })
+                }
+              />
+            </Field>
+            {umrah && (
+              <>
+                <div className="sm:col-span-2">
+                  <Field
+                    id="cancellation-policy"
+                    label="Cancellation policy"
+                    hint="Shown on every package that has none of its own."
+                    error={fieldError(error, "cancellation_policy")}
+                  >
+                    <Textarea
+                      id="cancellation-policy"
+                      rows={4}
+                      maxLength={3000}
+                      value={form.cancellation_policy}
+                      onChange={(e) =>
+                        setForm({ ...form, cancellation_policy: e.target.value })
+                      }
+                    />
+                  </Field>
+                </div>
+                <div className="sm:col-span-2">
+                  <Field
+                    id="document-requirements"
+                    label="Document requirements"
+                    hint="What pilgrims bring, such as passport, ID card and meningitis vaccine. Empty shows a standard list."
+                    error={fieldError(error, "document_requirements")}
+                  >
+                    <Textarea
+                      id="document-requirements"
+                      rows={4}
+                      maxLength={3000}
+                      value={form.document_requirements}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          document_requirements: e.target.value,
+                        })
+                      }
+                    />
+                  </Field>
+                </div>
+              </>
+            )}
           </Card>
         </div>
 

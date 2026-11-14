@@ -21,7 +21,7 @@ import type {
   ProductPage,
 } from "@/lib/api/types"
 import { asApiError, useApi, useResource } from "@/lib/api/use-api"
-import { useCan } from "@/lib/auth/session"
+import { useCan, useUmrah } from "@/lib/auth/session"
 import {
   filtersFromQuery,
   filtersToQuery,
@@ -49,6 +49,7 @@ function ProductList() {
   const filters = filtersFromQuery(params)
   const page = pageFromQuery(params)
   const canWrite = useCan("products:write")
+  const umrah = useUmrah()
   const canSettings = useCan("settings:write")
   const [archiving, setArchiving] = useState<ProductListItem | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -87,7 +88,15 @@ function ProductList() {
   )
 
   return (
-    <Page wide title="Products" description="Everything in your catalog.">
+    <Page
+      wide
+      title={umrah ? "Packages" : "Products"}
+      description={
+        umrah
+          ? "Every departure you offer: dates, seats and prices."
+          : "Everything in your catalog."
+      }
+    >
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <SearchInput
           aria-label="Search by title or SKU"

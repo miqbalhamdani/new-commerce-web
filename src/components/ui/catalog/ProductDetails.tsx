@@ -11,6 +11,8 @@ import { MultiSelect, Select } from "@/components/ui/common/Select"
 import { ApiError } from "@/lib/api/client"
 import type { BrandPage, Category, Product } from "@/lib/api/types"
 import { asApiError, fieldError, useApi, useResource } from "@/lib/api/use-api"
+import { useUmrah } from "@/lib/auth/session"
+import { packageDraftOf } from "@/lib/catalog/package"
 import {
   createBodyOf,
   draftOf,
@@ -42,21 +44,30 @@ export function useProductForm(
   onSaved: (p: Product) => void,
 ) {
   const api = useApi()
+  // An umrah shop's products carry package details (BR-170, BR-171).
+  const umrah = useUmrah()
   // The form re-seeds only when the product itself changed version. An image
   // uploading or a variant saving reloads the product too, and must not wipe
   // what someone is typing (P1-048: uploading never blocks the form).
   const [base, setBase] = useState(product)
   const [draft, setDraft] = useState<ProductDraft>(() =>
-    product ? draftOf(product) : emptyDraft(),
+    product ? draftOf(product, umrah) : emptyDraft(umrah),
   )
   if (
     product &&
     (product.id !== base?.id || product.version !== base.version)
   ) {
     setBase(product)
-    setDraft(draftOf(product))
+    setDraft(draftOf(product, umrah))
+  } else if (umrah && draft.package === null) {
+    // The session can arrive after the first render; the package fields
+    // appear once it says the shop is umrah.
+    setDraft({ ...draft, package: packageDraftOf(base?.package) })
   }
-  const original = useMemo(() => (base ? draftOf(base) : emptyDraft()), [base])
+  const original = useMemo(
+    () => (base ? draftOf(base, umrah) : emptyDraft(umrah)),
+    [base, umrah],
+  )
   const [error, setError] = useState<ApiError | null>(null)
   const [saving, setSaving] = useState(false)
   const { data: brands } = useResource<BrandPage>("/v1/brands?limit=200")
@@ -101,6 +112,7 @@ export function useProductForm(
 
   return {
     product,
+    umrah,
     draft,
     set,
     original,

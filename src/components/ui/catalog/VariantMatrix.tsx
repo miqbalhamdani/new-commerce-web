@@ -16,9 +16,10 @@ import type {
   VariantMatrixResult,
 } from "@/lib/api/types"
 import { asApiError, useApi, useResource } from "@/lib/api/use-api"
+import { useUmrah } from "@/lib/auth/session"
 import {
   carry,
-  columns,
+  columnsFor,
   emptyRow,
   fillDown,
   gridOf,
@@ -39,6 +40,7 @@ const columnLabel: Record<Column, string> = {
   regular_price: "Regular price",
   sale_price: "Sale price",
   weight_grams: "Weight",
+  price_usd: "USD price",
 }
 
 const isPrice = (c: Column) => c === "regular_price" || c === "sale_price"
@@ -89,6 +91,9 @@ export function VariantMatrix({
   }) => React.ReactNode
 }) {
   const api = useApi()
+  // An umrah shop's packages have a USD price and no weight (BR-171).
+  const umrah = useUmrah()
+  const columns = columnsFor(umrah)
   const { data: variants, reload } = useResource<{ data: Variant[] }>(
     `/v1/products/${product.id}/variants`,
   )
@@ -230,7 +235,7 @@ export function VariantMatrix({
   }
 
   async function save() {
-    const { body, errors } = toRequest(axes, rows, removed)
+    const { body, errors } = toRequest(axes, rows, removed, umrah)
     setRowErrors(errors)
     if (errors.size) return
     setSaving(true)
@@ -458,6 +463,9 @@ export function VariantMatrix({
                         <td key={c} className="py-1 pr-3">
                           <div className="relative min-w-28">
                             {isPrice(c) && <Affix side="left">Rp</Affix>}
+                            {c === "price_usd" && (
+                              <Affix side="left">$</Affix>
+                            )}
                             <Input
                               id={
                                 variantIdByRow[i]
@@ -468,9 +476,12 @@ export function VariantMatrix({
                               value={rows[i][c]}
                               disabled={!canWrite}
                               inputMode={c === "sku" ? "text" : "numeric"}
+                              placeholder={
+                                c === "sku" ? "Given on publish" : undefined
+                              }
                               className={cx(
                                 "!h-9 tabular-nums",
-                                isPrice(c)
+                                isPrice(c) || c === "price_usd"
                                   ? "!pl-9 !pr-3"
                                   : c === "weight_grams"
                                     ? "!pl-3 !pr-7"
@@ -490,7 +501,7 @@ export function VariantMatrix({
                                   e.clipboardData.getData("text/plain")
                                 if (!/[\t\n]/.test(text)) return
                                 e.preventDefault()
-                                setRows(paste(rows, i, col, text))
+                                setRows(paste(rows, i, col, text, columns))
                               }}
                             />
                             {c === "weight_grams" && (
