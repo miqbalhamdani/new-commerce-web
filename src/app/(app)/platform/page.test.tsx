@@ -51,23 +51,13 @@ describe("the platform page (P1-903, BR-150)", () => {
     ).toBe(false)
   })
 
-  it("shows four numbers, folds the funnel into Insights, and lists the shops without demo ones", async () => {
+  it("shows Insights and lists the shops without demo ones", async () => {
     platformApi()
     renderSignedIn(<PlatformPage />)
-    await screen.findByText("Need attention")
-    const figure = (label: string) =>
-      screen.getByText(label, { selector: "p" }).parentElement?.textContent
-    expect(figure("Shops")).toContain("3")
-    expect(figure("Shops")).toContain("+2 this week")
-    // Kirana is not verified and Seruni is asleep.
-    expect(figure("Need attention")).toContain("2")
-    expect(figure("Paying")).toContain("3")
-
-    const insights = screen.getByText("Insights").closest("details")!
-    expect(insights.open).toBe(false)
-    await userEvent.setup().click(screen.getByText("Insights"))
-    expect(insights.open).toBe(true)
-    expect(within(insights).getByText("Got an order")).toBeTruthy()
+    await screen.findByText("Insights")
+    expect(screen.getByText("Got an order")).toBeTruthy()
+    expect(screen.queryByText("Need attention")).toBeNull()
+    expect(screen.queryByRole("button", { name: /^All \d/ })).toBeNull()
 
     const names = screen
       .getAllByRole("row")
@@ -80,7 +70,7 @@ describe("the platform page (P1-903, BR-150)", () => {
     expect(screen.getAllByRole("columnheader")).toHaveLength(5)
   })
 
-  it("filters by need attention, paying, demo and search, and keeps them in the URL", async () => {
+  it("filters by status, plan, demo shops and search, and keeps them in the URL", async () => {
     platformApi((url) =>
       url.endsWith("/v1/platform/shops")
         ? json({
@@ -90,21 +80,30 @@ describe("the platform page (P1-903, BR-150)", () => {
         : undefined,
     )
     renderSignedIn(<PlatformPage />)
-    await screen.findByText("Need attention")
+    await screen.findByText("Insights")
     const user = userEvent.setup()
+    const pick = async (filter: string, option: string) => {
+      await user.click(screen.getByLabelText(filter))
+      await user.click(await screen.findByRole("option", { name: option }))
+    }
 
-    await user.click(screen.getByRole("button", { name: "Need attention 2" }))
-    expect(rows()).toHaveLength(2)
-    expect(nav.replace).toHaveBeenLastCalledWith("/platform?show=attention")
+    await pick("Status", "Not verified")
+    expect(rows()).toHaveLength(1)
+    expect(screen.getByText("rina@kirana.id")).toBeTruthy()
+    expect(nav.replace).toHaveBeenLastCalledWith("/platform?status=unverified")
 
-    await user.click(screen.getByRole("button", { name: "Paying 3" }))
-    expect(rows()).toHaveLength(3)
+    await pick("Status", "All statuses")
+    await pick("Plan", "Mulai")
+    expect(rows()).toHaveLength(1)
+    expect(screen.getByRole("link", { name: "Murni" })).toBeTruthy()
 
-    await user.click(screen.getByRole("button", { name: "Demo 1" }))
+    await pick("Plan", "All plans")
+    await pick("Shops", "Demo shops")
     expect(rows()).toHaveLength(1)
     expect(screen.getByRole("link", { name: "Sahira" })).toBeTruthy()
+    expect(nav.replace).toHaveBeenLastCalledWith("/platform?demo=1")
 
-    await user.click(screen.getByRole("button", { name: "All 4" }))
+    await pick("Shops", "Real shops")
     await user.type(screen.getByLabelText("Search shops"), "rina@")
     expect(rows()).toHaveLength(1)
     expect(nav.replace).toHaveBeenLastCalledWith("/platform?q=rina%40")
