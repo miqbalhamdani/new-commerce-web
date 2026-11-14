@@ -18,6 +18,7 @@ import { Toggle } from "@/components/ui/common/Toggle"
 import { ApiError } from "@/lib/api/client"
 import type { CourierCode, ShopTheme, StorefrontSettings } from "@/lib/api/types"
 import { asApiError, fieldError, useApi } from "@/lib/api/use-api"
+import { useSession } from "@/lib/auth/session"
 import { uploadHero, uploadLogo, xhrPut } from "@/lib/catalog/upload"
 import { cx } from "@/lib/utils"
 
@@ -68,9 +69,9 @@ function tabOf(field: string): Tab {
 /** The tab named in the URL's hash (#checkout): a link can open it, and it
     survives the remount that follows a save. The form only renders once the
     settings have loaded, so this never runs on the server. */
-function hashTab(): Tab {
+function hashTab(shown: readonly { value: Tab }[]): Tab {
   const h = typeof window === "undefined" ? "" : window.location.hash.slice(1)
-  return tabs.find((t) => t.value === h)?.value ?? "look"
+  return shown.find((t) => t.value === h)?.value ?? "look"
 }
 
 type Form = {
@@ -167,6 +168,10 @@ export function StorefrontSettingsForm({
   onSaved: (s: StorefrontSettings) => void
 }) {
   const api = useApi()
+  // Only a shop on jualan takes orders on its website, so only it sees the
+  // checkout settings (BR-160, BR-161).
+  const sells = useSession().tenant?.plan === "jualan"
+  const shown = sells ? tabs : tabs.filter((t) => t.value !== "checkout")
   const initial = formOf(settings)
   const [form, setForm] = useState(initial)
   const [serverKey, setServerKey] = useState("")
@@ -174,7 +179,7 @@ export function StorefrontSettingsForm({
   const [error, setError] = useState<ApiError | null>(null)
   const [busy, setBusy] = useState(false)
   const [instructionsError, setInstructionsError] = useState<string>()
-  const [tab, setTabState] = useState<Tab>(hashTab)
+  const [tab, setTabState] = useState<Tab>(() => hashTab(shown))
 
   function setTab(t: Tab) {
     setTabState(t)
@@ -189,10 +194,11 @@ export function StorefrontSettingsForm({
       Form[keyof Form],
     ][]) {
       if (JSON.stringify(v) === JSON.stringify(initial[k])) continue
+      if (!sells && tabOf(k) === "checkout") continue
       body[k] =
         (nullable as readonly string[]).includes(k) && v === "" ? null : v
     }
-    if (serverKey.trim()) body.midtrans_server_key = serverKey.trim()
+    if (sells && serverKey.trim()) body.midtrans_server_key = serverKey.trim()
     return body
   }
 
@@ -255,7 +261,7 @@ export function StorefrontSettingsForm({
         <SegmentedTabs
           variant="underline"
           label="Storefront settings"
-          options={tabs}
+          options={shown}
           value={tab}
           onChange={setTab}
         />
@@ -473,7 +479,7 @@ export function StorefrontSettingsForm({
           </Card>
         </div>
 
-        <div hidden={tab !== "checkout"}>
+        <div hidden={!sells || tab !== "checkout"}>
           <div className="flex flex-col gap-6">
             <section>
               <h3 className={sectionTitle}>Shipping</h3>

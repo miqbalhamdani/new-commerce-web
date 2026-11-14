@@ -329,3 +329,44 @@ describe("the storefront settings screen (P1-217)", () => {
     expect(screen.queryByRole("button", { name: "Replace" })).toBeNull()
   })
 })
+
+describe("the storefront settings on a plan without checkout (P1-926)", () => {
+  it("has no Checkout tab, even by link, and saves only the look and contact (BR-160)", async () => {
+    window.history.replaceState(null, "", "/settings/storefront#checkout")
+    const fetchSpy = mockApi(
+      ["settings:read", "settings:write"],
+      (url, init) => {
+        if (url.endsWith("/v1/storefront-settings") && init?.method === "PATCH")
+          return json({ ...settings, whatsapp_number: "6281234567890" })
+        if (url.endsWith("/v1/storefront-settings")) return json(settings)
+        return undefined
+      },
+      "owner",
+      false,
+      "katalog",
+    )
+    renderSignedIn(<StorefrontSettingsPage />)
+
+    expect(
+      await screen.findByRole("button", { name: "Website look" }),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Checkout" })).toBeNull()
+    expect(screen.getByText("Shipping")).not.toBeVisible()
+
+    await openTab("Contact")
+    await userEvent.type(
+      screen.getByLabelText("WhatsApp number"),
+      "6281234567890",
+    )
+    await userEvent.click(screen.getByRole("button", { name: "Save" }))
+    await waitFor(() =>
+      expect(
+        fetchSpy.mock.calls.some(([, i]) => i?.method === "PATCH"),
+      ).toBe(true),
+    )
+    const [, init] = fetchSpy.mock.calls.find(([, i]) => i?.method === "PATCH")!
+    expect(Object.keys(JSON.parse(String(init!.body)))).toEqual([
+      "whatsapp_number",
+    ])
+  })
+})
