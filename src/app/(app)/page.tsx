@@ -11,11 +11,11 @@ import {
   Truck,
   Wallet,
 } from "lucide-react"
-import { useMemo, useState } from "react"
+import { useRouter } from "next/navigation"
+import { useEffect, useMemo, useState } from "react"
 
 import {
   Card,
-  Empty,
   Loading,
   Page,
   Section,
@@ -56,6 +56,12 @@ const count = (n: number, one: string, many: string) =>
 export default function DashboardPage() {
   const canRead = useCan("orders:read")
   const { tenant } = useSession()
+  const router = useRouter()
+  // Every sign-in lands here. A plan without sales (BR-160), or a role
+  // without orders, has nothing to see, so it starts on the catalog instead.
+  useEffect(() => {
+    if (!canRead) router.replace("/products")
+  }, [canRead, router])
   const [days, setDays] = useState<PeriodDays>("30")
   const range = useMemo(() => periodRange(Number(days)), [days])
   const { data, error, loading } = useResource<Dashboard>(
@@ -69,13 +75,7 @@ export default function DashboardPage() {
   )
   const periodLabel = periodOptions.find((o) => o.value === days)!.label
 
-  if (!canRead) {
-    return (
-      <Page title="Dashboard">
-        <Empty title="You don't have access to orders." />
-      </Page>
-    )
-  }
+  if (!canRead) return null
 
   return (
     <Page

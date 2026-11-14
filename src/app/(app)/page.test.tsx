@@ -8,9 +8,10 @@ import { json, mockApi, renderSignedIn } from "@/test/api"
 
 import DashboardPage from "./page"
 
+const replace = vi.hoisted(() => vi.fn())
 vi.mock("next/navigation", () => ({
   usePathname: () => "/",
-  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  useRouter: () => ({ push: vi.fn(), replace }),
 }))
 // The chart library draws with browser layout jsdom does not have; the
 // figures it would draw are asserted through the table view instead.
@@ -271,12 +272,10 @@ describe("the dashboard (P1-114)", () => {
     expect(screen.getByText("Rp 1,254,000")).toBeInTheDocument()
   })
 
-  it("asks for nothing without orders:read", async () => {
+  it("sends a session without orders:read to the catalog, asking for nothing", async () => {
     const fetch = mockApi(["products:read"], () => undefined)
     renderSignedIn(<DashboardPage />)
-    expect(
-      await screen.findByText("You don't have access to orders."),
-    ).toBeInTheDocument()
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/products"))
     expect(
       fetch.mock.calls.some(([u]) => String(u).includes("/v1/dashboard")),
     ).toBe(false)
