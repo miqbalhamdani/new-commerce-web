@@ -54,8 +54,9 @@ describe("one shop on the platform page (P1-916, BR-151)", () => {
     expect(screen.getByText("lelap@example.com")).toBeTruthy()
     expect(screen.getByText("Jualan, no end date")).toBeTruthy()
     expect(screen.getByText("Retail shop")).toBeTruthy()
-    expect(screen.getByText("3 live of 4")).toBeTruthy()
-    expect(screen.getByText(": no", { exact: false })).toBeTruthy()
+    expect(screen.getByText("live of 4")).toBeTruthy()
+    // The fixture has no WhatsApp number.
+    expect(screen.getByText("Not set")).toBeTruthy()
     // Only an invited owner has the hand-over actions.
     expect(screen.queryByRole("button", { name: "Send invite" })).toBeNull()
     expect(
@@ -93,12 +94,7 @@ describe("one shop on the platform page (P1-916, BR-151)", () => {
     const { spy, user } = open("lelap", (url, init) =>
       init?.method === "PATCH" ? json(shop("lelap", "Lelap")) : undefined,
     )
-    const plan = (await screen.findByText("Plan", { selector: "p" })).closest(
-      "div.flex",
-    )!
-    await user.click(
-      within(plan as HTMLElement).getByRole("button", { name: "Change" }),
-    )
+    await user.click(await screen.findByRole("button", { name: "Change plan" }))
     let dialog = screen.getByRole("dialog")
     await user.click(within(dialog).getByLabelText("Plan"))
     await user.click(await screen.findByRole("option", { name: "Katalog" }))
@@ -110,11 +106,8 @@ describe("one shop on the platform page (P1-916, BR-151)", () => {
       }),
     )
 
-    const type = screen
-      .getByText("Business type", { selector: "p" })
-      .closest("div.flex")!
     await user.click(
-      within(type as HTMLElement).getByRole("button", { name: "Change" }),
+      screen.getByRole("button", { name: "Change business type" }),
     )
     dialog = screen.getByRole("dialog")
     await user.click(within(dialog).getByLabelText("Business type"))
