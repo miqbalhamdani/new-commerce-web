@@ -33,3 +33,35 @@ export const businessTypeOptions: readonly { value: BusinessType; label: string 
   { value: "retail", label: "Retail shop" },
   { value: "umrah", label: "Umrah travel" },
 ]
+
+/**
+ * One reason a shop is in the state it is, worst first: off (suspended or
+ * closed), never verified, a paid period ending, asleep, or fine.
+ */
+export function statusOf(shop: PlatformShop, now = Date.now()) {
+  if (shop.status !== "active")
+    return {
+      label: shop.status === "suspended" ? "Suspended" : "Closed",
+      color: "error",
+    } as const
+  if (shop.owner?.status === "invited")
+    return { label: "Not verified", color: "warning" } as const
+  if (endsSoon(shop, now)) return { label: "Plan ending", color: "warning" } as const
+  if (isSleeping(shop, now)) return { label: "Sleeping", color: "light" } as const
+  return { label: "Active", color: "success" } as const
+}
+
+/** A shop the founder should look at: not verified, asleep, or its paid period ending. */
+export function needsAttention(shop: PlatformShop, now = Date.now()) {
+  return (
+    shop.status === "active" &&
+    (shop.owner?.status === "invited" || isSleeping(shop, now) || endsSoon(shop, now))
+  )
+}
+
+/** On a plan above Mulai (BR-160). */
+export const isPaying = (shop: PlatformShop) =>
+  shop.plan === "katalog" || shop.plan === "jualan"
+
+/** CLI and demo-seed shops, kept out of the counts and the main list. */
+export const isDemo = (shop: PlatformShop) => shop.source === "cli"
