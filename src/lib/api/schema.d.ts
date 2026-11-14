@@ -808,7 +808,8 @@ export interface paths {
          * Invite someone by email
          * @description Creates an `invited` user and emails them a link after the change commits (BR-026,
          *     BR-128). An email already used in any shop is `422` on `email` (BR-020). Only an owner
-         *     can invite an owner (BR-023). Requires `users:write`.
+         *     can invite an owner (BR-023). An invitation that would take the shop past its plan's
+         *     accounts is `422` (BR-162). Requires `users:write`.
          */
         post: operations["inviteUser"];
         delete?: never;
@@ -862,10 +863,12 @@ export interface paths {
          * Change a user's role or bio, or disable or re-enable them
          * @description No `If-Match` (BR-010). `bio` is the public line under their blog posts; `null` or `""`
          *     clears it (BR-133). `status` is `active` (re-enable a disabled user) or `disabled`;
-         *     an invited user becomes active only by accepting. Disabling revokes their refresh
-         *     tokens, so they are out within 15 minutes (BR-027). Only an owner can grant `owner` or
-         *     change an owner (BR-023), else `403`. The last active owner cannot be demoted or
-         *     disabled (`422`). Requires `users:write`.
+         *     an invited user becomes active only by accepting, and disabling one withdraws the
+         *     invitation (BR-162). Disabling revokes their refresh tokens, so they are out within 15
+         *     minutes (BR-027). Only an owner can grant `owner` or change an owner (BR-023), else
+         *     `403`. The last active owner cannot be demoted or disabled (`422`). Re-enabling a user
+         *     past the plan's accounts is `422` (BR-162).
+         *     Requires `users:write`.
          */
         patch: operations["updateUser"];
         trace?: never;
@@ -1412,6 +1415,31 @@ export interface paths {
         patch: operations["updatePlatformShopOwner"];
         trace?: never;
     };
+    "/platform/shops/{id}/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Set a shop's plan
+         * @description BR-160: the plan and the date its paid period is expected to end, set together and audited
+         *     `tenant.plan` in the shop. Payment happens outside Belli; `plan_until` is shown and changes
+         *     nothing when it passes. The shop's staff get the new plan at their next sign-in or
+         *     refresh, within 15 minutes. Platform admins only.
+         */
+        patch: operations["updatePlatformShopPlan"];
+        trace?: never;
+    };
     "/platform/shops/{id}/invite": {
         parameters: {
             query?: never;
@@ -1711,7 +1739,15 @@ export interface components {
              * @example Asia/Jakarta
              */
             timezone: string;
+            plan: components["schemas"]["ShopPlan"];
         };
+        /**
+         * @description BR-160: the shop's plan, a ceiling on every role. `permissions` already leave out what it
+         *     does not include; the admin reads it only for what no permission covers, such as the
+         *     storefront's checkout settings, which only `jualan` uses (BR-161).
+         * @enum {string}
+         */
+        ShopPlan: "mulai" | "katalog" | "jualan";
         /** @description BR-150's report (04-api-spec.md §14). */
         PlatformShops: {
             /** Format: date-time */
@@ -1748,6 +1784,12 @@ export interface components {
             slug: string;
             /** @enum {string} */
             status: "active" | "suspended" | "closed";
+            plan: components["schemas"]["ShopPlan"];
+            /**
+             * Format: date
+             * @description When the paid period is expected to end. Display only (BR-160).
+             */
+            plan_until: string | null;
             /** Format: date-time */
             created_at: string;
             /**
@@ -1770,10 +1812,20 @@ export interface components {
             owner_email: string;
             /** @description Email the owner their signup code and link now. False holds the shop. */
             send_invite: boolean;
+            /** @description The shop's plan; `mulai` when left out (BR-160). */
+            plan?: components["schemas"]["ShopPlan"];
         };
         PlatformShopUpdate: {
             /** @enum {string} */
             status: "active" | "suspended" | "closed";
+        };
+        PlatformShopPlanUpdate: {
+            plan: components["schemas"]["ShopPlan"];
+            /**
+             * Format: date
+             * @description When the paid period is expected to end, or `null`. Display only (BR-160).
+             */
+            plan_until: string | null;
         };
         PlatformShopOwnerUpdate: {
             /** Format: email */
@@ -5181,6 +5233,36 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["PlatformShopOwnerUpdate"];
+            };
+        };
+        responses: {
+            /** @description The shop, as the report shows it. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformShop"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    updatePlatformShopPlan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlatformShopPlanUpdate"];
             };
         };
         responses: {
