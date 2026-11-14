@@ -30,12 +30,13 @@ import { ApiError } from "@/lib/api/client"
 import type { PlatformShop, PlatformShops } from "@/lib/api/types"
 import { asApiError, useApi, useResource } from "@/lib/api/use-api"
 import { useSession } from "@/lib/auth/session"
-import { formatDateTime, formatRelative } from "@/lib/format"
-import { isSleeping } from "@/lib/platform"
+import { formatDate, formatDateTime, formatRelative } from "@/lib/format"
+import { endsSoon, isSleeping, planLabel, planOptions } from "@/lib/platform"
 
 import {
   NewShopDialog,
   OwnerDialog,
+  PlanDialog,
   StatusDialog,
   type StatusChange,
 } from "./dialogs"
@@ -63,6 +64,7 @@ export default function PlatformPage() {
   const api = useApi()
   const [creating, setCreating] = useState(false)
   const [owner, setOwner] = useState<PlatformShop | null>(null)
+  const [planFor, setPlanFor] = useState<PlatformShop | null>(null)
   const [change, setChange] = useState<StatusChange | null>(null)
   const [actionError, setActionError] = useState<ApiError | null>(null)
   const [notice, setNotice] = useState("")
@@ -92,6 +94,7 @@ export default function PlatformPage() {
   function actionsFor(shop: PlatformShop): RowAction[] {
     const out: RowAction[] = [
       { label: "Open as owner", onSelect: () => openAsOwner(shop) },
+      { label: "Change plan", onSelect: () => setPlanFor(shop) },
     ]
     if (shop.owner?.status === "invited") {
       out.push(
@@ -137,6 +140,18 @@ export default function PlatformPage() {
     })
   }, [data, q, filter, showCli])
 
+  // BR-160: the plans of the shops the table can show, search aside.
+  const plans = useMemo(() => {
+    const listed = (data?.shops ?? []).filter(
+      (s) => showCli || s.source !== "cli",
+    )
+    return {
+      count: (p: PlatformShop["plan"]) =>
+        listed.filter((s) => s.plan === p).length,
+      ending: listed.filter((s) => endsSoon(s)).length,
+    }
+  }, [data, showCli])
+
   if (!allowed) {
     return (
       <Page title="Platform">
@@ -174,6 +189,11 @@ export default function PlatformPage() {
         onClose={() => setOwner(null)}
         onDone={reload}
       />
+      <PlanDialog
+        shop={planFor}
+        onClose={() => setPlanFor(null)}
+        onDone={reload}
+      />
       <StatusDialog
         change={change}
         onClose={() => setChange(null)}
@@ -203,6 +223,22 @@ export default function PlatformPage() {
               label="Not verified"
               value={sum.shops - sum.verified}
               hint="Never confirmed their email"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            {planOptions.map((p) => (
+              <Figure
+                key={p.value}
+                label={p.label}
+                value={plans.count(p.value)}
+                hint={planHint[p.value]}
+              />
+            ))}
+            <Figure
+              label="Paid period ending"
+              value={plans.ending}
+              hint="Within 7 days, or already past"
             />
           </div>
 
@@ -270,6 +306,7 @@ export default function PlatformPage() {
                     "Owner",
                     "Signed up",
                     "Status",
+                    "Plan",
                     "Website",
                     "Products",
                     "Orders",
@@ -356,6 +393,12 @@ function FunnelStep({
   )
 }
 
+const planHint = {
+  mulai: "Catalog only",
+  katalog: "Adds blog, team and API keys",
+  jualan: "Takes orders on the website",
+} as const
+
 const sourceLabel = {
   email: "Email",
   google: "Google",
@@ -411,6 +454,20 @@ function ShopRow({
       </TableCell>
       <TableCell className={td}>
         <ShopStatus shop={s} />
+      </TableCell>
+      <TableCell className={td}>
+        <Badge size="sm" color={s.plan === "jualan" ? "primary" : "light"}>
+          {planLabel(s.plan)}
+        </Badge>
+        {s.plan_until && (
+          <p
+            className={`mt-1 text-theme-xs ${
+              endsSoon(s) ? "text-warning-600" : "text-gray-500 dark:text-gray-400"
+            }`}
+          >
+            Until {formatDate(s.plan_until, timeZone)}
+          </p>
+        )}
       </TableCell>
       <TableCell className={muted}>
         <span className="flex items-center gap-2">

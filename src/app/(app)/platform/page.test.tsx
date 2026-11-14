@@ -24,6 +24,8 @@ const shop = (
   name,
   slug: id,
   status: "active",
+  plan: "jualan",
+  plan_until: null,
   created_at: now,
   source: "email",
   owner: {
@@ -210,7 +212,57 @@ describe("the platform shop actions (P1-916, BR-151)", () => {
       owner_name: "Rina",
       owner_email: "rina@lelap.id",
       send_invite: false,
+      plan: "mulai",
     })
+  })
+
+  it("counts the plans and changes one with its paid-until date (P1-927, BR-160)", async () => {
+    const soon = new Date(Date.now() + 3 * 864e5).toISOString().slice(0, 10)
+    const spy = mockApi(
+      [],
+      (url, init) => {
+        if (url.endsWith("/lelap/plan") && init?.method === "PATCH")
+          return json(shop("lelap", "Lelap"))
+        return url.endsWith("/v1/platform/shops")
+          ? json({
+              ...report,
+              shops: [
+                shop("lelap", "Lelap", { plan: "katalog" }),
+                shop("kirana", "Kirana", { plan: "mulai", plan_until: soon }),
+                shop("seruni", "Seruni"),
+                shop("sahira", "Sahira", { source: "cli", plan: "mulai" }),
+              ],
+            })
+          : undefined
+      },
+      "owner",
+      true,
+    )
+    renderSignedIn(<PlatformPage />)
+    const user = userEvent.setup()
+    const tile = async (hint: string) =>
+      (await screen.findByText(hint)).parentElement?.textContent
+    // The CLI shop is left out, as from the table.
+    expect(await tile("Catalog only")).toContain("1")
+    expect(await tile("Adds blog, team and API keys")).toContain("1")
+    expect(await tile("Takes orders on the website")).toContain("1")
+    expect(await tile("Within 7 days, or already past")).toContain("1")
+
+    await user.click(screen.getByRole("button", { name: "Actions for Lelap" }))
+    await user.click(screen.getByRole("menuitem", { name: "Change plan" }))
+    const dialog = screen.getByRole("dialog")
+    await user.click(within(dialog).getByLabelText("Plan"))
+    await user.click(await screen.findByRole("option", { name: "Jualan" }))
+    await user.click(within(dialog).getByRole("button", { name: "Save" }))
+    await waitFor(() =>
+      expect(
+        JSON.parse(
+          String(
+            sent(spy, "/v1/platform/shops/lelap/plan", "PATCH")?.[1]?.body,
+          ),
+        ),
+      ).toEqual({ plan: "jualan", plan_until: null }),
+    )
   })
 
   it("sends the invite and changes the owner only while invited", async () => {

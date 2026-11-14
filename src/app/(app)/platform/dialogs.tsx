@@ -7,10 +7,13 @@ import Input from "@/components/form/input/InputField"
 import Button from "@/components/ui/button/Button"
 import { Dialog } from "@/components/ui/common/Dialog"
 import { ErrorNotice } from "@/components/ui/common/ErrorNotice"
+import { DatePicker } from "@/components/ui/common/DatePicker"
 import { Field } from "@/components/ui/common/Field"
+import { Select } from "@/components/ui/common/Select"
 import { ApiError } from "@/lib/api/client"
-import type { PlatformShop } from "@/lib/api/types"
+import type { PlatformShop, ShopPlan } from "@/lib/api/types"
 import { asApiError, fieldError, useApi } from "@/lib/api/use-api"
+import { planOptions } from "@/lib/platform"
 
 // P1-916: the platform admin's shop actions (BR-151, 04-api-spec.md §14.1).
 
@@ -28,6 +31,7 @@ export function NewShopDialog({
   const empty = { shop_name: "", owner_name: "", owner_email: "" }
   const [form, setForm] = useState(empty)
   const [sendInvite, setSendInvite] = useState(false)
+  const [plan, setPlan] = useState<ShopPlan>("mulai")
   const [error, setError] = useState<ApiError | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -37,10 +41,11 @@ export function NewShopDialog({
     try {
       await api("/v1/platform/shops", {
         method: "POST",
-        body: { ...form, send_invite: sendInvite },
+        body: { ...form, send_invite: sendInvite, plan },
       })
       setForm(empty)
       setSendInvite(false)
+      setPlan("mulai")
       setError(null)
       onClose()
       onDone()
@@ -94,6 +99,14 @@ export function NewShopDialog({
             required
             value={form.owner_email}
             onChange={(e) => setForm({ ...form, owner_email: e.target.value })}
+          />
+        </Field>
+        <Field id="new-shop-plan" label="Plan" error={fieldError(error, "plan")}>
+          <Select
+            id="new-shop-plan"
+            value={plan}
+            onChange={(v) => setPlan(v as ShopPlan)}
+            options={planOptions}
           />
         </Field>
         <Checkbox
@@ -212,6 +225,96 @@ function OwnerForm({
       </Field>
       {error && !error.problem.errors?.length && (
         <ErrorNotice error={error} title="Could not change the owner" />
+      )}
+      <div className="flex justify-end gap-2">
+        <Button size="sm" type="button" variant="outline" onClick={onClose}>
+          Cancel
+        </Button>
+        <Button size="sm" type="submit" isLoading={busy}>
+          Save
+        </Button>
+      </div>
+    </form>
+  )
+}
+
+/** Sets a shop's plan and the date its paid period ends (BR-160). */
+export function PlanDialog({
+  shop,
+  onClose,
+  onDone,
+}: {
+  shop: PlatformShop | null
+  onClose: () => void
+  onDone: () => void
+}) {
+  return (
+    <Dialog
+      open={shop !== null}
+      onOpenChange={(o) => !o && onClose()}
+      title={`Plan for ${shop?.name ?? ""}`}
+      description="Payment happens outside Belli. The shop's staff get the new plan when they next reload, within 15 minutes; the date is only shown here."
+    >
+      {shop && (
+        <PlanForm key={shop.id} shop={shop} onClose={onClose} onDone={onDone} />
+      )}
+    </Dialog>
+  )
+}
+
+function PlanForm({
+  shop,
+  onClose,
+  onDone,
+}: {
+  shop: PlatformShop
+  onClose: () => void
+  onDone: () => void
+}) {
+  const api = useApi()
+  const [plan, setPlan] = useState<ShopPlan>(shop.plan)
+  const [until, setUntil] = useState(shop.plan_until ?? "")
+  const [error, setError] = useState<ApiError | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    setBusy(true)
+    try {
+      await api(`/v1/platform/shops/${shop.id}/plan`, {
+        method: "PATCH",
+        body: { plan, plan_until: until || null },
+      })
+      setError(null)
+      onClose()
+      onDone()
+    } catch (err) {
+      setError(asApiError(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <form onSubmit={submit} className="flex flex-col gap-3">
+      <Field id="plan" label="Plan" error={fieldError(error, "plan")}>
+        <Select
+          id="plan"
+          value={plan}
+          onChange={(v) => setPlan(v as ShopPlan)}
+          options={planOptions}
+        />
+      </Field>
+      <Field
+        id="plan-until"
+        label="Paid until"
+        hint="Optional. Leave empty when there is no end date."
+        error={fieldError(error, "plan_until")}
+      >
+        <DatePicker id="plan-until" value={until} onChange={setUntil} />
+      </Field>
+      {error && !error.problem.errors?.length && (
+        <ErrorNotice error={error} title="Could not change the plan" />
       )}
       <div className="flex justify-end gap-2">
         <Button size="sm" type="button" variant="outline" onClick={onClose}>
