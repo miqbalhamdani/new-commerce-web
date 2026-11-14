@@ -1,8 +1,9 @@
 "use client"
 
-import { Globe, MessageCircle, Image as ImageIcon } from "lucide-react"
-import { useRouter } from "next/navigation"
-import { useMemo, useState } from "react"
+import { ChevronDown, ChevronRight } from "lucide-react"
+import Link from "next/link"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
+import { Suspense, useMemo, useState } from "react"
 
 import Badge from "@/components/ui/badge/Badge"
 import Button from "@/components/ui/button/Button"
@@ -15,145 +16,92 @@ import {
   th,
 } from "@/components/ui/common/Listing"
 import { Card, Empty, Loading, Page } from "@/components/ui/common/Page"
-import { RowMenu, type RowAction } from "@/components/ui/common/RowMenu"
 import { SearchInput } from "@/components/ui/common/SearchInput"
 import { SegmentedTabs } from "@/components/ui/common/SegmentedTabs"
-import { Toggle } from "@/components/ui/common/Toggle"
-import { websiteDomain } from "@/components/ui/settings/SettingsForm"
 import {
   TableBody,
   TableCell,
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { ApiError } from "@/lib/api/client"
 import type { PlatformShop, PlatformShops } from "@/lib/api/types"
-import { asApiError, useApi, useResource } from "@/lib/api/use-api"
+import { useResource } from "@/lib/api/use-api"
 import { useSession } from "@/lib/auth/session"
 import { formatDate, formatDateTime, formatRelative } from "@/lib/format"
-import { endsSoon, isSleeping, planLabel, planOptions } from "@/lib/platform"
-
 import {
-  BusinessTypeDialog,
-  NewShopDialog,
-  OwnerDialog,
-  PlanDialog,
-  StatusDialog,
-  type StatusChange,
-} from "./dialogs"
+  endsSoon,
+  isDemo,
+  isPaying,
+  needsAttention,
+  planLabel,
+  planOptions,
+} from "@/lib/platform"
+
+import { StatusBadge } from "./badges"
+import { NewShopDialog } from "./dialogs"
 
 // P1-903: Belli's own page, every shop on the platform (BR-150, 04-api-spec.md
-// §14). Shown only for the session's platform_admin; the route checks the
-// email again and answers 403 to anyone else. P1-916 adds the shop actions
-// (BR-151, §14.1).
+// §14), for the session's platform_admin only; the route checks the email
+// again. Four numbers and the shops; the funnel and per-plan counts fold into
+// Insights, and each shop's details and actions are on its own page
+// (/platform/{id}).
 
-type Filter = "all" | "unverified" | "sleeping"
-
-const filters = [
-  { value: "all", label: "All" },
-  { value: "unverified", label: "Not verified" },
-  { value: "sleeping", label: "Sleeping" },
-] as const
+type Show = "all" | "attention" | "paying" | "demo"
+const shows: readonly Show[] = ["all", "attention", "paying", "demo"]
 
 export default function PlatformPage() {
-  const { user, tenant, impersonate } = useSession()
+  return (
+    <Suspense fallback={<Loading />}>
+      <PlatformList />
+    </Suspense>
+  )
+}
+
+function PlatformList() {
+  const { user, tenant } = useSession()
   const router = useRouter()
+  const pathname = usePathname()
+  const params = useSearchParams()
   const allowed = user?.platform_admin === true
   const { data, error, loading, reload } = useResource<PlatformShops>(
     allowed ? "/v1/platform/shops" : null,
   )
-  const api = useApi()
   const [creating, setCreating] = useState(false)
-  const [owner, setOwner] = useState<PlatformShop | null>(null)
-  const [planFor, setPlanFor] = useState<PlatformShop | null>(null)
-  const [typeFor, setTypeFor] = useState<PlatformShop | null>(null)
-  const [change, setChange] = useState<StatusChange | null>(null)
-  const [actionError, setActionError] = useState<ApiError | null>(null)
-  const [notice, setNotice] = useState("")
-
-  async function sendInvite(shop: PlatformShop) {
-    setActionError(null)
-    setNotice("")
-    try {
-      await api(`/v1/platform/shops/${shop.id}/invite`, { method: "POST" })
-      setNotice(`Invite sent to ${shop.owner?.email}.`)
-    } catch (err) {
-      setActionError(asApiError(err))
-    }
+  // The search and tab live in the URL too, so Back from a shop restores them.
+  const [q, setQ] = useState(params.get("q") ?? "")
+  const [show, setShow] = useState<Show>(() => {
+    const s = params.get("show") as Show | null
+    return s && shows.includes(s) ? s : "all"
+  })
+  function remember(next: { q?: string; show?: Show }) {
+    const query = new URLSearchParams()
+    const nq = next.q ?? q
+    const ns = next.show ?? show
+    if (nq) query.set("q", nq)
+    if (ns !== "all") query.set("show", ns)
+    router.replace(query.size ? `${pathname}?${query}` : pathname)
   }
 
-  // P1-917: the shop's own admin, as its owner, until Back to Platform.
-  async function openAsOwner(shop: PlatformShop) {
-    setActionError(null)
-    try {
-      await impersonate(shop.id)
-      router.push("/")
-    } catch (err) {
-      setActionError(asApiError(err))
+  const all = useMemo(() => data?.shops ?? [], [data])
+  const groups = useMemo(() => {
+    const real = all.filter((s) => !isDemo(s))
+    return {
+      all: real,
+      attention: real.filter((s) => needsAttention(s)),
+      paying: real.filter(isPaying),
+      demo: all.filter(isDemo),
     }
-  }
-
-  function actionsFor(shop: PlatformShop): RowAction[] {
-    const out: RowAction[] = [
-      { label: "Open as owner", onSelect: () => openAsOwner(shop) },
-      { label: "Change plan", onSelect: () => setPlanFor(shop) },
-      { label: "Change business type", onSelect: () => setTypeFor(shop) },
-    ]
-    if (shop.owner?.status === "invited") {
-      out.push(
-        { label: "Send invite", onSelect: () => sendInvite(shop) },
-        { label: "Change owner", onSelect: () => setOwner(shop) },
-      )
-    }
-    if (shop.status === "active") {
-      out.push(
-        {
-          label: "Suspend",
-          destructive: true,
-          onSelect: () => setChange({ shop, status: "suspended" }),
-        },
-        {
-          label: "Close",
-          destructive: true,
-          onSelect: () => setChange({ shop, status: "closed" }),
-        },
-      )
-    } else {
-      out.push({
-        label: "Reactivate",
-        onSelect: () => setChange({ shop, status: "active" }),
-      })
-    }
-    return out
-  }
-  const [q, setQ] = useState("")
-  const [filter, setFilter] = useState<Filter>("all")
-  const [showCli, setShowCli] = useState(false)
-
+  }, [all])
   const shops = useMemo(() => {
     const needle = q.trim().toLowerCase()
-    return (data?.shops ?? []).filter((s) => {
-      if (!showCli && s.source === "cli") return false
-      if (filter === "unverified" && s.owner?.status !== "invited") return false
-      if (filter === "sleeping" && !isSleeping(s)) return false
-      if (!needle) return true
-      return [s.name, s.slug, s.owner?.name, s.owner?.email].some((v) =>
-        v?.toLowerCase().includes(needle),
-      )
-    })
-  }, [data, q, filter, showCli])
-
-  // BR-160: the plans of the shops the table can show, search aside.
-  const plans = useMemo(() => {
-    const listed = (data?.shops ?? []).filter(
-      (s) => showCli || s.source !== "cli",
+    return groups[show].filter(
+      (s) =>
+        !needle ||
+        [s.name, s.slug, s.owner?.name, s.owner?.email].some((v) =>
+          v?.toLowerCase().includes(needle),
+        ),
     )
-    return {
-      count: (p: PlatformShop["plan"]) =>
-        listed.filter((s) => s.plan === p).length,
-      ending: listed.filter((s) => endsSoon(s)).length,
-    }
-  }, [data, showCli])
+  }, [groups, show, q])
 
   if (!allowed) {
     return (
@@ -168,7 +116,7 @@ export default function PlatformPage() {
     <Page
       wide
       title="Platform"
-      description="Every shop on Belli: who signed up, how far each got, and who went quiet."
+      description="Every shop on Belli, and the ones that need you."
       actions={
         <Button size="sm" onClick={() => setCreating(true)}>
           New shop
@@ -176,35 +124,9 @@ export default function PlatformPage() {
       }
     >
       <ErrorNotice error={error} title="Could not load the shops" />
-      <ErrorNotice error={actionError} title="That didn't work" />
-      {notice && (
-        <p role="status" className="text-theme-sm text-success-600">
-          {notice}
-        </p>
-      )}
       <NewShopDialog
         open={creating}
         onClose={() => setCreating(false)}
-        onDone={reload}
-      />
-      <OwnerDialog
-        shop={owner}
-        onClose={() => setOwner(null)}
-        onDone={reload}
-      />
-      <PlanDialog
-        shop={planFor}
-        onClose={() => setPlanFor(null)}
-        onDone={reload}
-      />
-      <BusinessTypeDialog
-        shop={typeFor}
-        onClose={() => setTypeFor(null)}
-        onDone={reload}
-      />
-      <StatusDialog
-        change={change}
-        onClose={() => setChange(null)}
         onDone={reload}
       />
       {loading && !data ? (
@@ -215,7 +137,7 @@ export default function PlatformPage() {
             <Figure
               label="Shops"
               value={sum.shops}
-              hint={`${sum.new_7d} this week · ${sum.new_30d} in 30 days`}
+              hint={`+${sum.new_7d} this week`}
             />
             <Figure
               label="Active this week"
@@ -223,84 +145,47 @@ export default function PlatformPage() {
               hint="Signed in or changed something"
             />
             <Figure
-              label="Sleeping"
-              value={sum.sleeping}
-              hint="Verified, quiet for 14 days"
+              label="Need attention"
+              value={groups.attention.length}
+              hint="Unverified, asleep or plan ending"
             />
             <Figure
-              label="Not verified"
-              value={sum.shops - sum.verified}
-              hint="Never confirmed their email"
+              label="Paying"
+              value={groups.paying.length}
+              hint="On Katalog or Jualan"
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            {planOptions.map((p) => (
-              <Figure
-                key={p.value}
-                label={p.label}
-                value={plans.count(p.value)}
-                hint={planHint[p.value]}
-              />
-            ))}
-            <Figure
-              label="Paid period ending"
-              value={plans.ending}
-              hint="Within 7 days, or already past"
-            />
-          </div>
-
-          {/* One strip, not a stacked list, so the shops table stays in view. */}
-          <Card className="p-5">
-            <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-              <h2 className="text-theme-sm font-medium text-gray-800 dark:text-white/90">
-                Signup funnel
-              </h2>
-              <p className="text-theme-xs text-gray-500 dark:text-gray-400">
-                Shops that signed up themselves; CLI and demo shops are not
-                counted.
-              </p>
-            </div>
-            <ol className="mt-4 grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3 lg:grid-cols-5">
-              {[
-                ["Signed up", sum.shops],
-                ["Verified email", sum.verified],
-                ["Set up the website", sum.website_set_up],
-                ["Added a product", sum.with_products],
-                ["Got an order", sum.with_orders],
-              ].map(([label, n]) => (
-                <FunnelStep
-                  key={label}
-                  label={String(label)}
-                  value={Number(n)}
-                  of={sum.shops}
-                />
-              ))}
-            </ol>
-          </Card>
+          <Insights shops={groups.all} summary={sum} />
 
           <div className="flex flex-wrap items-center gap-3">
+            <SegmentedTabs
+              label="Show"
+              options={[
+                { value: "all", label: `All ${groups.all.length}` },
+                {
+                  value: "attention",
+                  label: `Need attention ${groups.attention.length}`,
+                },
+                { value: "paying", label: `Paying ${groups.paying.length}` },
+                { value: "demo", label: `Demo ${groups.demo.length}` },
+              ]}
+              value={show}
+              onChange={(s) => {
+                setShow(s)
+                remember({ show: s })
+              }}
+            />
             <SearchInput
               aria-label="Search shops"
               placeholder="Shop, owner or email"
-              className="w-full max-w-xs"
+              className="w-full sm:ml-auto sm:w-64"
               value={q}
-              onChange={(e) => setQ(e.target.value)}
+              onChange={(e) => {
+                setQ(e.target.value)
+                remember({ q: e.target.value })
+              }}
             />
-            <SegmentedTabs
-              label="Show"
-              options={filters}
-              value={filter}
-              onChange={setFilter}
-            />
-            <span className="flex items-center gap-2 text-theme-sm text-gray-700 dark:text-gray-300">
-              <Toggle
-                label="CLI and demo shops"
-                checked={showCli}
-                onChange={setShowCli}
-              />
-              <span aria-hidden>CLI and demo shops</span>
-            </span>
           </div>
 
           {shops.length === 0 ? (
@@ -309,18 +194,7 @@ export default function PlatformPage() {
             <ListTable>
               <TableHeader className={headerRow}>
                 <TableRow>
-                  {[
-                    "Shop",
-                    "Owner",
-                    "Signed up",
-                    "Status",
-                    "Plan",
-                    "Website",
-                    "Products",
-                    "Orders",
-                    "Last active",
-                    "",
-                  ].map((h) => (
+                  {["Shop", "Status", "Plan", "Activity", ""].map((h) => (
                     <TableCell key={h} isHeader className={th}>
                       {h}
                     </TableCell>
@@ -333,7 +207,7 @@ export default function PlatformPage() {
                     key={s.id}
                     shop={s}
                     timeZone={tenant?.timezone}
-                    actions={actionsFor(s)}
+                    onOpen={() => router.push(`/platform/${s.id}`)}
                   />
                 ))}
               </TableBody>
@@ -358,7 +232,7 @@ function Figure({
   hint: string
 }) {
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+    <Card className="p-5">
       <p className="text-theme-sm text-gray-500 dark:text-gray-400">{label}</p>
       <p className="mt-2 text-title-sm font-bold tabular-nums text-gray-800 dark:text-white/90">
         {value}
@@ -366,7 +240,61 @@ function Figure({
       <p className="mt-1 text-theme-xs text-gray-500 dark:text-gray-400">
         {hint}
       </p>
-    </div>
+    </Card>
+  )
+}
+
+/**
+ * The signup funnel and the shops per plan, folded away until wanted. The
+ * funnel counts shops that signed up themselves, as the summary does.
+ */
+function Insights({
+  shops,
+  summary: sum,
+}: {
+  shops: PlatformShop[]
+  summary: PlatformShops["summary"]
+}) {
+  return (
+    <details className="group rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-2xl px-5 py-4 text-theme-sm font-medium text-gray-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-white/90 [&::-webkit-details-marker]:hidden">
+        <span>
+          Insights
+          <span className="ml-2 font-normal text-gray-500 dark:text-gray-400">
+            Signup funnel and shops per plan
+          </span>
+        </span>
+        <ChevronDown
+          aria-hidden
+          className="size-4 text-gray-500 transition-transform group-open:rotate-180"
+        />
+      </summary>
+      <div className="space-y-5 border-t border-gray-100 px-5 py-5 dark:border-white/[0.05]">
+        <ol className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3 lg:grid-cols-5">
+          {(
+            [
+              ["Signed up", sum.shops],
+              ["Verified email", sum.verified],
+              ["Set up the website", sum.website_set_up],
+              ["Added a product", sum.with_products],
+              ["Got an order", sum.with_orders],
+            ] as const
+          ).map(([label, n]) => (
+            <FunnelStep key={label} label={label} value={n} of={sum.shops} />
+          ))}
+        </ol>
+        <p className="text-theme-sm text-gray-600 dark:text-gray-400">
+          {planOptions
+            .map(
+              (p) =>
+                `${p.label} ${shops.filter((s) => s.plan === p.value).length}`,
+            )
+            .join(" · ")}
+          {" · "}
+          Plan ending within 7 days {shops.filter((s) => endsSoon(s)).length}
+        </p>
+      </div>
+    </details>
   )
 }
 
@@ -401,165 +329,65 @@ function FunnelStep({
   )
 }
 
-const planHint = {
-  mulai: "Catalog only",
-  katalog: "Adds blog, team and API keys",
-  jualan: "Takes orders on the website",
-} as const
-
-const sourceLabel = {
-  email: "Email",
-  google: "Google",
-  cli: "CLI",
-  platform: "Platform",
-} as const
-
+/** One shop: who, its state, its plan and how busy it is. The row opens it. */
 function ShopRow({
   shop: s,
   timeZone,
-  actions,
+  onOpen,
 }: {
   shop: PlatformShop
   timeZone?: string
-  actions: RowAction[]
+  onOpen: () => void
 }) {
-  const muted = `${td} text-gray-500 dark:text-gray-400`
+  const muted = "text-theme-xs text-gray-500 dark:text-gray-400"
   return (
-    <TableRow>
+    <TableRow
+      onClick={onOpen}
+      className="cursor-pointer hover:bg-gray-50 dark:hover:bg-white/[0.02]"
+    >
       <TableCell className={td}>
-        <a
-          href={`https://${s.slug}.${websiteDomain}`}
-          target="_blank"
-          rel="noreferrer"
-          className="font-medium text-gray-800 hover:text-brand-500 dark:text-white/90 dark:hover:text-brand-400"
-        >
-          {s.name}
-        </a>
-        <p className="text-theme-xs text-gray-500 dark:text-gray-400">
-          {s.slug}.{websiteDomain}
-        </p>
-      </TableCell>
-      <TableCell className={td}>
-        {s.owner ? (
-          <>
-            <p className="text-gray-800 dark:text-white/90">{s.owner.name}</p>
-            <a
-              href={`mailto:${s.owner.email}`}
-              className="text-theme-xs text-gray-500 hover:text-brand-500 dark:text-gray-400"
-            >
-              {s.owner.email}
-            </a>
-          </>
-        ) : (
-          "—"
-        )}
-      </TableCell>
-      <TableCell className={muted}>
-        <span title={formatDateTime(s.created_at, timeZone)}>
-          {formatRelative(s.created_at)}
-        </span>
-        <p className="text-theme-xs">{sourceLabel[s.source]}</p>
-      </TableCell>
-      <TableCell className={td}>
-        <ShopStatus shop={s} />
-      </TableCell>
-      <TableCell className={td}>
-        <Badge size="sm" color={s.plan === "jualan" ? "primary" : "light"}>
-          {planLabel(s.plan)}
-        </Badge>
-        {s.business_type === "umrah" && (
-          <Badge size="sm" color="info">
-            Umrah
-          </Badge>
-        )}
-        {s.plan_until && (
-          <p
-            className={`mt-1 text-theme-xs ${
-              endsSoon(s) ? "text-warning-600" : "text-gray-500 dark:text-gray-400"
-            }`}
+        <span className="flex flex-wrap items-center gap-2">
+          <Link
+            href={`/platform/${s.id}`}
+            onClick={(e) => e.stopPropagation()}
+            className="font-medium text-gray-800 hover:text-brand-500 dark:text-white/90 dark:hover:text-brand-400"
           >
+            {s.name}
+          </Link>
+          {s.business_type === "umrah" && (
+            <Badge size="sm" color="info">
+              Umrah
+            </Badge>
+          )}
+        </span>
+        <p className={muted}>{s.owner?.email ?? "No owner"}</p>
+      </TableCell>
+      <TableCell className={td}>
+        <StatusBadge shop={s} />
+      </TableCell>
+      <TableCell className={td}>
+        <p className="text-gray-800 dark:text-white/90">{planLabel(s.plan)}</p>
+        {s.plan_until && (
+          <p className={endsSoon(s) ? "text-theme-xs text-warning-600" : muted}>
             Until {formatDate(s.plan_until, timeZone)}
           </p>
         )}
       </TableCell>
-      <TableCell className={muted}>
-        <span className="flex items-center gap-2">
-          <span>{s.website.theme ?? "—"}</span>
-          <Mark on={s.website.logo} label="Logo">
-            <ImageIcon className="size-4" />
-          </Mark>
-          <Mark on={s.website.whatsapp} label="WhatsApp">
-            <MessageCircle className="size-4" />
-          </Mark>
-          <Mark on={s.website.set_up} label="Website set up">
-            <Globe className="size-4" />
-          </Mark>
-        </span>
-      </TableCell>
-      <TableCell className={`${muted} tabular-nums`}>
-        {s.products.active} / {s.products.total}
-      </TableCell>
-      <TableCell className={`${muted} tabular-nums`}>
-        {s.orders.total}
-        {s.orders.last_30d > 0 && (
-          <span className="text-theme-xs"> · {s.orders.last_30d} in 30d</span>
-        )}
-      </TableCell>
-      <TableCell className={muted}>
-        <span title={formatDateTime(s.last_activity_at, timeZone)}>
-          {formatRelative(s.last_activity_at)}
-        </span>
-      </TableCell>
       <TableCell className={td}>
-        <RowMenu label={`Actions for ${s.name}`} actions={actions} />
+        <p
+          className="text-gray-800 dark:text-white/90"
+          title={formatDateTime(s.last_activity_at, timeZone)}
+        >
+          {s.last_activity_at ? formatRelative(s.last_activity_at) : "Never"}
+        </p>
+        <p className={`${muted} tabular-nums`}>
+          {s.products.total} product{s.products.total === 1 ? "" : "s"} ·{" "}
+          {s.orders.total} order{s.orders.total === 1 ? "" : "s"}
+        </p>
+      </TableCell>
+      <TableCell className={`${td} w-px`}>
+        <ChevronRight aria-hidden className="size-4 text-gray-400" />
       </TableCell>
     </TableRow>
-  )
-}
-
-function ShopStatus({ shop }: { shop: PlatformShop }) {
-  if (shop.status !== "active")
-    return (
-      <Badge size="sm" color="error">
-        {shop.status === "suspended" ? "Suspended" : "Closed"}
-      </Badge>
-    )
-  if (shop.owner?.status === "invited")
-    return (
-      <Badge size="sm" color="warning">
-        Not verified
-      </Badge>
-    )
-  if (isSleeping(shop))
-    return (
-      <Badge size="sm" color="light">
-        Sleeping
-      </Badge>
-    )
-  return (
-    <Badge size="sm" color="success">
-      Active
-    </Badge>
-  )
-}
-
-/** One website fact as an icon: coloured when set, faint when not. */
-function Mark({
-  on,
-  label,
-  children,
-}: {
-  on: boolean
-  label: string
-  children: React.ReactNode
-}) {
-  return (
-    <span
-      title={`${label}: ${on ? "yes" : "no"}`}
-      aria-label={`${label}: ${on ? "yes" : "no"}`}
-      className={on ? "text-success-500" : "text-gray-300 dark:text-gray-700"}
-    >
-      {children}
-    </span>
   )
 }
